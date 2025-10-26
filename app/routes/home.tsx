@@ -12,6 +12,64 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+const createCsvBlob = (data: string) => {
+  return new Blob([`\uFEFF${data}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+};
+
+const downloadCsv = (filename: string, data: string) => {
+  const blob = createCsvBlob(data);
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const handleShare = async (filename: string, data: string) => {
+  const blob = createCsvBlob(data);
+  const file = new File([blob], filename, {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  if (
+    navigator.share &&
+    navigator.canShare &&
+    navigator.canShare({ files: [file] })
+  ) {
+    try {
+      await navigator.share({ files: [file] });
+    } catch (error) {
+      console.error("Share failed:", error);
+      downloadCsv(filename, data);
+    }
+  } else {
+    downloadCsv(filename, data);
+  }
+};
+
+const PeriodDisplay = ({
+  startDate,
+  endDate,
+}: {
+  startDate: Date;
+  endDate: Date;
+}) => {
+  const dtf = new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "short",
+    timeStyle: "medium",
+  });
+  return (
+    <p className="text-sm text-gray-600 dark:text-gray-300">
+      期間: {dtf.formatRange(startDate, endDate)}
+    </p>
+  );
+};
+
 export default function Home() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
@@ -59,62 +117,6 @@ export default function Home() {
       }
     };
     reader.readAsText(csvFile, "Shift_JIS");
-  };
-
-  const downloadCsv = (filename: string, data: string) => {
-    const blob = new Blob([`\uFEFF${data}`], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleShare = async (filename: string, data: string) => {
-    const blob = new Blob([`\uFEFF${data}`], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const file = new File([blob], filename, {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    if (
-      navigator.share &&
-      navigator.canShare &&
-      navigator.canShare({ files: [file] })
-    ) {
-      try {
-        await navigator.share({ files: [file] });
-      } catch (error) {
-        console.error("Share failed:", error);
-        downloadCsv(filename, data);
-      }
-    } else {
-      downloadCsv(filename, data);
-    }
-  };
-
-  const PeriodDisplay = ({
-    startDate,
-    endDate,
-  }: {
-    startDate: Date;
-    endDate: Date;
-  }) => {
-    const dtf = new Intl.DateTimeFormat("ja-JP", {
-      dateStyle: "short",
-      timeStyle: "medium",
-    });
-    return (
-      <p className="text-sm text-gray-600 dark:text-gray-300">
-        期間: {dtf.formatRange(startDate, endDate)}
-      </p>
-    );
   };
 
   return (
