@@ -73,18 +73,17 @@ export default function Home() {
             localProcessedRecords[name].push(rec);
           };
 
-          if (transactionMethod.includes(",")) {
-            const methods = transactionMethod.split(",");
-            for (const method of methods) {
+          const combinedPaymentRegex = /([^,]+?)\s*\((\d+|[\d,]+)円\)/g;
+          const matches = [...transactionMethod.matchAll(combinedPaymentRegex)];
+
+          if (matches.length > 0) {
+            for (const match of matches) {
               const newRecord = { ...record };
-              const match = method.match(/(.+?)\s*\((\d+|[\d,]+)円\)/);
-              if (match) {
-                const name = match[1].trim();
-                const amount = match[2].replace(/,/g, "");
-                newRecord["取引方法"] = name;
-                newRecord["出金金額（円）"] = amount;
-                addRecord(name, newRecord);
-              }
+              const name = match[1].trim();
+              const amount = match[2].replace(/,/g, "");
+              newRecord["取引方法"] = name;
+              newRecord["出金金額（円）"] = amount;
+              addRecord(name, newRecord);
             }
           } else {
             addRecord(transactionMethod, record);
