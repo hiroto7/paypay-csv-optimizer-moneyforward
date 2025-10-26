@@ -39,13 +39,13 @@ export default function Home() {
         }
 
         const importedIds = new Set(
-          importedTransactionIds.split(/\s+/).filter(Boolean),
+          importedTransactionIds.split(/\s+/).filter(Boolean)
         );
         const result = processPayPayCsv(text, importedIds);
 
         if (Object.keys(result).length === 0) {
           setError(
-            "処理対象のデータが見つかりませんでした。取り込み済み取引番号を確認してください。",
+            "処理対象のデータが見つかりませんでした。取り込み済み取引番号を確認してください。"
           );
         }
 
@@ -89,10 +89,7 @@ export default function Home() {
       navigator.canShare({ files: [file] })
     ) {
       try {
-        await navigator.share({
-          files: [file],
-          title: filename,
-        });
+        await navigator.share({ files: [file] });
       } catch (error) {
         console.error("Share failed:", error);
         downloadCsv(filename, data);
