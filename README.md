@@ -1,87 +1,54 @@
-# Welcome to React Router!
+# PayPay CSV Optimizer for MoneyForward ME
 
-A modern, production-ready template for building full-stack React applications using React Router.
+PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへインポートするために最適化するWebアプリケーションです。
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## 概要
 
-## Features
+PayPayのCSVはそのままではMoneyForward MEにインポートできません。特に、残高払いとポイント払いを組み合わせた「併用払い」は1つの取引として記録されているため、手動での修正が必要です。
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+このツールは、以下の処理をブラウザ上で完結させることで、その手間を解消します。
 
-## Getting Started
+-   **併用払いの分割**: 1つの行に記録された複数の支払い方法を、個別の取引行に分割します。
+-   **支払い方法ごとのファイル生成**: 「PayPay残高」「PayPayポイント」などの支払い方法ごとに、個別のCSVファイルを生成します。
+-   **件数制限への対応**: MoneyForward MEの1インポートあたり100件の制限に対応するため、100件を超えるファイルは自動的に分割します。
 
-### Installation
+全ての処理はブラウザ内で行われるため、取引履歴データが外部のサーバーに送信されることはありません。
 
-Install the dependencies:
+## 主な機能
+
+-   **動的な支払い方法の識別**: 「PayPay残高」「PayPayポイント」などのキーワードに依存せず、CSV内の情報から動的に支払い方法を識別し、ファイルを出力します。
+-   **取引のフィルタリング**: MoneyForward MEからエクスポートしたCSVに含まれる「取引番号」を登録することで、既に取り込み済みの取引を処理対象から除外できます。
+-   **ファイル分割**: 1つの支払い方法で100件を超える取引がある場合、自動でファイルを100件ずつのチャンクに分割して出力します。
+-   **Web Share API対応**: スマートフォンのブラウザでは「共有」機能が利用でき、生成したCSVファイルを直接MoneyForward MEアプリに渡してインポートできます。PCブラウザでは通常のダウンロードとして動作します。
+-   **プライバシー**: ファイルの処理はすべてクライアントサイドのJavaScriptで完結します。
+
+## 使い方
+
+1.  **PayPayの取引履歴をエクスポート**: PayPayアプリの「取引履歴」からCSVファイルをエクスポートします。
+2.  **（任意）取り込み済み取引の登録**: 既にMoneyForward MEに取り込み済みの取引がある場合は、MoneyForward MEから取引履歴をエクスポートし、「取引番号」列の内容をコピーして本ツールの「取り込み済み取引番号」欄に貼り付けます。
+3.  **ファイルアップロード**: 「ファイルを選択」ボタンから、1でエクスポートしたPayPayのCSVファイルをアップロードします。
+4.  **処理を実行**: 「処理を実行」ボタンをクリックします。
+5.  **ファイルをインポート**: 支払い方法ごとにファイルが生成されます。各ファイルの「共有 / 保存」ボタンを使い、MoneyForward MEにデータをインポートします。
+
+## 開発
+
+### セットアップ
 
 ```bash
+# 依存関係をインストール
 npm install
 ```
 
-### Development
-
-Start the development server with HMR:
+### 開発サーバーの起動
 
 ```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+## 使用技術
 
-## Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+-   React
+-   TypeScript
+-   Vite
+-   Tailwind CSS
+-   csv-parse / csv-stringify
