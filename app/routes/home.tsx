@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { Route } from "./+types/home";
-import { parse } from "csv-parse/browser/esm/sync";
-import { stringify } from "csv-stringify/browser/esm/sync";
+import { processPayPayCsv, type ProcessedResult } from "~/services/csv-processor";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -10,18 +9,9 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-type Record = { [key: string]: string };
-
-type CsvChunk = {
-  data: string;
-  count: number;
-  startDate: Date | null;
-  endDate: Date | null;
-};
-
 export default function Home() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [processedChunks, setProcessedChunks] = useState<{ [key: string]: CsvChunk[] }>({});
+  const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
   const [error, setError] = useState<string>("");
   const [importedTransactionIds, setImportedTransactionIds] = useState<string>("");
 
@@ -46,90 +36,14 @@ export default function Home() {
           return;
         }
 
-        const records: Record[] = parse(text, {
-          columns: true,
-          skip_empty_lines: true,
-        });
-
-        if (records.length === 0) {
-          setError("CSVファイルに処理対象のデータがありませんでした。");
-          return;
-        }
-
-        const localProcessedRecords: { [key: string]: Record[] } = {};
         const importedIds = new Set(importedTransactionIds.split(/\s+/).filter(Boolean));
+        const result = processPayPayCsv(text, importedIds);
 
-        for (const record of records) {
-          if (importedIds.has(record["取引番号"])) {
-            continue;
-          }
-
-          const transactionMethod = record["取引方法"];
-
-          const addRecord = (name: string, rec: Record) => {
-            if (!localProcessedRecords[name]) {
-              localProcessedRecords[name] = [];
-            }
-            localProcessedRecords[name].push(rec);
-          };
-
-          const combinedPaymentRegex = /([^,]+?)\s*\((\d+|[\d,]+)円\)/g;
-          const matches = [...transactionMethod.matchAll(combinedPaymentRegex)];
-
-          if (matches.length > 0) {
-            for (const match of matches) {
-              const newRecord = { ...record };
-              const name = match[1].trim();
-              const amount = match[2].replace(/,/g, "");
-              newRecord["取引方法"] = name;
-              newRecord["出金金額（円）"] = amount;
-              addRecord(name, newRecord);
-            }
-          } else {
-            addRecord(transactionMethod, record);
-          }
+        if (Object.keys(result).length === 0) {
+          setError("処理対象のデータが見つかりませんでした。取り込み済み取引番号を確認してください。");
         }
 
-        const headers = Object.keys(records[0]);
-        const newChunks: { [key: string]: CsvChunk[] } = {};
-        const chunkSize = 100;
-
-        for (const name in localProcessedRecords) {
-          if (Object.prototype.hasOwnProperty.call(localProcessedRecords, name)) {
-            const allRecords = localProcessedRecords[name];
-            if (!newChunks[name]) {
-              newChunks[name] = [];
-            }
-
-            for (let i = 0; i < allRecords.length; i += chunkSize) {
-              const chunkOfRecords = allRecords.slice(i, i + chunkSize);
-
-              let minDate: Date | null = null;
-              let maxDate: Date | null = null;
-              for (const record of chunkOfRecords) {
-                try {
-                  const dateStr = record['取引日'].replace(/\//g, '-').replace(' ', 'T');
-                  const currentDate = new Date(dateStr);
-                  if (!isNaN(currentDate.getTime())) {
-                    if (!minDate || currentDate < minDate) minDate = currentDate;
-                    if (!maxDate || currentDate > maxDate) maxDate = currentDate;
-                  }
-                } catch (dateErr) { /* ignore */ }
-              }
-
-              const csvString = stringify(chunkOfRecords, { header: true, columns: headers });
-
-              newChunks[name].push({
-                data: csvString,
-                count: chunkOfRecords.length,
-                startDate: minDate,
-                endDate: maxDate,
-              });
-            }
-          }
-        }
-
-        setProcessedChunks(newChunks);
+        setProcessedChunks(result);
 
       } catch (err) {
         if (err instanceof Error) {
