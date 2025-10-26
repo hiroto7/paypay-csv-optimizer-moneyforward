@@ -9,7 +9,6 @@ const COMBINED_WITH_COMMA_AMOUNT_ROW = `2025/03/23 13:03:03,"2,600",-,-,-,-,-,�
 const VISA_PAYMENT_ROW = `2025/10/24 13:17:35,72,-,-,-,-,-,支払い,ダミーストアB,VISA 1234,-,-,00000000000000000004`;
 
 describe("processPayPayCsv", () => {
-
   it("単一支払いのレコードを正しく処理できること", () => {
     const csvContent = `${CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const result = processPayPayCsv(csvContent, new Set());
@@ -76,7 +75,7 @@ describe("processPayPayCsv", () => {
     let manyRows = "";
     for (let i = 0; i < 105; i++) {
       // 各行にユニークな取引番号を付与する
-      const uniqueId = `00000000000000000${String(i).padStart(4, '0')}`;
+      const uniqueId = `00000000000000000${String(i).padStart(4, "0")}`;
       manyRows += `2025/10/24 10:59:25,190,-,-,-,-,-,支払い,ダミーストアA,PayPay残高,-,-,${uniqueId}\n`;
     }
     const csvContent = `${CSV_HEADER}\n${manyRows}`;

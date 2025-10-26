@@ -17,7 +17,7 @@ export type ProcessedResult = {
 
 export function processPayPayCsv(
   csvContent: string,
-  importedIds: Set<string>
+  importedIds: Set<string>,
 ): ProcessedResult {
   const records: Record[] = parse(csvContent, {
     columns: true,
@@ -87,20 +87,25 @@ export function processPayPayCsv(
           let minDate: Date | null = null;
           let maxDate: Date | null = null;
           for (const record of chunkOfRecords) {
-            const dateValue = record['取引日'];
+            const dateValue = record["取引日"];
             if (dateValue) {
               try {
-                const dateStr = dateValue.replace(/\//g, '-').replace(' ', 'T');
+                const dateStr = dateValue.replace(/\//g, "-").replace(" ", "T");
                 const currentDate = new Date(dateStr);
                 if (!isNaN(currentDate.getTime())) {
                   if (!minDate || currentDate < minDate) minDate = currentDate;
                   if (!maxDate || currentDate > maxDate) maxDate = currentDate;
                 }
-              } catch (dateErr) { /* ignore */ }
+              } catch (dateErr) {
+                /* ignore */
+              }
             }
           }
 
-          const csvString = stringify(chunkOfRecords, { header: true, columns: headers });
+          const csvString = stringify(chunkOfRecords, {
+            header: true,
+            columns: headers,
+          });
 
           newChunks[name].push({
             data: csvString,

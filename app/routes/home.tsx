@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { Route } from "./+types/home";
-import { processPayPayCsv, type ProcessedResult } from "~/services/csv-processor";
+import {
+  processPayPayCsv,
+  type ProcessedResult,
+} from "~/services/csv-processor";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -13,7 +16,8 @@ export default function Home() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
   const [error, setError] = useState<string>("");
-  const [importedTransactionIds, setImportedTransactionIds] = useState<string>("");
+  const [importedTransactionIds, setImportedTransactionIds] =
+    useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCsvFile(e.target.files?.[0] ?? null);
@@ -34,15 +38,18 @@ export default function Home() {
           return;
         }
 
-        const importedIds = new Set(importedTransactionIds.split(/\s+/).filter(Boolean));
+        const importedIds = new Set(
+          importedTransactionIds.split(/\s+/).filter(Boolean),
+        );
         const result = processPayPayCsv(text, importedIds);
 
         if (Object.keys(result).length === 0) {
-          setError("処理対象のデータが見つかりませんでした。取り込み済み取引番号を確認してください。");
+          setError(
+            "処理対象のデータが見つかりませんでした。取り込み済み取引番号を確認してください。",
+          );
         }
 
         setProcessedChunks(result);
-
       } catch (err) {
         if (err instanceof Error) {
           setError(err.message);
@@ -51,11 +58,13 @@ export default function Home() {
         }
       }
     };
-    reader.readAsText(csvFile, 'Shift_JIS');
+    reader.readAsText(csvFile, "Shift_JIS");
   };
 
   const downloadCsv = (filename: string, data: string) => {
-    const blob = new Blob([`\uFEFF${data}`], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([`\uFEFF${data}`], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
@@ -67,10 +76,18 @@ export default function Home() {
   };
 
   const handleShare = async (filename: string, data: string) => {
-    const blob = new Blob([`\uFEFF${data}`], { type: "text/csv;charset=utf-8;" });
-    const file = new File([blob], filename, { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([`\uFEFF${data}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const file = new File([blob], filename, {
+      type: "text/csv;charset=utf-8;",
+    });
 
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({ files: [file] })
+    ) {
       try {
         await navigator.share({
           files: [file],
@@ -85,12 +102,22 @@ export default function Home() {
     }
   };
 
-  const PeriodDisplay = ({ startDate, endDate }: { startDate: Date, endDate: Date }) => {
-    const dtf = new Intl.DateTimeFormat('ja-JP', {
-      dateStyle: 'short',
-      timeStyle: 'medium',
+  const PeriodDisplay = ({
+    startDate,
+    endDate,
+  }: {
+    startDate: Date;
+    endDate: Date;
+  }) => {
+    const dtf = new Intl.DateTimeFormat("ja-JP", {
+      dateStyle: "short",
+      timeStyle: "medium",
     });
-    return <p className="text-sm text-gray-600 dark:text-gray-300">期間: {dtf.formatRange(startDate, endDate)}</p>;
+    return (
+      <p className="text-sm text-gray-600 dark:text-gray-300">
+        期間: {dtf.formatRange(startDate, endDate)}
+      </p>
+    );
   };
 
   return (
@@ -109,13 +136,15 @@ export default function Home() {
               1. PayPayアプリから取引履歴CSVをエクスポートします。
             </p>
             <p className="leading-6 text-gray-700 dark:text-gray-200">
-              2. （任意）既に取り込み済みの取引がある場合、MoneyForward MEからCSVをダウンロードし、取引番号を下のテキストエリアに貼り付けます。
+              2. （任意）既に取り込み済みの取引がある場合、MoneyForward
+              MEからCSVをダウンロードし、取引番号を下のテキストエリアに貼り付けます。
             </p>
             <p className="leading-6 text-gray-700 dark:text-gray-200">
               3. 下のボタンからPayPayのCSVファイルをアップロードして処理します。
             </p>
             <p className="leading-6 text-gray-700 dark:text-gray-200">
-              4. 生成されたファイルを共有または保存し、MoneyForward MEにインポートします。
+              4. 生成されたファイルを共有または保存し、MoneyForward
+              MEにインポートします。
             </p>
           </div>
 
@@ -165,14 +194,24 @@ export default function Home() {
                         const totalParts = chunks.length;
                         const filename = `paypay-${name.toLowerCase().replace(/\s/g, "-")}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
                         return (
-                          <div key={filename} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center">
+                          <div
+                            key={filename}
+                            className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center"
+                          >
                             <div>
                               {totalParts > 1 && (
-                                <p className="font-semibold">ファイル {index + 1}/{totalParts}</p>
+                                <p className="font-semibold">
+                                  ファイル {index + 1}/{totalParts}
+                                </p>
                               )}
-                              <p className="text-sm text-gray-600 dark:text-gray-300">{chunk.count}件</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">
+                                {chunk.count}件
+                              </p>
                               {chunk.startDate && chunk.endDate && (
-                                <PeriodDisplay startDate={chunk.startDate} endDate={chunk.endDate} />
+                                <PeriodDisplay
+                                  startDate={chunk.startDate}
+                                  endDate={chunk.endDate}
+                                />
                               )}
                             </div>
                             <button
