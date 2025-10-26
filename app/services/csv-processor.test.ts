@@ -15,9 +15,9 @@ describe("processPayPayCsv", () => {
     const result = processPayPayCsv(csvContent, new Set());
 
     expect(Object.keys(result)).toEqual(["PayPay残高"]);
-    expect(result["PayPay残高"][0].count).toBe(1);
-    expect(result["PayPay残高"][0].data).toContain("PayPay残高");
-    expect(result["PayPay残高"][0].data).toContain("00000000000000000001");
+    expect(result["PayPay残高"]?.[0]?.count).toBe(1);
+    expect(result["PayPay残高"]?.[0]?.data).toContain("PayPay残高");
+    expect(result["PayPay残高"]?.[0]?.data).toContain("00000000000000000001");
   });
 
   it("併用払いのレコードを2つに分割できること", () => {
@@ -26,15 +26,15 @@ describe("processPayPayCsv", () => {
 
     // PayPayポイントの確認
     expect(result["PayPayポイント"]).toBeDefined();
-    expect(result["PayPayポイント"][0].count).toBe(1);
-    const pointData = result["PayPayポイント"][0].data;
+    expect(result["PayPayポイント"]?.[0]?.count).toBe(1);
+    const pointData = result["PayPayポイント"]?.[0]?.data;
     expect(pointData).toContain(",93,-"); // 金額が正しく配置されているか
     expect(pointData).not.toContain("PayPay残高");
 
     // PayPay残高の確認
     expect(result["PayPay残高"]).toBeDefined();
-    expect(result["PayPay残高"][0].count).toBe(1);
-    const balanceData = result["PayPay残高"][0].data;
+    expect(result["PayPay残高"]?.[0]?.count).toBe(1);
+    const balanceData = result["PayPay残高"]?.[0]?.data;
     expect(balanceData).toContain(",317,-"); // 金額が正しく配置されているか
     expect(balanceData).not.toContain("PayPayポイント");
   });
@@ -43,8 +43,8 @@ describe("processPayPayCsv", () => {
     const csvContent = `${CSV_HEADER}\n${COMBINED_WITH_COMMA_AMOUNT_ROW}`;
     const result = processPayPayCsv(csvContent, new Set());
 
-    expect(result["PayPayポイント"][0].data).toContain(",1,-");
-    expect(result["PayPay残高"][0].data).toContain(",2599,-");
+    expect(result["PayPayポイント"]?.[0]?.data).toContain(",1,-");
+    expect(result["PayPay残高"]?.[0]?.data).toContain(",2599,-");
   });
 
   it("取り込み済みの取引番号に基づいてレコードを除外できること", () => {
@@ -54,7 +54,7 @@ describe("processPayPayCsv", () => {
 
     expect(result["PayPay残高"]).toBeUndefined(); // この支払い方法は除外されるはず
     expect(result["VISA 1234"]).toBeDefined();
-    expect(result["VISA 1234"][0].count).toBe(1);
+    expect(result["VISA 1234"]?.[0]?.count).toBe(1);
   });
 
   it("チャンクの期間を正しく計算できること", () => {
@@ -62,14 +62,14 @@ describe("processPayPayCsv", () => {
     const result = processPayPayCsv(csvContent, new Set());
 
     // 「PayPay残高」のチャンクは両方の行のレコードを含むため、期間は両方の日付にまたがる
-    const balanceChunk = result["PayPay残高"][0];
-    expect(balanceChunk.startDate).toEqual(new Date("2025-09-29T14:54:12"));
-    expect(balanceChunk.endDate).toEqual(new Date("2025-10-24T10:59:25"));
+    const balanceChunk = result["PayPay残高"]?.[0];
+    expect(balanceChunk?.startDate).toEqual(new Date("2025-09-29T14:54:12"));
+    expect(balanceChunk?.endDate).toEqual(new Date("2025-10-24T10:59:25"));
 
     // 「PayPayポイント」のチャンクは1つのレコードのみ含む
-    const pointChunk = result["PayPayポイント"][0];
-    expect(pointChunk.startDate).toEqual(new Date("2025-09-29T14:54:12"));
-    expect(pointChunk.endDate).toEqual(new Date("2025-09-29T14:54:12"));
+    const pointChunk = result["PayPayポイント"]?.[0];
+    expect(pointChunk?.startDate).toEqual(new Date("2025-09-29T14:54:12"));
+    expect(pointChunk?.endDate).toEqual(new Date("2025-09-29T14:54:12"));
   });
 
   it("100件ごとにレコードをチャンキングできること", () => {
@@ -83,9 +83,9 @@ describe("processPayPayCsv", () => {
     const result = processPayPayCsv(csvContent, new Set());
 
     expect(result["PayPay残高"]).toBeDefined();
-    expect(result["PayPay残高"].length).toBe(2); // 2つのチャンクに分割されるはず
-    expect(result["PayPay残高"][0].count).toBe(100);
-    expect(result["PayPay残高"][1].count).toBe(5);
+    expect(result["PayPay残高"]?.length).toBe(2); // 2つのチャンクに分割されるはず
+    expect(result["PayPay残高"]?.[0]?.count).toBe(100);
+    expect(result["PayPay残高"]?.[1]?.count).toBe(5);
   });
 
   it("空のCSVが渡された場合に空のオブジェクトを返すこと", () => {

@@ -11,6 +11,7 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 - Tailwind CSS
 - `csv-parse` / `csv-stringify`
 - `vitest`
+- `@tsconfig/strictest`
 
 ## 主要ロジックの概要
 

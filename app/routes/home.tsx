@@ -16,9 +16,7 @@ export default function Home() {
   const [importedTransactionIds, setImportedTransactionIds] = useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setCsvFile(e.target.files[0]);
-    }
+    setCsvFile(e.target.files?.[0] ?? null);
   };
 
   const processCsv = async () => {
