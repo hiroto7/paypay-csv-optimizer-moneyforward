@@ -15,11 +15,42 @@ export type ProcessedResult = {
   [paymentMethod: string]: ProcessedCsvChunk[];
 };
 
+const createMfmeExclusionSet = (mfmeCsvs: string[]): Set<string> => {
+  const exclusionSet = new Set<string>();
+
+  for (const csv of mfmeCsvs) {
+    const records: Record[] = parse(csv, {
+      columns: true,
+      skip_empty_lines: true,
+    });
+
+    for (const record of records) {
+      const date = record["日付"];
+      const amount = record["金額（円）"];
+      const institution = record["保有金融機関"];
+      const content = record["内容"];
+
+      if (date && amount && institution && content) {
+        // MFMEの「計算対象」が0のレコードは除外
+        if (record["計算対象"] === "0") {
+          continue;
+        }
+        const key = `${date}_${amount}_${institution}_${content}`;
+        exclusionSet.add(key);
+      }
+    }
+  }
+
+  return exclusionSet;
+};
+
 export function processPayPayCsv(
-  csvContent: string,
-  importedIds: Set<string>,
+  payPayCsvContent: string,
+  mfmeCsvs: string[]
 ): ProcessedResult {
-  const records: Record[] = parse(csvContent, {
+  const exclusionSet = createMfmeExclusionSet(mfmeCsvs);
+
+  const records: Record[] = parse(payPayCsvContent, {
     columns: true,
     skip_empty_lines: true,
   });
@@ -32,23 +63,33 @@ export function processPayPayCsv(
   const localProcessedRecords: { [key: string]: Record[] } = {};
 
   for (const record of records) {
-    const transactionId = record["取引番号"];
-    if (transactionId && importedIds.has(transactionId)) {
-      continue;
-    }
+    const isExpense = record["出金金額（円）"] !== "-";
+
+    const processAndAddRecord = (
+      name: string,
+      amountStr: string,
+      rec: Record
+    ) => {
+      const date = rec["取引日"]?.split(" ")[0];
+      const amount = isExpense ? `-${amountStr}` : amountStr;
+      const content = rec["取引先"];
+
+      const key = `${date}_${amount}_${name}_${content}`;
+
+      if (exclusionSet.has(key)) {
+        return; // 除外リストに含まれていれば処理を中断
+      }
+
+      if (!localProcessedRecords[name]) {
+        localProcessedRecords[name] = [];
+      }
+      localProcessedRecords[name].push(rec);
+    };
 
     const transactionMethod = record["取引方法"];
     if (!transactionMethod) {
       continue;
     }
-
-    const addRecord = (name: string, rec: Record) => {
-      if (!localProcessedRecords[name]) {
-        localProcessedRecords[name] = [];
-      }
-      // 型推論により、この時点で localProcessedRecords[name] は Record[] 型になる
-      localProcessedRecords[name].push(rec);
-    };
 
     const combinedPaymentRegex = /([^,]+?)\s*\((\d+|[\d,]+)円\)/g;
     const matches = [...transactionMethod.matchAll(combinedPaymentRegex)];
@@ -62,11 +103,18 @@ export function processPayPayCsv(
           const newRecord = { ...record };
           newRecord["取引方法"] = name;
           newRecord["出金金額（円）"] = amount;
-          addRecord(name, newRecord);
+          processAndAddRecord(name, amount, newRecord);
         }
       }
     } else {
-      addRecord(transactionMethod, record);
+      const amountValue = isExpense
+        ? record["出金金額（円）"]
+        : record["入金金額（円）"];
+      const amount = amountValue?.replace(/,/g, "");
+
+      if (amount) {
+        processAndAddRecord(transactionMethod, amount, record);
+      }
     }
   }
 
@@ -75,10 +123,9 @@ export function processPayPayCsv(
   const chunkSize = 100;
 
   for (const name in localProcessedRecords) {
-    // for...in ループなので、hasOwnPropertyチェックは良い習慣
     if (Object.prototype.hasOwnProperty.call(localProcessedRecords, name)) {
       const allRecords = localProcessedRecords[name];
-      if (allRecords) {
+      if (allRecords && allRecords.length > 0) {
         newChunks[name] = [];
 
         for (let i = 0; i < allRecords.length; i += chunkSize) {

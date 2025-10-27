@@ -71,52 +71,81 @@ const PeriodDisplay = ({
 };
 
 export default function Home() {
-  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [payPayFile, setPayPayFile] = useState<File | null>(null);
+  const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
   const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
   const [error, setError] = useState<string>("");
-  const [importedTransactionIds, setImportedTransactionIds] =
-    useState<string>("");
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCsvFile(e.target.files?.[0] ?? null);
+  const handlePayPayFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPayPayFile(e.target.files?.[0] ?? null);
+  };
+
+  const handleMfCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMfmeFiles(e.target.files);
   };
 
   const processCsv = async () => {
-    if (!csvFile) return;
+    if (!payPayFile) return;
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        setError("");
-        setProcessedChunks({});
-
-        const text = e.target?.result;
-        if (typeof text !== "string") {
-          setError("Failed to read file.");
-          return;
-        }
-
-        const importedIds = new Set(
-          importedTransactionIds.split(/\s+/).filter(Boolean)
-        );
-        const result = processPayPayCsv(text, importedIds);
-
-        if (Object.keys(result).length === 0) {
-          setError(
-            "処理対象のデータが見つかりませんでした。取り込み済み取引番号を確認してください。"
-          );
-        }
-
-        setProcessedChunks(result);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
+    const readPayPayFile = new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (typeof e.target?.result === "string") {
+          resolve(e.target.result);
         } else {
-          setError("An unknown error occurred.");
+          reject(new Error("Failed to read PayPay CSV file."));
         }
+      };
+      reader.onerror = () => reject(new Error("Error reading PayPay CSV file."));
+      reader.readAsText(payPayFile, "Shift_JIS");
+    });
+
+    const readMfmeFiles = mfmeFiles
+      ? Promise.all(
+          Array.from(mfmeFiles).map(
+            (file) =>
+              new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  if (typeof e.target?.result === "string") {
+                    resolve(e.target.result);
+                  } else {
+                    reject(new Error(`Failed to read file: ${file.name}`));
+                  }
+                };
+                reader.onerror = () =>
+                  reject(new Error(`Error reading file: ${file.name}`));
+                reader.readAsText(file, "Shift_JIS");
+              })
+          )
+        )
+      : Promise.resolve([]);
+
+    try {
+      setError("");
+      setProcessedChunks({});
+
+      const [payPayContent, mfmeContents] = await Promise.all([
+        readPayPayFile,
+        readMfmeFiles,
+      ]);
+
+      const result = processPayPayCsv(payPayContent, mfmeContents);
+
+      if (Object.keys(result).length === 0) {
+        setError(
+          "処理対象のデータが見つかりませんでした。ファイルの内容を確認してください。"
+        );
       }
-    };
-    reader.readAsText(csvFile, "Shift_JIS");
+
+      setProcessedChunks(result);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred.");
+      }
+    }
   };
 
   return (
@@ -135,38 +164,46 @@ export default function Home() {
               1. PayPayアプリから取引履歴CSVをエクスポートします。
             </p>
             <p className="leading-6 text-gray-700 dark:text-gray-200">
-              2. （任意）既に取り込み済みの取引がある場合、MoneyForward
-              MEからCSVをダウンロードし、取引番号を下のテキストエリアに貼り付けます。
+              2. （任意）MoneyForward MEから家計簿データのCSVをダウンロードし、下の欄にアップロードします。これにより、既に取り込み済みの取引が処理対象から除外されます。
             </p>
             <p className="leading-6 text-gray-700 dark:text-gray-200">
-              3. 下のボタンからPayPayのCSVファイルをアップロードして処理します。
+              3. 下のボタンからPayPayのCSVファイルをアップロードして処理を実行します。
             </p>
             <p className="leading-6 text-gray-700 dark:text-gray-200">
-              4. 生成されたファイルを共有または保存し、MoneyForward
-              MEにインポートします。
+              4. 生成されたファイルを共有または保存し、MoneyForward MEにインポートします。
             </p>
           </div>
 
           <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
-            <h2 className="text-xl font-bold">取り込み済み取引番号</h2>
-            <textarea
-              rows={5}
-              placeholder="ここに取引番号を改行またはスペース区切りで入力します"
-              className="w-full p-2 border border-gray-300 rounded-md"
-              onChange={(e) => setImportedTransactionIds(e.target.value)}
+            <h2 className="text-xl font-bold">
+              MoneyForward MEのCSVファイル（任意）
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              ここにMoneyForward MEからエクスポートしたCSVファイルをアップロードすると、その内容と一致する取引をPayPayの履歴から除外します。
+            </p>
+            <input
+              type="file"
+              accept=".csv"
+              multiple
+              onChange={handleMfCsvFileChange}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+            />
+          </div>
+
+          <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
+            <h2 className="text-xl font-bold">PayPayのCSVファイル</h2>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handlePayPayFileChange}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
 
           <div className="flex flex-col items-center gap-4">
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
             <button
               onClick={processCsv}
-              disabled={!csvFile}
+              disabled={!payPayFile}
               className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:bg-gray-400"
             >
               処理を実行
