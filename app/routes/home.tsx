@@ -3,6 +3,8 @@ import type { Route } from "./+types/home";
 import {
   processPayPayCsv,
   type ProcessedResult,
+  type FileStats,
+  type MfFileStats,
 } from "~/services/csv-processor";
 
 export function meta({}: Route.MetaArgs) {
@@ -70,13 +72,8 @@ const PeriodDisplay = ({
 }) => {
   const dtf = new Intl.DateTimeFormat("ja-JP", {
     dateStyle: "short",
-    timeStyle: "medium",
   });
-  return (
-    <p className="text-sm text-gray-600 dark:text-gray-300">
-      期間: {dtf.formatRange(startDate, endDate)}
-    </p>
-  );
+  return <>{dtf.formatRange(startDate, endDate)}</>;
 };
 
 const MfImportGuideModal = ({
@@ -146,6 +143,8 @@ export default function Home() {
   const [payPayFile, setPayPayFile] = useState<File | null>(null);
   const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
   const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
+  const [paypayStats, setPaypayStats] = useState<FileStats | null>(null);
+  const [mfStats, setMfStats] = useState<MfFileStats | null>(null);
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [modalContext, setModalContext] = useState<{
@@ -182,6 +181,8 @@ export default function Home() {
       setIsLoading(true);
       setError("");
       setProcessedChunks({});
+      setPaypayStats(null);
+      setMfStats(null);
 
       const readPayPayFile = new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -225,14 +226,17 @@ export default function Home() {
         ]);
 
         const result = processPayPayCsv(payPayContent, mfmeContents);
+        const { chunks, paypayStats, mfStats } = result;
 
-        if (Object.keys(result).length === 0) {
+        if (Object.keys(chunks).length === 0) {
           setError(
             "変換できる取引が見つかりませんでした。ファイルが正しいか、または（重複防止用ファイルをアップロードした場合）全ての取引が既に取り込み済みでないか確認してください。"
           );
         }
 
-        setProcessedChunks(result);
+        setProcessedChunks(chunks);
+        setPaypayStats(paypayStats);
+        setMfStats(mfStats);
       } catch (err) {
         if (err instanceof Error) {
           setError(err.message);
@@ -286,6 +290,20 @@ export default function Home() {
                 onChange={handlePayPayFileChange}
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
+              {paypayStats && (
+                <div className="mt-4 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                  <p>読み込み件数: {paypayStats.count}件</p>
+                  {paypayStats.startDate && paypayStats.endDate && (
+                    <p>
+                      明細の期間:{" "}
+                      <PeriodDisplay
+                        startDate={paypayStats.startDate}
+                        endDate={paypayStats.endDate}
+                      />
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
               <h2 className="text-xl font-bold">
@@ -301,6 +319,21 @@ export default function Home() {
                 onChange={handleMfCsvFileChange}
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
               />
+              {mfStats && mfStats.count > 0 && (
+                <div className="mt-4 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                  <p>読み込み件数: {mfStats.count}件</p>
+                  {mfStats.startDate && mfStats.endDate && (
+                    <p>
+                      明細の期間:{" "}
+                      <PeriodDisplay
+                        startDate={mfStats.startDate}
+                        endDate={mfStats.endDate}
+                      />
+                    </p>
+                  )}
+                  <p>重複として除外: {mfStats.duplicates}件</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -350,10 +383,13 @@ export default function Home() {
                                 {chunk.count}件
                               </p>
                               {chunk.startDate && chunk.endDate && (
-                                <PeriodDisplay
-                                  startDate={chunk.startDate}
-                                  endDate={chunk.endDate}
-                                />
+                                <p className="text-sm text-gray-600 dark:text-gray-300">
+                                  期間:{" "}
+                                  <PeriodDisplay
+                                    startDate={chunk.startDate}
+                                    endDate={chunk.endDate}
+                                  />
+                                </p>
                               )}
                             </div>
                             <button

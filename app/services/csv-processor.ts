@@ -16,8 +16,54 @@ export type ProcessedResult = {
   [paymentMethod: string]: ProcessedCsvChunk[];
 };
 
-const createMfmeExclusionSet = (mfmeCsvs: string[]): Set<string> => {
+export type FileStats = {
+  count: number;
+  startDate: Date | null;
+  endDate: Date | null;
+};
+
+export type MfFileStats = FileStats & {
+  duplicates: number;
+};
+
+export type ProcessOutput = {
+  chunks: ProcessedResult;
+  paypayStats: FileStats;
+  mfStats: MfFileStats;
+};
+
+const parseDate = (dateValue: string | undefined): Date | null => {
+  if (!dateValue) return null;
+  try {
+    // `YYYY/MM/DD HH:mm:ss` を `YYYY-MM-DDTHH:mm:ss` に変換
+    const dateStr = dateValue.replace(/\//g, "-").replace(" ", "T");
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
+};
+
+const updateDateRange = (
+  date: Date,
+  minDate: Date | null,
+  maxDate: Date | null
+): [Date | null, Date | null] => {
+  const newMinDate = !minDate || date < minDate ? date : minDate;
+  const newMaxDate = !maxDate || date > maxDate ? date : maxDate;
+  return [newMinDate, newMaxDate];
+};
+
+const createMfmeExclusionSet = (
+  mfmeCsvs: string[]
+): {
+  exclusionSet: Set<string>;
+  stats: Omit<MfFileStats, "duplicates">;
+} => {
   const exclusionSet = new Set<string>();
+  let count = 0;
+  let minDate: Date | null = null;
+  let maxDate: Date | null = null;
 
   for (const csv of mfmeCsvs) {
     const records: Record[] = parse(csv, {
@@ -26,44 +72,71 @@ const createMfmeExclusionSet = (mfmeCsvs: string[]): Set<string> => {
     });
 
     for (const record of records) {
-      const date = record["日付"];
+      count++;
+      const dateStr = record["日付"];
       const amount = record["金額（円）"];
       const institution = record["保有金融機関"];
       const content = record["内容"];
 
-      if (date && amount && institution && content) {
-        // MFMEの「計算対象」が0のレコードは除外
+      const date = parseDate(dateStr);
+      if (date) {
+        [minDate, maxDate] = updateDateRange(date, minDate, maxDate);
+      }
+
+      if (dateStr && amount && institution && content) {
         if (record["計算対象"] === "0") {
           continue;
         }
-        const key = `${date}_${amount}_${institution}_${content}`;
+        const key = `${dateStr}_${amount}_${institution}_${content}`;
         exclusionSet.add(key);
       }
     }
   }
 
-  return exclusionSet;
+  return {
+    exclusionSet,
+    stats: { count, startDate: minDate, endDate: maxDate },
+  };
 };
 
 export function processPayPayCsv(
   payPayCsvContent: string,
   mfmeCsvs: string[]
-): ProcessedResult {
-  const exclusionSet = createMfmeExclusionSet(mfmeCsvs);
+): ProcessOutput {
+  const { exclusionSet, stats: mfStats } = createMfmeExclusionSet(mfmeCsvs);
+  let duplicates = 0;
 
   const records: Record[] = parse(payPayCsvContent, {
     columns: true,
     skip_empty_lines: true,
   });
 
-  const firstRecord = records[0];
-  if (!firstRecord) {
-    return {};
+  const paypayStats: FileStats = {
+    count: records.length,
+    startDate: null,
+    endDate: null,
+  };
+
+  if (records.length === 0) {
+    return {
+      chunks: {},
+      paypayStats,
+      mfStats: { ...mfStats, duplicates },
+    };
   }
 
   const localProcessedRecords: { [key: string]: Record[] } = {};
 
   for (const record of records) {
+    const date = parseDate(record["取引日"]);
+    if (date) {
+      [paypayStats.startDate, paypayStats.endDate] = updateDateRange(
+        date,
+        paypayStats.startDate,
+        paypayStats.endDate
+      );
+    }
+
     const isExpense = record["出金金額（円）"] !== "-";
 
     const processAndAddRecord = (
@@ -78,7 +151,8 @@ export function processPayPayCsv(
       const key = `${date}_${amount}_${name}_${content}`;
 
       if (exclusionSet.has(key)) {
-        return; // 除外リストに含まれていれば処理を中断
+        duplicates++;
+        return;
       }
 
       if (!localProcessedRecords[name]) {
@@ -119,15 +193,15 @@ export function processPayPayCsv(
     }
   }
 
-  const headers = Object.keys(firstRecord);
-  const newChunks: ProcessedResult = {};
+  const headers = Object.keys(records[0] ?? {});
+  const chunks: ProcessedResult = {};
   const chunkSize = 100;
 
   for (const name in localProcessedRecords) {
     if (Object.prototype.hasOwnProperty.call(localProcessedRecords, name)) {
       const allRecords = localProcessedRecords[name];
       if (allRecords && allRecords.length > 0) {
-        newChunks[name] = [];
+        chunks[name] = [];
 
         for (let i = 0; i < allRecords.length; i += chunkSize) {
           const chunkOfRecords = allRecords.slice(i, i + chunkSize);
@@ -135,18 +209,9 @@ export function processPayPayCsv(
           let minDate: Date | null = null;
           let maxDate: Date | null = null;
           for (const record of chunkOfRecords) {
-            const dateValue = record["取引日"];
-            if (dateValue) {
-              try {
-                const dateStr = dateValue.replace(/\//g, "-").replace(" ", "T");
-                const currentDate = new Date(dateStr);
-                if (!isNaN(currentDate.getTime())) {
-                  if (!minDate || currentDate < minDate) minDate = currentDate;
-                  if (!maxDate || currentDate > maxDate) maxDate = currentDate;
-                }
-              } catch (dateErr) {
-                /* ignore */
-              }
+            const date = parseDate(record["取引日"]);
+            if (date) {
+              [minDate, maxDate] = updateDateRange(date, minDate, maxDate);
             }
           }
 
@@ -155,16 +220,21 @@ export function processPayPayCsv(
             columns: headers,
           });
 
-          newChunks[name].push({
+          chunks[name].push({
             data: csvString,
             count: chunkOfRecords.length,
             startDate: minDate,
             endDate: maxDate,
+            imported: false,
           });
         }
       }
     }
   }
 
-  return newChunks;
+  return {
+    chunks,
+    paypayStats,
+    mfStats: { ...mfStats, duplicates },
+  };
 }

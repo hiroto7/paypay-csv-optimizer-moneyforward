@@ -12,84 +12,92 @@ const VISA_PAYMENT_ROW = `2025/10/24 13:17:35,72,-,-,-,-,-,支払い,ダミー�
 describe("processPayPayCsv", () => {
   it("単一支払いのレコードを正しく処理できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
-    const result = processPayPayCsv(csvContent, []);
+    const { chunks } = processPayPayCsv(csvContent, []);
 
-    expect(Object.keys(result)).toEqual(["PayPay残高"]);
-    expect(result["PayPay残高"]?.[0]?.count).toBe(1);
-    expect(result["PayPay残高"]?.[0]?.data).toContain("PayPay残高");
-    expect(result["PayPay残高"]?.[0]?.data).toContain("00000000000000000001");
+    expect(Object.keys(chunks)).toEqual(["PayPay残高"]);
+    expect(chunks["PayPay残高"]?.[0]?.count).toBe(1);
+    expect(chunks["PayPay残高"]?.[0]?.data).toContain("PayPay残高");
+    expect(chunks["PayPay残高"]?.[0]?.data).toContain("00000000000000000001");
   });
 
   it("併用払いのレコードを2つに分割できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${COMBINED_PAYMENT_ROW}`;
-    const result = processPayPayCsv(csvContent, []);
+    const { chunks } = processPayPayCsv(csvContent, []);
 
     // PayPayポイントの確認
-    expect(result["PayPayポイント"]).toBeDefined();
-    expect(result["PayPayポイント"]?.[0]?.count).toBe(1);
-    const pointData = result["PayPayポイント"]?.[0]?.data;
+    expect(chunks["PayPayポイント"]).toBeDefined();
+    expect(chunks["PayPayポイント"]?.[0]?.count).toBe(1);
+    const pointData = chunks["PayPayポイント"]?.[0]?.data;
     expect(pointData).toContain(",93,-"); // 金額が正しく配置されているか
     expect(pointData).not.toContain("PayPay残高");
 
     // PayPay残高の確認
-    expect(result["PayPay残高"]).toBeDefined();
-    expect(result["PayPay残高"]?.[0]?.count).toBe(1);
-    const balanceData = result["PayPay残高"]?.[0]?.data;
+    expect(chunks["PayPay残高"]).toBeDefined();
+    expect(chunks["PayPay残高"]?.[0]?.count).toBe(1);
+    const balanceData = chunks["PayPay残高"]?.[0]?.data;
     expect(balanceData).toContain(",317,-"); // 金額が正しく配置されているか
     expect(balanceData).not.toContain("PayPayポイント");
   });
 
   it("金額にカンマが含まれる併用払いを正しく処理できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${COMBINED_WITH_COMMA_AMOUNT_ROW}`;
-    const result = processPayPayCsv(csvContent, []);
+    const { chunks } = processPayPayCsv(csvContent, []);
 
-    expect(result["PayPayポイント"]?.[0]?.data).toContain(",1,-");
-    expect(result["PayPay残高"]?.[0]?.data).toContain(",2599,-");
+    expect(chunks["PayPayポイント"]?.[0]?.data).toContain(",1,-");
+    expect(chunks["PayPay残高"]?.[0]?.data).toContain(",2599,-");
   });
 
   it("MFMEのCSVに基づいて単一支払いのレコードを除外できること", () => {
     const paypayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
-    const result = processPayPayCsv(paypayCsv, [mfmeCsv]);
+    const { chunks } = processPayPayCsv(paypayCsv, [mfmeCsv]);
 
-    expect(result["PayPay残高"]).toBeUndefined(); // この支払い方法は除外されるはず
-    expect(result["VISA 1234"]).toBeDefined();
-    expect(result["VISA 1234"]?.[0]?.count).toBe(1);
+    expect(chunks["PayPay残高"]).toBeUndefined(); // この支払い方法は除外されるはず
+    expect(chunks["VISA 1234"]).toBeDefined();
+    expect(chunks["VISA 1234"]?.[0]?.count).toBe(1);
   });
 
   it("MFMEのCSVに基づいて併用払いのレコードを両方とも除外できること", () => {
     const paypayCsv = `${PAYPAY_CSV_HEADER}\n${COMBINED_PAYMENT_ROW}`;
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/09/29,ダミーストアB,-93,PayPayポイント,食費,食費,メモ,,id02\n1,2025/09/29,ダミーストアB,-317,PayPay残高,食費,食費,メモ,,id03`;
-    const result = processPayPayCsv(paypayCsv, [mfmeCsv]);
+    const { chunks } = processPayPayCsv(paypayCsv, [mfmeCsv]);
 
-    expect(result["PayPayポイント"]).toBeUndefined();
-    expect(result["PayPay残高"]).toBeUndefined();
+    expect(chunks["PayPayポイント"]).toBeUndefined();
+    expect(chunks["PayPay残高"]).toBeUndefined();
   });
 
   it("MFMEのCSVに基づいて併用払いの片方のレコードのみ除外できること", () => {
     const paypayCsv = `${PAYPAY_CSV_HEADER}\n${COMBINED_PAYMENT_ROW}`;
     // PayPay残高の支払いのみMFMEに存在するケース
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/09/29,ダミーストアB,-317,PayPay残高,食費,食費,メモ,,id03`;
-    const result = processPayPayCsv(paypayCsv, [mfmeCsv]);
+    const { chunks } = processPayPayCsv(paypayCsv, [mfmeCsv]);
 
-    expect(result["PayPayポイント"]).toBeDefined();
-    expect(result["PayPayポイント"]?.[0]?.count).toBe(1);
-    expect(result["PayPay残高"]).toBeUndefined();
+    expect(chunks["PayPayポイント"]).toBeDefined();
+    expect(chunks["PayPayポイント"]?.[0]?.count).toBe(1);
+    expect(chunks["PayPay残高"]).toBeUndefined();
   });
 
   it("チャンクの期間を正しく計算できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}`;
-    const result = processPayPayCsv(csvContent, []);
+    const { chunks } = processPayPayCsv(csvContent, []);
 
     // 「PayPay残高」のチャンクは両方の行のレコードを含むため、期間は両方の日付にまたがる
-    const balanceChunk = result["PayPay残高"]?.[0];
-    expect(balanceChunk?.startDate).toEqual(new Date("2025-09-29T14:54:12"));
-    expect(balanceChunk?.endDate).toEqual(new Date("2025-10-24T10:59:25"));
+    const balanceChunk = chunks["PayPay残高"]?.[0];
+    expect(balanceChunk?.startDate?.toISOString()).toEqual(
+      "2025-09-29T05:54:12.000Z"
+    );
+    expect(balanceChunk?.endDate?.toISOString()).toEqual(
+      "2025-10-24T01:59:25.000Z"
+    );
 
     // 「PayPayポイント」のチャンクは1つのレコードのみ含む
-    const pointChunk = result["PayPayポイント"]?.[0];
-    expect(pointChunk?.startDate).toEqual(new Date("2025-09-29T14:54:12"));
-    expect(pointChunk?.endDate).toEqual(new Date("2025-09-29T14:54:12"));
+    const pointChunk = chunks["PayPayポイント"]?.[0];
+    expect(pointChunk?.startDate?.toISOString()).toEqual(
+      "2025-09-29T05:54:12.000Z"
+    );
+    expect(pointChunk?.endDate?.toISOString()).toEqual(
+      "2025-09-29T05:54:12.000Z"
+    );
   });
 
   it("100件ごとにレコードをチャンキングできること", () => {
@@ -100,16 +108,41 @@ describe("processPayPayCsv", () => {
       manyRows += `2025/10/24 10:59:25,190,-,-,-,-,-,支払い,ダミーストアA,PayPay残高,-,-,${uniqueId}\n`;
     }
     const csvContent = `${PAYPAY_CSV_HEADER}\n${manyRows}`;
-    const result = processPayPayCsv(csvContent, []);
+    const { chunks } = processPayPayCsv(csvContent, []);
 
-    expect(result["PayPay残高"]).toBeDefined();
-    expect(result["PayPay残高"]?.length).toBe(2); // 2つのチャンクに分割されるはず
-    expect(result["PayPay残高"]?.[0]?.count).toBe(100);
-    expect(result["PayPay残高"]?.[1]?.count).toBe(5);
+    expect(chunks["PayPay残高"]).toBeDefined();
+    expect(chunks["PayPay残高"]?.length).toBe(2); // 2つのチャンクに分割されるはず
+    expect(chunks["PayPay残高"]?.[0]?.count).toBe(100);
+    expect(chunks["PayPay残高"]?.[1]?.count).toBe(5);
   });
 
   it("空のCSVが渡された場合に空のオブジェクトを返すこと", () => {
-    const result = processPayPayCsv("", []);
-    expect(result).toEqual({});
+    const { chunks } = processPayPayCsv("", []);
+    expect(chunks).toEqual({});
+  });
+
+  it("統計情報を正しく計算できること", () => {
+    const paypayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
+    const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
+    const result = processPayPayCsv(paypayCsv, [mfmeCsv]);
+
+    // PayPay CSVの統計情報
+    expect(result.paypayStats.count).toBe(3);
+    expect(result.paypayStats.startDate?.toISOString()).toEqual(
+      "2025-09-29T05:54:12.000Z"
+    );
+    expect(result.paypayStats.endDate?.toISOString()).toEqual(
+      "2025-10-24T04:17:35.000Z"
+    );
+
+    // MFME CSVの統計情報
+    expect(result.mfStats.count).toBe(1);
+    expect(result.mfStats.duplicates).toBe(1);
+    expect(result.mfStats.startDate?.toISOString()).toEqual(
+      "2025-10-24T00:00:00.000Z"
+    );
+    expect(result.mfStats.endDate?.toISOString()).toEqual(
+      "2025-10-24T00:00:00.000Z"
+    );
   });
 });
