@@ -9,6 +9,7 @@ export type ProcessedCsvChunk = {
   count: number;
   startDate: Date | null;
   endDate: Date | null;
+  imported: boolean;
 };
 
 export type ProcessedResult = {
