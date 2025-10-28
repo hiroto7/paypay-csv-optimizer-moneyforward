@@ -268,7 +268,7 @@ export default function Home() {
                 MEからエクスポートしたCSVもアップロードします。
               </li>
               <li>
-                インポート用のファイルが自動で生成されたら、「共有」ボタンからMoneyForward
+                インポート用のファイルが自動で生成されたら、「取り込み」ボタンからMoneyForward
                 MEに連携して取り込みます。
               </li>
             </ol>
@@ -288,7 +288,9 @@ export default function Home() {
               />
             </div>
             <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
-              <h2 className="text-xl font-bold">2. 重複防止用のMFME CSV</h2>
+              <h2 className="text-xl font-bold">
+                2. 重複防止用のマネーフォワードME CSV
+              </h2>
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 （任意）既に取り込み済みの取引を除外する場合に選択します。
               </p>
@@ -323,7 +325,12 @@ export default function Home() {
 
                 return (
                   <div key={name}>
-                    <h3 className="text-xl font-bold mb-4">{name}</h3>
+                    <h3 className="text-xl font-bold mb-2">{name}</h3>
+                    {!name.startsWith("PayPay") && (
+                      <p className="mb-4 text-sm text-yellow-700 dark:text-yellow-400">
+                        <strong>注意:</strong> マネーフォワードMEで「{name}」を直接連携している場合、CSVを取り込むと明細が重複する恐れがあります。その場合は取り込まないでください。
+                      </p>
+                    )}
                     <div className="space-y-4">
                       {chunks.map((chunk, index) => {
                         const totalParts = chunks.length;
@@ -358,7 +365,7 @@ export default function Home() {
                               disabled={chunk.imported}
                               className="px-4 py-2 rounded-md flex-shrink-0 text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 ease-in-out bg-green-600 hover:bg-green-700"
                             >
-                              {chunk.imported ? "取り込み済み" : "共有"}
+                              {chunk.imported ? "取り込み済み" : "取り込み"}
                             </button>
                           </div>
                         );
