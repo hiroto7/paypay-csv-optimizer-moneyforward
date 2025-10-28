@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import {
   processPayPayCsv,
@@ -147,6 +147,7 @@ export default function Home() {
   const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
   const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
   const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
   const [modalContext, setModalContext] = useState<{
     name: string;
     index: number;
@@ -174,73 +175,81 @@ export default function Home() {
     setModalContext(null);
   };
 
-  const processCsv = async () => {
-    if (!payPayFile) return;
+  useEffect(() => {
+    const processCsv = async () => {
+      if (!payPayFile) return;
 
-    const readPayPayFile = new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (typeof e.target?.result === "string") {
-          resolve(e.target.result);
-        } else {
-          reject(new Error("Failed to read PayPay CSV file."));
-        }
-      };
-      reader.onerror = () => reject(new Error("Error reading PayPay CSV file."));
-      reader.readAsText(payPayFile, "Shift_JIS");
-    });
-
-    const readMfmeFiles = mfmeFiles
-      ? Promise.all(
-          Array.from(mfmeFiles).map(
-            (file) =>
-              new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                  if (typeof e.target?.result === "string") {
-                    resolve(e.target.result);
-                  } else {
-                    reject(new Error(`Failed to read file: ${file.name}`));
-                  }
-                };
-                reader.onerror = () =>
-                  reject(new Error(`Error reading file: ${file.name}`));
-                reader.readAsText(file, "Shift_JIS");
-              })
-          )
-        )
-      : Promise.resolve([]);
-
-    try {
+      setIsLoading(true);
       setError("");
       setProcessedChunks({});
 
-      const [payPayContent, mfmeContents] = await Promise.all([
-        readPayPayFile,
-        readMfmeFiles,
-      ]);
+      const readPayPayFile = new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (typeof e.target?.result === "string") {
+            resolve(e.target.result);
+          } else {
+            reject(new Error("Failed to read PayPay CSV file."));
+          }
+        };
+        reader.onerror = () =>
+          reject(new Error("Error reading PayPay CSV file."));
+        reader.readAsText(payPayFile, "Shift_JIS");
+      });
 
-      const result = processPayPayCsv(payPayContent, mfmeContents);
+      const readMfmeFiles = mfmeFiles
+        ? Promise.all(
+            Array.from(mfmeFiles).map(
+              (file) =>
+                new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => {
+                    if (typeof e.target?.result === "string") {
+                      resolve(e.target.result);
+                    } else {
+                      reject(new Error(`Failed to read file: ${file.name}`));
+                    }
+                  };
+                  reader.onerror = () =>
+                    reject(new Error(`Error reading file: ${file.name}`));
+                  reader.readAsText(file, "Shift_JIS");
+                })
+            )
+          )
+        : Promise.resolve([]);
 
-      if (Object.keys(result).length === 0) {
-        setError(
-          "処理対象のデータが見つかりませんでした。ファイルの内容を確認してください。"
-        );
+      try {
+        const [payPayContent, mfmeContents] = await Promise.all([
+          readPayPayFile,
+          readMfmeFiles,
+        ]);
+
+        const result = processPayPayCsv(payPayContent, mfmeContents);
+
+        if (Object.keys(result).length === 0) {
+          setError(
+            "変換できる取引が見つかりませんでした。ファイルが正しいか、または（重複防止用ファイルをアップロードした場合）全ての取引が既に取り込み済みでないか確認してください。"
+          );
+        }
+
+        setProcessedChunks(result);
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("不明なエラーが発生しました。");
+        }
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      setProcessedChunks(result);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unknown error occurred.");
-      }
-    }
-  };
+    processCsv();
+  }, [payPayFile, mfmeFiles]);
 
   return (
     <main className="flex items-center justify-center pt-16 pb-4">
-      <div className="flex-1 flex flex-col items-center gap-16 min-h-0">
+      <div className="flex-1 flex flex-col items-center gap-12 min-h-0">
         <header className="flex flex-col items-center gap-9">
           <h1 className="text-4xl font-bold">PayPay CSV Optimizer</h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
@@ -250,55 +259,54 @@ export default function Home() {
         <div className="max-w-2xl w-full space-y-6 px-4">
           <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
             <h2 className="text-xl font-bold">使い方</h2>
-            <p className="leading-6 text-gray-700 dark:text-gray-200">
-              1. PayPayアプリから取引履歴CSVをエクスポートします。
-            </p>
-            <p className="leading-6 text-gray-700 dark:text-gray-200">
-              2. （任意）マネーフォワードMEから家計簿データのCSVをダウンロードし、下の欄にアップロードします。これにより、既に取り込み済みの取引が処理対象から除外されます。
-            </p>
-            <p className="leading-6 text-gray-700 dark:text-gray-200">
-              3. 下のボタンからPayPayのCSVファイルをアップロードして処理を実行します。
-            </p>
-            <p className="leading-6 text-gray-700 dark:text-gray-200">
-              4. 生成されたファイルを共有または保存し、マネーフォワードMEにインポートします。
-            </p>
+            <ol className="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-200">
+              <li>
+                下のボタンからPayPayの取引履歴CSVをアップロードします。
+              </li>
+              <li>
+                （任意）既に取り込み済みの取引を除外したい場合は、MoneyForward
+                MEからエクスポートしたCSVもアップロードします。
+              </li>
+              <li>
+                インポート用のファイルが自動で生成されたら、「共有」ボタンからMoneyForward
+                MEに連携して取り込みます。
+              </li>
+            </ol>
           </div>
 
-          <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
-            <h2 className="text-xl font-bold">PayPayのCSVファイル</h2>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handlePayPayFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
+              <h2 className="text-xl font-bold">1. 変換元のPayPay CSV</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                PayPayアプリからエクスポートしたCSVを選択してください。
+              </p>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handlePayPayFileChange}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+            </div>
+            <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
+              <h2 className="text-xl font-bold">2. 重複防止用のMFME CSV</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                （任意）既に取り込み済みの取引を除外する場合に選択します。
+              </p>
+              <input
+                type="file"
+                accept=".csv"
+                multiple
+                onChange={handleMfCsvFileChange}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+              />
+            </div>
           </div>
 
-          <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
-            <h2 className="text-xl font-bold">
-              マネーフォワードMEのCSVファイル（任意）
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              ここにマネーフォワードMEからエクスポートしたCSVファイルをアップロードすると、その内容と一致する取引をPayPayの履歴から除外します。
-            </p>
-            <input
-              type="file"
-              accept=".csv"
-              multiple
-              onChange={handleMfCsvFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-            />
-          </div>
-
-          <div className="flex flex-col items-center gap-4">
-            <button
-              onClick={processCsv}
-              disabled={!payPayFile}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:bg-gray-400"
-            >
-              処理を実行
-            </button>
-          </div>
+          {isLoading && (
+            <div className="text-center py-4">
+              <p>処理中...</p>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md">
@@ -308,13 +316,14 @@ export default function Home() {
 
           {Object.keys(processedChunks).length > 0 && (
             <div className="space-y-8 pt-8">
+              <h2 className="text-2xl font-bold text-center">3. 生成されたファイル</h2>
               {Object.keys(processedChunks).map((name) => {
                 const chunks = processedChunks[name];
                 if (!chunks || chunks.length === 0) return null;
 
                 return (
                   <div key={name}>
-                    <h2 className="text-xl font-bold mb-4">{name}</h2>
+                    <h3 className="text-xl font-bold mb-4">{name}</h3>
                     <div className="space-y-4">
                       {chunks.map((chunk, index) => {
                         const totalParts = chunks.length;
@@ -349,7 +358,7 @@ export default function Home() {
                               disabled={chunk.imported}
                               className="px-4 py-2 rounded-md flex-shrink-0 text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 ease-in-out bg-green-600 hover:bg-green-700"
                             >
-                              {chunk.imported ? "取り込み済み" : "共有 / 保存"}
+                              {chunk.imported ? "取り込み済み" : "共有"}
                             </button>
                           </div>
                         );
