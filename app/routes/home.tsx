@@ -362,8 +362,11 @@ export default function Home() {
               {/* MoneyForward ME CSV Input */}
               <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 flex flex-col gap-4">
                 <h2 className="text-xl font-bold text-purple-400">
-                  2. (任意) 重複チェック用CSV
+                  2. (任意) 取り込み済みの取引を除外
                 </h2>
+                <p className="text-sm text-slate-400 -mt-2">
+                  マネーフォワードMEのアプリまたはWebサイトからエクスポートした取引履歴CSVを選択してください。複数ファイルの選択も可能です。
+                </p>
                 <div
                   className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                     isMfDragging
@@ -384,7 +387,7 @@ export default function Home() {
                   <p className="text-slate-400 pointer-events-none">
                     {mfmeFiles && mfmeFiles.length > 0
                       ? `${mfmeFiles.length}個のファイルを選択中`
-                      : "ファイルをドラッグ＆ドロップするか、ここをクリックして選択"}
+                      : "ここにファイルをドラッグ＆ドロップ（複数選択可）"}
                   </p>
                 </div>
                 {mfStats && mfStats.count > 0 && (
