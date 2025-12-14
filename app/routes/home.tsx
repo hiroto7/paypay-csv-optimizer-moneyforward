@@ -14,14 +14,7 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-const createCsvBlob = (data: string) => {
-  return new Blob([`\uFEFF${data}`], {
-    type: "text/csv;charset=utf-8;",
-  });
-};
-
-const downloadCsv = (filename: string, data: string) => {
-  const blob = createCsvBlob(data);
+const downloadCsv = (filename: string, blob: Blob) => {
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
   link.setAttribute("href", url);
@@ -37,10 +30,8 @@ const handleShare = async (
   data: string,
   onShared: () => void
 ) => {
-  const blob = createCsvBlob(data);
-  const file = new File([blob], filename, {
-    type: "text/csv;charset=utf-8;",
-  });
+  const blob = new Blob([`\uFEFF${data}`], { type: "text/csv" });
+  const file = new File([blob], filename, { type: "text/csv" });
 
   if (
     navigator.share &&
@@ -56,10 +47,10 @@ const handleShare = async (
         return;
       }
       console.error("Share failed, falling back to download:", error);
-      downloadCsv(filename, data);
+      downloadCsv(filename, blob);
     }
   } else {
-    downloadCsv(filename, data);
+    downloadCsv(filename, blob);
   }
 };
 
@@ -114,10 +105,12 @@ const MfImportGuideModal = ({
             を選択します。
           </p>
           <p>
-            3. 右上の「保存」をタップすれば、マネーフォワードMEでの操作は完了です。
+            3.
+            右上の「保存」をタップすれば、マネーフォワードMEでの操作は完了です。
           </p>
           <p>
-            4. このアプリに戻り、「取り込みました」ボタンを押してダイアログを閉じてください。
+            4.
+            このアプリに戻り、「取り込みました」ボタンを押してダイアログを閉じてください。
           </p>
         </div>
         <div className="mt-6 flex justify-end gap-4">
@@ -264,9 +257,7 @@ export default function Home() {
           <div className="rounded-3xl border border-gray-200 p-6 dark:border-gray-700 space-y-4">
             <h2 className="text-xl font-bold">使い方</h2>
             <ol className="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-200">
-              <li>
-                下のボタンからPayPayの取引履歴CSVをアップロードします。
-              </li>
+              <li>下のボタンからPayPayの取引履歴CSVをアップロードします。</li>
               <li>
                 （任意）既に取り込み済みの取引を除外したい場合は、MoneyForward
                 MEからエクスポートしたCSVもアップロードします。
@@ -351,7 +342,9 @@ export default function Home() {
 
           {Object.keys(processedChunks).length > 0 && (
             <div className="space-y-8 pt-8">
-              <h2 className="text-2xl font-bold text-center">3. 生成されたファイル</h2>
+              <h2 className="text-2xl font-bold text-center">
+                3. 生成されたファイル
+              </h2>
               {Object.keys(processedChunks).map((name) => {
                 const chunks = processedChunks[name];
                 if (!chunks || chunks.length === 0) return null;
@@ -361,7 +354,8 @@ export default function Home() {
                     <h3 className="text-xl font-bold mb-2">{name}</h3>
                     {!name.startsWith("PayPay") && (
                       <p className="mb-4 text-sm text-yellow-700 dark:text-yellow-400">
-                        <strong>注意:</strong> マネーフォワードMEで「{name}」を直接連携している場合、CSVを取り込むと明細が重複する恐れがあります。その場合は取り込まないでください。
+                        <strong>注意:</strong> マネーフォワードMEで「{name}
+                        」を直接連携している場合、CSVを取り込むと明細が重複する恐れがあります。その場合は取り込まないでください。
                       </p>
                     )}
                     <div className="space-y-4">
