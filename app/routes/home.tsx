@@ -163,18 +163,22 @@ export default function Home() {
     setDragging: (isDragging: boolean) => void,
     fileHandler: (files: FileList | null) => void
   ) => ({
-    onDragEnter: (e: React.DragEvent<HTMLDivElement>) => {
+    onDragEnter: (e: React.DragEvent<HTMLLabelElement>) => {
       e.preventDefault();
       setDragging(true);
     },
-    onDragLeave: (e: React.DragEvent<HTMLDivElement>) => {
+    onDragLeave: (e: React.DragEvent<HTMLLabelElement>) => {
       e.preventDefault();
-      setDragging(false);
+      // Check if the pointer is leaving the drop zone (including its children)
+      // and not just moving from parent to child element within the drop zone.
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+        setDragging(false);
+      }
     },
-    onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
+    onDragOver: (e: React.DragEvent<HTMLLabelElement>) => {
       e.preventDefault(); // Necessary to allow drop
     },
-    onDrop: (e: React.DragEvent<HTMLDivElement>) => {
+    onDrop: (e: React.DragEvent<HTMLLabelElement>) => {
       e.preventDefault();
       setDragging(false);
       fileHandler(e.dataTransfer.files);
@@ -321,28 +325,29 @@ export default function Home() {
                 <h2 className="text-xl font-bold text-red-400">
                   1. PayPayの取引履歴CSV
                 </h2>
-                <div
+                <label
+                  htmlFor="paypay-csv-input"
                   className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                     isPayPayDragging
                       ? "border-red-500 bg-red-500/10"
                       : "border-slate-600 hover:border-red-400"
                   }`}
-                  onClick={() => paypayInputRef.current?.click()}
                   {...paypayDragHandlers}
                 >
                   <input
+                    id="paypay-csv-input"
                     ref={paypayInputRef}
                     type="file"
                     accept=".csv"
                     onChange={(e) => handlePayPayFileChange(e.target.files)}
-                    className="hidden"
+                    className="sr-only"
                   />
                   <p className="text-slate-400 pointer-events-none">
                     {payPayFile
                       ? payPayFile.name
                       : "ファイルをドラッグ＆ドロップするか、ここをクリックして選択"}
                   </p>
-                </div>
+                </label>
                 {paypayStats && (
                   <div className="mt-2 space-y-1 text-sm text-slate-400">
                     <p>読み込み件数: {paypayStats.count}件</p>
@@ -367,29 +372,30 @@ export default function Home() {
                 <p className="text-sm text-slate-400 -mt-2">
                   マネーフォワードMEのアプリまたはWebサイトからエクスポートした取引履歴CSVを選択してください。複数ファイルの選択も可能です。
                 </p>
-                <div
+                <label
+                  htmlFor="mfme-csv-input"
                   className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                     isMfDragging
                       ? "border-purple-500 bg-purple-500/10"
                       : "border-slate-600 hover:border-purple-400"
                   }`}
-                  onClick={() => mfInputRef.current?.click()}
                   {...mfDragHandlers}
                 >
                   <input
+                    id="mfme-csv-input"
                     ref={mfInputRef}
                     type="file"
                     accept=".csv"
                     multiple
                     onChange={(e) => handleMfCsvFileChange(e.target.files)}
-                    className="hidden"
+                    className="sr-only"
                   />
                   <p className="text-slate-400 pointer-events-none">
                     {mfmeFiles && mfmeFiles.length > 0
                       ? `${mfmeFiles.length}個のファイルを選択中`
                       : "ここにファイルをドラッグ＆ドロップ（複数選択可）"}
                   </p>
-                </div>
+                </label>
                 {mfStats && mfStats.count > 0 && (
                   <div className="mt-2 space-y-1 text-sm text-slate-400">
                     <p>読み込み件数: {mfStats.count}件</p>
