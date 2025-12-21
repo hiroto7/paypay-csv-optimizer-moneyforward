@@ -267,37 +267,34 @@ export function processPayPayCsv(
   const chunks: ProcessedResult = {};
   const chunkSize = 100;
 
-  for (const name in groupedRecords) {
-    if (Object.prototype.hasOwnProperty.call(groupedRecords, name)) {
-      const allRecords = groupedRecords[name];
-      if (allRecords && allRecords.length > 0) {
-        chunks[name] = [];
+  for (const [name, allRecords] of Object.entries(groupedRecords)) {
+    if (allRecords && allRecords.length > 0) {
+      chunks[name] = [];
 
-        for (let i = 0; i < allRecords.length; i += chunkSize) {
-          const chunkOfRecords = allRecords.slice(i, i + chunkSize);
+      for (let i = 0; i < allRecords.length; i += chunkSize) {
+        const chunkOfRecords = allRecords.slice(i, i + chunkSize);
 
-          let minDate: Date | null = null;
-          let maxDate: Date | null = null;
-          for (const record of chunkOfRecords) {
-            const date = parseDate(record["取引日"]);
-            if (date) {
-              [minDate, maxDate] = updateDateRange(date, minDate, maxDate);
-            }
+        let minDate: Date | null = null;
+        let maxDate: Date | null = null;
+        for (const record of chunkOfRecords) {
+          const date = parseDate(record["取引日"]);
+          if (date) {
+            [minDate, maxDate] = updateDateRange(date, minDate, maxDate);
           }
-
-          const csvString = stringify(chunkOfRecords, {
-            header: true,
-            columns: headers,
-          });
-
-          chunks[name].push({
-            data: csvString,
-            count: chunkOfRecords.length,
-            startDate: minDate,
-            endDate: maxDate,
-            imported: false,
-          });
         }
+
+        const csvString = stringify(chunkOfRecords, {
+          header: true,
+          columns: headers,
+        });
+
+        chunks[name].push({
+          data: csvString,
+          count: chunkOfRecords.length,
+          startDate: minDate,
+          endDate: maxDate,
+          imported: false,
+        });
       }
     }
   }
