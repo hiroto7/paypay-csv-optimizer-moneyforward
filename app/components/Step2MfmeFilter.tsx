@@ -35,7 +35,10 @@ export default function Step2MfmeFilter({
   const [isDragging, setIsDragging] = useState(false);
   const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
   const [isMfmeSkipped, setIsMfmeSkipped] = useState(false);
-  const [mfStats, setMfStats] = useState<Omit<MfFileStats, "duplicates"> | null>(null);
+  const [mfStats, setMfStats] = useState<Omit<
+    MfFileStats,
+    "duplicates"
+  > | null>(null);
   const [error, setError] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -60,7 +63,7 @@ export default function Step2MfmeFilter({
 
       if (result.stats.count === 0) {
         throw new Error(
-          "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。"
+          "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。",
         );
       }
 
@@ -71,7 +74,7 @@ export default function Step2MfmeFilter({
       if (result.exclusionSet.size === 0 && result.stats.count > 0) {
         if (result.stats.startDate === null && result.stats.endDate === null) {
           throw new Error(
-            "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。"
+            "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。",
           );
         }
       }
@@ -91,7 +94,10 @@ export default function Step2MfmeFilter({
   const handleSkip = () => {
     setIsMfmeSkipped(true);
     setMfmeFiles(null);
-    onDataParsed({ exclusionSet: new Set(), stats: { count: 0, startDate: null, endDate: null } });
+    onDataParsed({
+      exclusionSet: new Set(),
+      stats: { count: 0, startDate: null, endDate: null },
+    });
     setMfStats(null);
     setError("");
   };
@@ -187,6 +193,7 @@ export default function Step2MfmeFilter({
           {(!mfmeFiles || mfmeFiles.length === 0) && (
             <div className="mt-4">
               <button
+                type="button"
                 onClick={handleSkip}
                 className="w-full px-4 py-3 bg-slate-700 text-slate-200 rounded-lg font-semibold hover:bg-slate-600 transition-colors"
               >
@@ -207,6 +214,7 @@ export default function Step2MfmeFilter({
               </p>
             </div>
             <button
+              type="button"
               onClick={handleUndo}
               className="px-3 py-1.5 text-sm bg-slate-600 text-slate-200 rounded hover:bg-slate-500 transition-colors whitespace-nowrap"
             >

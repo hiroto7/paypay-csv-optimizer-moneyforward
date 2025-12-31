@@ -35,7 +35,7 @@ export const parseDate = (dateValue: string | undefined): Date | null => {
     if (hasTime) {
       // 時刻がある場合（PayPay CSV）はJSTとして扱う
       // `YYYY/MM/DD HH:mm:ss` → `YYYY-MM-DDTHH:mm:ss+09:00`
-      dateStr = dateStr.replace(" ", "T") + "+09:00";
+      dateStr = `${dateStr.replace(" ", "T")}+09:00`;
     } else {
       // 時刻がない場合（MFME CSV）はJST 00:00:00として扱う
       // `YYYY/MM/DD` → `YYYY-MM-DDT00:00:00+09:00`
@@ -43,7 +43,7 @@ export const parseDate = (dateValue: string | undefined): Date | null => {
     }
 
     const date = new Date(dateStr);
-    return isNaN(date.getTime()) ? null : date;
+    return Number.isNaN(date.getTime()) ? null : date;
   } catch {
     return null;
   }
@@ -52,7 +52,7 @@ export const parseDate = (dateValue: string | undefined): Date | null => {
 export const updateDateRange = (
   date: Date,
   minDate: Date | null,
-  maxDate: Date | null
+  maxDate: Date | null,
 ): [Date | null, Date | null] => {
   const newMinDate = !minDate || date < minDate ? date : minDate;
   const newMaxDate = !maxDate || date > maxDate ? date : maxDate;
@@ -60,7 +60,7 @@ export const updateDateRange = (
 };
 
 export const createMfmeExclusionSet = (
-  mfmeCsvs: string[]
+  mfmeCsvs: string[],
 ): {
   exclusionSet: Set<string>;
   stats: Omit<MfFileStats, "duplicates">;
@@ -146,7 +146,7 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
       [stats.startDate, stats.endDate] = updateDateRange(
         date,
         stats.startDate,
-        stats.endDate
+        stats.endDate,
       );
     }
 
@@ -155,7 +155,7 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
     const createTransaction = (
       name: string,
       amountStr: string,
-      rec: Record
+      rec: Record,
     ): PayPayTransaction => {
       const dateKey = rec["取引日"]?.split(" ")[0]; // YYYY/MM/DD
       const amountKey = isExpense ? `-${amountStr}` : amountStr;
@@ -208,7 +208,7 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
  */
 export function filterTransactions(
   transactions: PayPayTransaction[],
-  exclusionSet: Set<string>
+  exclusionSet: Set<string>,
 ): {
   groupedRecords: { [paymentMethod: string]: Record[] };
   duplicates: number;
@@ -241,7 +241,7 @@ export function filterTransactions(
  */
 export function createChunksFromGroupedRecords(
   groupedRecords: { [paymentMethod: string]: Record[] },
-  headers: string[]
+  headers: string[],
 ): ProcessedResult {
   const chunks: ProcessedResult = {};
   const chunkSize = 100;

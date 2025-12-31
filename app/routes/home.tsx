@@ -1,10 +1,4 @@
 import { useEffect, useState } from "react";
-import type { Route } from "./+types/home";
-import {
-  filterTransactions,
-  createChunksFromGroupedRecords,
-  type ProcessedResult,
-} from "~/services/csv-processor";
 import Step1PayPayUpload, {
   type PayPayParsedData,
 } from "~/components/Step1PayPayUpload";
@@ -12,8 +6,14 @@ import Step2MfmeFilter, {
   type MfmeParsedData,
 } from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
+import {
+  createChunksFromGroupedRecords,
+  filterTransactions,
+  type ProcessedResult,
+} from "~/services/csv-processor";
+import type { Route } from "./+types/home";
 
-export function meta({}: Route.MetaArgs) {
+export function meta(_args: Route.MetaArgs) {
   return [
     { title: "PayPay CSV Optimizer for マネーフォワード ME" },
     {
@@ -38,7 +38,7 @@ const downloadCsv = (filename: string, blob: Blob) => {
 const handleShare = async (
   filename: string,
   data: string,
-  onShared: () => void
+  onShared: () => void,
 ) => {
   const blob = new Blob([`\uFEFF${data}`], { type: "text/csv" });
   const file = new File([blob], filename, { type: "text/csv" });
@@ -78,13 +78,11 @@ const MfImportGuideModal = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center transition-opacity duration-300"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center transition-opacity duration-300">
       <div
         className="bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-6 md:p-8 max-w-lg w-full mx-4"
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         <h3 className="text-2xl font-bold mb-6 text-slate-100">
           マネーフォワード MEでの取り込み手順
@@ -115,12 +113,14 @@ const MfImportGuideModal = ({
         </div>
         <div className="mt-8 flex justify-end gap-4">
           <button
+            type="button"
             onClick={onClose}
             className="px-5 py-2.5 bg-slate-700 text-slate-200 rounded-md font-semibold hover:bg-slate-600 transition-colors"
           >
             閉じる
           </button>
           <button
+            type="button"
             onClick={onImported}
             className="px-5 py-2.5 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-500 transition-colors"
           >
@@ -176,7 +176,8 @@ export default function Home() {
     const { exclusionSet } = mfmeData;
 
     // フィルタリング処理
-    const { groupedRecords, duplicates: calculatedDuplicates } = filterTransactions(transactions, exclusionSet);
+    const { groupedRecords, duplicates: calculatedDuplicates } =
+      filterTransactions(transactions, exclusionSet);
     setDuplicates(calculatedDuplicates);
 
     // チャンクに分割してCSV文字列化
@@ -233,9 +234,7 @@ export default function Home() {
               <Step3FileList
                 processedChunks={processedChunks}
                 onShare={handleShare}
-                onShareClick={(name, index) =>
-                  setModalContext({ name, index })
-                }
+                onShareClick={(name, index) => setModalContext({ name, index })}
               />
             )}
           </div>

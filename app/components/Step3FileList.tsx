@@ -18,7 +18,7 @@ interface Step3FileListProps {
   onShare: (
     filename: string,
     data: string,
-    onShared: () => void
+    onShared: () => void,
   ) => Promise<void>;
   onShareClick: (name: string, index: number) => void;
 }
@@ -89,9 +89,10 @@ export default function Step3FileList({
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() =>
                           onShare(filename, chunk.data, () =>
-                            onShareClick(name, index)
+                            onShareClick(name, index),
                           )
                         }
                         disabled={chunk.imported}

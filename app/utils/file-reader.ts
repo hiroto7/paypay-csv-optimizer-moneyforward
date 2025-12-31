@@ -6,7 +6,7 @@
  */
 export const readFileAsText = async (
   file: File,
-  encoding: string = "UTF-8"
+  encoding: string = "UTF-8",
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -17,7 +17,8 @@ export const readFileAsText = async (
         reject(new Error(`Failed to read file: ${file.name}`));
       }
     };
-    reader.onerror = () => reject(new Error(`Error reading file: ${file.name}`));
+    reader.onerror = () =>
+      reject(new Error(`Error reading file: ${file.name}`));
     reader.readAsText(file, encoding);
   });
 };
@@ -30,9 +31,9 @@ export const readFileAsText = async (
  */
 export const readFilesAsText = async (
   files: FileList | File[],
-  encoding: string = "UTF-8"
+  encoding: string = "UTF-8",
 ): Promise<string[]> => {
   return Promise.all(
-    Array.from(files).map((file) => readFileAsText(file, encoding))
+    Array.from(files).map((file) => readFileAsText(file, encoding)),
   );
 };
