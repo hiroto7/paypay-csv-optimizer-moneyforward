@@ -10,7 +10,11 @@ import {
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "PayPay CSV Optimizer for マネーフォワード ME" },
-    { name: "description", content: "PayPayの取引履歴CSVをマネーフォワード ME用に変換。併用払いを自動分割" },
+    {
+      name: "description",
+      content:
+        "PayPayの取引履歴CSVをマネーフォワード ME用に変換。併用払いを自動分割",
+    },
   ];
 }
 
@@ -95,7 +99,8 @@ const MfImportGuideModal = ({
         <div className="space-y-4 text-slate-300 leading-relaxed">
           <p>
             <span className="font-bold text-lg mr-2">1.</span>
-            マネーフォワード MEアプリに移動すると「読み込んだ明細」画面が表示されます。
+            マネーフォワード
+            MEアプリに移動すると「読み込んだ明細」画面が表示されます。
           </p>
           <p>
             <span className="font-bold text-lg mr-2">2.</span>
@@ -107,7 +112,8 @@ const MfImportGuideModal = ({
           </p>
           <p>
             <span className="font-bold text-lg mr-2">3.</span>
-            右上の「保存」をタップすれば、マネーフォワード MEでの操作は完了です。
+            右上の「保存」をタップすれば、マネーフォワード
+            MEでの操作は完了です。
           </p>
           <p>
             <span className="font-bold text-lg mr-2">4.</span>
@@ -319,10 +325,12 @@ export default function Home() {
                   PayPayの取引履歴CSVファイルをドラッグ＆ドロップ（または選択）
                 </li>
                 <li>
-                  既に登録済みの取引がある場合は、マネーフォワード MEからエクスポートしたCSVを追加して除外。または「スキップ」ボタンをクリック
+                  既に登録済みの取引がある場合は、マネーフォワード
+                  MEからエクスポートしたCSVを追加して除外。または「スキップ」ボタンをクリック
                 </li>
                 <li>
-                  生成されたファイルを「取り込み」ボタンからマネーフォワード MEに連携してインポート
+                  生成されたファイルを「取り込み」ボタンからマネーフォワード
+                  MEに連携してインポート
                 </li>
               </ol>
             </div>
@@ -377,13 +385,15 @@ export default function Home() {
                 2. 既に登録済みの取引を除外（任意）
               </h2>
               <p className="text-sm text-slate-400 mb-4">
-                マネーフォワード MEのアプリまたはWebサイトからエクスポートした取引履歴CSVを選択してください。既に登録済みの取引が自動で除外されます。
+                マネーフォワード
+                MEのアプリまたはWebサイトからエクスポートした取引履歴CSVを選択してください。既に登録済みの取引が自動で除外されます。
               </p>
 
               {!isMfmeSkipped ? (
                 <>
                   <p className="text-sm font-semibold text-yellow-300 mb-4">
-                    ⚠️ 既に取り込み済みの取引がある場合は、ここでCSVを選択してください
+                    ⚠️
+                    既に取り込み済みの取引がある場合は、ここでCSVを選択してください
                   </p>
                   <label
                     htmlFor="mfme-csv-input"
@@ -473,88 +483,95 @@ export default function Home() {
               </div>
             )}
 
-            {Object.keys(processedChunks).length > 0 && (mfmeFiles || isMfmeSkipped) && (
-              <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-                <h2 className="text-2xl font-bold text-slate-100 mb-4">
-                  3. マネーフォワード ME取込用ファイル
-                </h2>
-                <div className="space-y-6">
-                  {Object.keys(processedChunks).map((name) => {
-                    const chunks = processedChunks[name];
-                    if (!chunks || chunks.length === 0) return null;
+            {Object.keys(processedChunks).length > 0 &&
+              (mfmeFiles || isMfmeSkipped) && (
+                <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
+                  <h2 className="text-2xl font-bold text-slate-100 mb-4">
+                    3. マネーフォワード ME取込用ファイル
+                  </h2>
+                  <div className="space-y-6">
+                    {Object.keys(processedChunks).map((name) => {
+                      const chunks = processedChunks[name];
+                      if (!chunks || chunks.length === 0) return null;
 
-                    return (
-                      <div key={name} className="space-y-3">
-                        <div className="flex items-baseline gap-3">
-                          <h3 className="text-xl font-bold">{name}</h3>
-                          <span className="text-sm text-slate-400">
-                            {chunks.reduce((sum, chunk) => sum + chunk.count, 0)}件
-                          </span>
-                        </div>
-                        {!name.startsWith("PayPay") && (
-                          <div className="text-sm bg-yellow-900/50 border border-yellow-500/30 text-yellow-300 p-3 rounded-md">
-                            <p>
-                              <strong>注意:</strong> マネーフォワード MEで「
-                              {name}
-                              」を直接連携している場合、CSVを取り込むと明細が重複する恐れがあります。
-                            </p>
+                      return (
+                        <div key={name} className="space-y-3">
+                          <div className="flex items-baseline gap-3">
+                            <h3 className="text-xl font-bold">{name}</h3>
+                            <span className="text-sm text-slate-400">
+                              {chunks.reduce(
+                                (sum, chunk) => sum + chunk.count,
+                                0
+                              )}
+                              件
+                            </span>
                           </div>
-                        )}
-                        <div className="space-y-3">
-                          {chunks.map((chunk, index) => {
-                            const totalParts = chunks.length;
-                            const filename = `paypay-${name.toLowerCase().replace(/\s/g, "-")}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
-                            return (
-                              <div
-                                key={filename}
-                                className={`rounded-lg p-4 border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
-                                  chunk.imported
-                                    ? "bg-slate-700/30 border-slate-600/50"
-                                    : "bg-slate-700/50 border-slate-600"
-                                }`}
-                              >
+                          {!name.startsWith("PayPay") && (
+                            <div className="text-sm bg-yellow-900/50 border border-yellow-500/30 text-yellow-300 p-3 rounded-md">
+                              <p>
+                                <strong>注意:</strong> マネーフォワード MEで「
+                                {name}
+                                」を直接連携している場合、CSVを取り込むと明細が重複する恐れがあります。
+                              </p>
+                            </div>
+                          )}
+                          <div className="space-y-3">
+                            {chunks.map((chunk, index) => {
+                              const totalParts = chunks.length;
+                              const filename = `paypay-${name.toLowerCase().replace(/\s/g, "-")}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
+                              return (
                                 <div
-                                  className={`${chunk.imported ? "line-through text-slate-500" : ""}`}
+                                  key={filename}
+                                  className={`rounded-lg p-4 border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
+                                    chunk.imported
+                                      ? "bg-slate-700/30 border-slate-600/50"
+                                      : "bg-slate-700/50 border-slate-600"
+                                  }`}
                                 >
-                                  <p className="font-semibold">
-                                    {totalParts > 1
-                                      ? `ファイル ${index + 1}/${totalParts}`
-                                      : filename}
-                                  </p>
-                                  <div className="text-sm text-slate-400 flex gap-x-4">
-                                    <p>{chunk.count}件</p>
-                                    {chunk.startDate && chunk.endDate && (
-                                      <p>
-                                        期間:{" "}
-                                        <PeriodDisplay
-                                          startDate={chunk.startDate}
-                                          endDate={chunk.endDate}
-                                        />
-                                      </p>
-                                    )}
+                                  <div
+                                    className={`${chunk.imported ? "line-through text-slate-500" : ""}`}
+                                  >
+                                    <p className="font-semibold">
+                                      {totalParts > 1
+                                        ? `ファイル ${index + 1}/${totalParts}`
+                                        : filename}
+                                    </p>
+                                    <div className="text-sm text-slate-400 flex gap-x-4">
+                                      <p>{chunk.count}件</p>
+                                      {chunk.startDate && chunk.endDate && (
+                                        <p>
+                                          期間:{" "}
+                                          <PeriodDisplay
+                                            startDate={chunk.startDate}
+                                            endDate={chunk.endDate}
+                                          />
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
+                                  <button
+                                    onClick={() =>
+                                      handleShare(filename, chunk.data, () =>
+                                        setModalContext({ name, index })
+                                      )
+                                    }
+                                    disabled={chunk.imported}
+                                    className="w-full sm:w-auto px-5 py-2.5 rounded-md flex-shrink-0 font-semibold text-white transition-all duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500"
+                                  >
+                                    {chunk.imported
+                                      ? "取り込み済み"
+                                      : "取り込み"}
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() =>
-                                    handleShare(filename, chunk.data, () =>
-                                      setModalContext({ name, index })
-                                    )
-                                  }
-                                  disabled={chunk.imported}
-                                  className="w-full sm:w-auto px-5 py-2.5 rounded-md flex-shrink-0 font-semibold text-white transition-all duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500"
-                                >
-                                  {chunk.imported ? "取り込み済み" : "取り込み"}
-                                </button>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
       </main>
