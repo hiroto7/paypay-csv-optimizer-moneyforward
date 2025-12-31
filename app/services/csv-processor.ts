@@ -26,13 +26,7 @@ export type MfFileStats = FileStats & {
   duplicates: number;
 };
 
-export type ProcessOutput = {
-  chunks: ProcessedResult;
-  paypayStats: FileStats;
-  mfStats: MfFileStats;
-};
-
-const parseDate = (dateValue: string | undefined): Date | null => {
+export const parseDate = (dateValue: string | undefined): Date | null => {
   if (!dateValue) return null;
   try {
     let dateStr = dateValue.replace(/\//g, "-");
@@ -55,7 +49,7 @@ const parseDate = (dateValue: string | undefined): Date | null => {
   }
 };
 
-const updateDateRange = (
+export const updateDateRange = (
   date: Date,
   minDate: Date | null,
   maxDate: Date | null
@@ -65,7 +59,7 @@ const updateDateRange = (
   return [newMinDate, newMaxDate];
 };
 
-const createMfmeExclusionSet = (
+export const createMfmeExclusionSet = (
   mfmeCsvs: string[]
 ): {
   exclusionSet: Set<string>;
@@ -110,7 +104,7 @@ const createMfmeExclusionSet = (
   };
 };
 
-type PayPayTransaction = {
+export type PayPayTransaction = {
   key: string;
   record: Record;
   paymentMethod: string;
@@ -122,7 +116,7 @@ type PayPayTransaction = {
  * @param payPayCsvContent - PayPayからエクスポートされたCSVの文字列
  * @returns 抽出された取引の配列と、ファイル全体の統計情報
  */
-function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
+export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
   transactions: PayPayTransaction[];
   stats: FileStats;
   headers: string[];
@@ -212,7 +206,7 @@ function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
  * @param exclusionSet - MFの取引から生成された除外キーのセット
  * @returns フィルタリングされ、支払い方法でグループ化されたレコードと、重複した件数
  */
-function filterTransactions(
+export function filterTransactions(
   transactions: PayPayTransaction[],
   exclusionSet: Set<string>
 ): {
@@ -240,41 +234,15 @@ function filterTransactions(
 }
 
 /**
- * PayPay CSVとMoneyForward ME CSVを受け取り、MFME形式に変換・最適化されたCSVチャンクを生成する。
- *
- * @param payPayCsvContent - PayPayからエクスポートされた生のCSV文字列
- * @param mfmeCsvs - MoneyForward MEからエクスポートされたCSV文字列の配列（重複除外用）
- * @returns 支払い方法ごとに分割・チャンク化されたCSVデータと、処理統計
+ * グループ化されたレコードを100件ごとのチャンクに分割し、CSV文字列に変換する
+ * @param groupedRecords - 支払い方法でグループ化されたレコード
+ * @param headers - CSVのヘッダー
+ * @returns チャンク化されたCSVデータ
  */
-export function processPayPayCsv(
-  payPayCsvContent: string,
-  mfmeCsvs: string[]
-): ProcessOutput {
-  // 1. MFME CSVから重複除外用のセットを作成
-  const { exclusionSet, stats: mfStats } = createMfmeExclusionSet(mfmeCsvs);
-
-  // 2. PayPay CSVを解析し、取引リストに変換（併用払いの分割など）
-  const {
-    transactions,
-    stats: paypayStats,
-    headers,
-  } = extractTransactionsFromPayPayCsv(payPayCsvContent);
-
-  if (transactions.length === 0) {
-    return {
-      chunks: {},
-      paypayStats,
-      mfStats: { ...mfStats, duplicates: 0 },
-    };
-  }
-
-  // 3. 重複を除外
-  const { groupedRecords, duplicates } = filterTransactions(
-    transactions,
-    exclusionSet
-  );
-
-  // 4. フィルタリング後のレコードを100件ごとのチャンクに分割し、CSV文字列に変換
+export function createChunksFromGroupedRecords(
+  groupedRecords: { [paymentMethod: string]: Record[] },
+  headers: string[]
+): ProcessedResult {
   const chunks: ProcessedResult = {};
   const chunkSize = 100;
 
@@ -310,9 +278,5 @@ export function processPayPayCsv(
     }
   }
 
-  return {
-    chunks,
-    paypayStats,
-    mfStats: { ...mfStats, duplicates },
-  };
+  return chunks;
 }

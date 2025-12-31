@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import type { MfFileStats } from "~/services/csv-processor";
+import { createMfmeExclusionSet } from "~/services/csv-processor";
+import { readFilesAsText } from "~/utils/file-reader";
 
 const PeriodDisplay = ({
   startDate,
@@ -14,25 +16,92 @@ const PeriodDisplay = ({
   return <>{dtf.formatRange(startDate, endDate)}</>;
 };
 
+export type MfmeParsedData = {
+  exclusionSet: Set<string>;
+  stats: Omit<MfFileStats, "duplicates">;
+};
+
 interface Step2MfmeFilterProps {
-  mfmeFiles: FileList | null;
-  isMfmeSkipped: boolean;
-  onFileChange: (files: FileList | null) => void;
-  onSkip: () => void;
-  onUndo: () => void;
-  mfStats: MfFileStats | null;
+  onDataParsed: (data: MfmeParsedData | null) => void;
+  duplicates?: number;
+  totalTransactions?: number | undefined;
 }
 
 export default function Step2MfmeFilter({
-  mfmeFiles,
-  isMfmeSkipped,
-  onFileChange,
-  onSkip,
-  onUndo,
-  mfStats,
+  onDataParsed,
+  duplicates,
+  totalTransactions,
 }: Step2MfmeFilterProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
+  const [isMfmeSkipped, setIsMfmeSkipped] = useState(false);
+  const [mfStats, setMfStats] = useState<Omit<MfFileStats, "duplicates"> | null>(null);
+  const [error, setError] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (files: FileList | null) => {
+    setMfmeFiles(files);
+    if (files && files.length > 0) {
+      setIsMfmeSkipped(false);
+    }
+
+    if (!files || files.length === 0) {
+      onDataParsed(null);
+      setMfStats(null);
+      setError("");
+      return;
+    }
+
+    setError("");
+
+    try {
+      const contents = await readFilesAsText(files, "Shift_JIS");
+      const result = createMfmeExclusionSet(contents);
+
+      if (result.stats.count === 0) {
+        throw new Error(
+          "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。"
+        );
+      }
+
+      // count > 0 だが exclusionSet.size === 0 の場合:
+      // - 正常なMFMEのCSVだが、すべて「計算対象 = 0」の可能性がある（エラーにしない）
+      // - または誤ったCSV（PayPayなど）の可能性がある
+      // stats.count > 0 かつ exclusionSet.size === 0 かつ startDate/endDate が null の場合は誤ったCSV
+      if (result.exclusionSet.size === 0 && result.stats.count > 0) {
+        if (result.stats.startDate === null && result.stats.endDate === null) {
+          throw new Error(
+            "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。"
+          );
+        }
+      }
+
+      setMfStats(result.stats);
+      onDataParsed(result);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("マネーフォワード MEのCSVファイルの読み込みに失敗しました。");
+      }
+      onDataParsed(null);
+    }
+  };
+
+  const handleSkip = () => {
+    setIsMfmeSkipped(true);
+    setMfmeFiles(null);
+    onDataParsed({ exclusionSet: new Set(), stats: { count: 0, startDate: null, endDate: null } });
+    setMfStats(null);
+    setError("");
+  };
+
+  const handleUndo = () => {
+    setIsMfmeSkipped(false);
+    onDataParsed(null);
+    setMfStats(null);
+    setError("");
+  };
 
   const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
@@ -53,7 +122,7 @@ export default function Step2MfmeFilter({
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    onFileChange(e.dataTransfer.files);
+    handleFileChange(e.dataTransfer.files);
   };
 
   return (
@@ -89,7 +158,7 @@ export default function Step2MfmeFilter({
               type="file"
               accept=".csv"
               multiple
-              onChange={(e) => onFileChange(e.target.files)}
+              onChange={(e) => handleFileChange(e.target.files)}
               className="sr-only"
             />
             <p className="text-slate-400 pointer-events-none">
@@ -110,13 +179,15 @@ export default function Step2MfmeFilter({
                   />
                 </p>
               )}
-              <p>重複として除外: {mfStats.duplicates}件</p>
+              {duplicates !== undefined && (
+                <p>重複として除外: {duplicates}件</p>
+              )}
             </div>
           )}
           {(!mfmeFiles || mfmeFiles.length === 0) && (
             <div className="mt-4">
               <button
-                onClick={onSkip}
+                onClick={handleSkip}
                 className="w-full px-4 py-3 bg-slate-700 text-slate-200 rounded-lg font-semibold hover:bg-slate-600 transition-colors"
               >
                 取り込み済み取引の除外をスキップ
@@ -136,7 +207,7 @@ export default function Step2MfmeFilter({
               </p>
             </div>
             <button
-              onClick={onUndo}
+              onClick={handleUndo}
               className="px-3 py-1.5 text-sm bg-slate-600 text-slate-200 rounded hover:bg-slate-500 transition-colors whitespace-nowrap"
             >
               やり直す
@@ -144,6 +215,25 @@ export default function Step2MfmeFilter({
           </div>
         </div>
       )}
+      {error && (
+        <div className="mt-4 bg-red-900/50 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
+          <p>
+            <strong>エラー:</strong> {error}
+          </p>
+        </div>
+      )}
+      {!error &&
+        totalTransactions !== undefined &&
+        duplicates !== undefined &&
+        totalTransactions > 0 &&
+        duplicates === totalTransactions && (
+          <div className="mt-4 bg-red-900/50 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
+            <p>
+              <strong>エラー:</strong>{" "}
+              変換できる取引が見つかりませんでした。全ての取引が既に取り込み済みでないか確認してください。
+            </p>
+          </div>
+        )}
     </div>
   );
 }

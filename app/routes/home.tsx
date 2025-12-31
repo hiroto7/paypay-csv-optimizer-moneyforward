@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import {
-  processPayPayCsv,
+  filterTransactions,
+  createChunksFromGroupedRecords,
   type ProcessedResult,
-  type FileStats,
-  type MfFileStats,
 } from "~/services/csv-processor";
-import Step1PayPayUpload from "~/components/Step1PayPayUpload";
-import Step2MfmeFilter from "~/components/Step2MfmeFilter";
+import Step1PayPayUpload, {
+  type PayPayParsedData,
+} from "~/components/Step1PayPayUpload";
+import Step2MfmeFilter, {
+  type MfmeParsedData,
+} from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
-import { readFileAsText, readFilesAsText } from "~/utils/file-reader";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -131,39 +133,14 @@ const MfImportGuideModal = ({
 };
 
 export default function Home() {
-  const [payPayFile, setPayPayFile] = useState<File | null>(null);
-  const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
+  const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
+  const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
   const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
-  const [paypayStats, setPaypayStats] = useState<FileStats | null>(null);
-  const [mfStats, setMfStats] = useState<MfFileStats | null>(null);
-  const [error, setError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [duplicates, setDuplicates] = useState<number>(0);
   const [modalContext, setModalContext] = useState<{
     name: string;
     index: number;
   } | null>(null);
-  const [isMfmeSkipped, setIsMfmeSkipped] = useState(false);
-
-  const handlePayPayFileChange = (files: FileList | null) => {
-    setPayPayFile(files?.[0] ?? null);
-  };
-
-  const handleMfCsvFileChange = (files: FileList | null) => {
-    setMfmeFiles(files);
-    // ファイルが選択されたらスキップ状態を解除
-    if (files && files.length > 0) {
-      setIsMfmeSkipped(false);
-    }
-  };
-
-  const handleSkipMfme = () => {
-    setIsMfmeSkipped(true);
-    setMfmeFiles(null);
-  };
-
-  const handleUndoSkip = () => {
-    setIsMfmeSkipped(false);
-  };
 
   const handleMarkAsImported = () => {
     if (!modalContext) return;
@@ -179,47 +156,34 @@ export default function Home() {
     setModalContext(null);
   };
 
+  const handlePayPayDataParsed = (data: PayPayParsedData | null) => {
+    setPayPayData(data);
+  };
+
+  const handleMfmeDataParsed = (data: MfmeParsedData | null) => {
+    setMfmeData(data);
+  };
+
   useEffect(() => {
-    const processCsv = async () => {
-      if (!payPayFile) return;
-
-      setIsLoading(true);
-      setError("");
+    // PayPayデータまたはMFMEデータのどちらかがないときは何もしない
+    if (!payPayData || !mfmeData) {
       setProcessedChunks({});
-      setPaypayStats(null);
-      setMfStats(null);
+      setDuplicates(0);
+      return;
+    }
 
-      try {
-        const payPayContent = await readFileAsText(payPayFile, "Shift_JIS");
-        const mfmeContents = mfmeFiles
-          ? await readFilesAsText(mfmeFiles, "Shift_JIS")
-          : [];
+    const { transactions, headers } = payPayData;
+    const { exclusionSet } = mfmeData;
 
-        const result = processPayPayCsv(payPayContent, mfmeContents);
-        const { chunks, paypayStats, mfStats } = result;
+    // フィルタリング処理
+    const { groupedRecords, duplicates: calculatedDuplicates } = filterTransactions(transactions, exclusionSet);
+    setDuplicates(calculatedDuplicates);
 
-        if (Object.keys(chunks).length === 0) {
-          setError(
-            "変換できる取引が見つかりませんでした。ファイルが正しいか、または（重複防止用ファイルをアップロードした場合）全ての取引が既に取り込み済みでないか確認してください。"
-          );
-        }
+    // チャンクに分割してCSV文字列化
+    const chunks = createChunksFromGroupedRecords(groupedRecords, headers);
 
-        setProcessedChunks(chunks);
-        setPaypayStats(paypayStats);
-        setMfStats(mfStats);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("不明なエラーが発生しました。");
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    processCsv();
-  }, [payPayFile, mfmeFiles]);
+    setProcessedChunks(chunks);
+  }, [payPayData, mfmeData]);
 
   return (
     <div className="bg-slate-900 text-slate-200 min-h-screen font-sans">
@@ -256,48 +220,24 @@ export default function Home() {
             </div>
 
             {/* Step 1: PayPay CSV Input */}
-            <Step1PayPayUpload
-              payPayFile={payPayFile}
-              onFileChange={handlePayPayFileChange}
-              paypayStats={paypayStats}
-            />
+            <Step1PayPayUpload onDataParsed={handlePayPayDataParsed} />
 
             {/* Step 2: MoneyForward ME CSV Input (Optional) */}
             <Step2MfmeFilter
-              mfmeFiles={mfmeFiles}
-              isMfmeSkipped={isMfmeSkipped}
-              onFileChange={handleMfCsvFileChange}
-              onSkip={handleSkipMfme}
-              onUndo={handleUndoSkip}
-              mfStats={mfStats}
+              onDataParsed={handleMfmeDataParsed}
+              duplicates={duplicates}
+              totalTransactions={payPayData?.transactions.length}
             />
 
-            {isLoading && (
-              <div className="text-center py-6">
-                <p className="text-lg text-slate-300 animate-pulse">
-                  ファイル処理中...
-                </p>
-              </div>
+            {Object.keys(processedChunks).length > 0 && mfmeData && (
+              <Step3FileList
+                processedChunks={processedChunks}
+                onShare={handleShare}
+                onShareClick={(name, index) =>
+                  setModalContext({ name, index })
+                }
+              />
             )}
-
-            {error && (
-              <div className="bg-red-900/50 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
-                <p>
-                  <strong>エラー:</strong> {error}
-                </p>
-              </div>
-            )}
-
-            {Object.keys(processedChunks).length > 0 &&
-              (mfmeFiles || isMfmeSkipped) && (
-                <Step3FileList
-                  processedChunks={processedChunks}
-                  onShare={handleShare}
-                  onShareClick={(name, index) =>
-                    setModalContext({ name, index })
-                  }
-                />
-              )}
           </div>
         </div>
       </main>
