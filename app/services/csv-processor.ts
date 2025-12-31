@@ -43,9 +43,9 @@ const parseDate = (dateValue: string | undefined): Date | null => {
       // `YYYY/MM/DD HH:mm:ss` → `YYYY-MM-DDTHH:mm:ss+09:00`
       dateStr = dateStr.replace(" ", "T") + "+09:00";
     } else {
-      // 時刻がない場合（MFME CSV）はUTC 00:00:00として扱う
-      // `YYYY/MM/DD` → `YYYY-MM-DDT00:00:00Z`
-      dateStr += "T00:00:00Z";
+      // 時刻がない場合（MFME CSV）はJST 00:00:00として扱う
+      // `YYYY/MM/DD` → `YYYY-MM-DDT00:00:00+09:00`
+      dateStr += "T00:00:00+09:00";
     }
 
     const date = new Date(dateStr);
