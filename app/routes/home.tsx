@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import {
   processPayPayCsv,
@@ -6,6 +6,9 @@ import {
   type FileStats,
   type MfFileStats,
 } from "~/services/csv-processor";
+import Step1PayPayUpload from "~/components/Step1PayPayUpload";
+import Step2MfmeFilter from "~/components/Step2MfmeFilter";
+import Step3FileList from "~/components/Step3FileList";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -56,19 +59,6 @@ const handleShare = async (
   } else {
     downloadCsv(filename, blob);
   }
-};
-
-const PeriodDisplay = ({
-  startDate,
-  endDate,
-}: {
-  startDate: Date;
-  endDate: Date;
-}) => {
-  const dtf = new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-  });
-  return <>{dtf.formatRange(startDate, endDate)}</>;
 };
 
 const MfImportGuideModal = ({
@@ -151,12 +141,7 @@ export default function Home() {
     name: string;
     index: number;
   } | null>(null);
-  const [isPayPayDragging, setIsPayPayDragging] = useState(false);
-  const [isMfDragging, setIsMfDragging] = useState(false);
   const [isMfmeSkipped, setIsMfmeSkipped] = useState(false);
-
-  const paypayInputRef = useRef<HTMLInputElement>(null);
-  const mfInputRef = useRef<HTMLInputElement>(null);
 
   const handlePayPayFileChange = (files: FileList | null) => {
     setPayPayFile(files?.[0] ?? null);
@@ -175,40 +160,9 @@ export default function Home() {
     setMfmeFiles(null);
   };
 
-  const createDragHandlers = (
-    setDragging: (isDragging: boolean) => void,
-    fileHandler: (files: FileList | null) => void
-  ) => ({
-    onDragEnter: (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      setDragging(true);
-    },
-    onDragLeave: (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      // Check if the pointer is leaving the drop zone (including its children)
-      // and not just moving from parent to child element within the drop zone.
-      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-        setDragging(false);
-      }
-    },
-    onDragOver: (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault(); // Necessary to allow drop
-    },
-    onDrop: (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      setDragging(false);
-      fileHandler(e.dataTransfer.files);
-    },
-  });
-
-  const paypayDragHandlers = createDragHandlers(
-    setIsPayPayDragging,
-    handlePayPayFileChange
-  );
-  const mfDragHandlers = createDragHandlers(
-    setIsMfDragging,
-    handleMfCsvFileChange
-  );
+  const handleUndoSkip = () => {
+    setIsMfmeSkipped(false);
+  };
 
   const handleMarkAsImported = () => {
     if (!modalContext) return;
@@ -336,136 +290,21 @@ export default function Home() {
             </div>
 
             {/* Step 1: PayPay CSV Input */}
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-              <h2 className="text-2xl font-bold text-slate-100 mb-4">
-                1. PayPayの取引履歴CSVを選択
-              </h2>
-              <label
-                htmlFor="paypay-csv-input"
-                className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors block ${
-                  isPayPayDragging
-                    ? "border-red-500 bg-red-500/10"
-                    : "border-slate-600 hover:border-red-400"
-                }`}
-                {...paypayDragHandlers}
-              >
-                <input
-                  id="paypay-csv-input"
-                  ref={paypayInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={(e) => handlePayPayFileChange(e.target.files)}
-                  className="sr-only"
-                />
-                <p className="text-slate-400 pointer-events-none">
-                  {payPayFile
-                    ? payPayFile.name
-                    : "ファイルをドラッグ＆ドロップするか、ここをクリックして選択"}
-                </p>
-              </label>
-              {paypayStats && (
-                <div className="mt-4 space-y-1 text-sm text-slate-400">
-                  <p>読み込み件数: {paypayStats.count}件</p>
-                  {paypayStats.startDate && paypayStats.endDate && (
-                    <p>
-                      明細の期間:{" "}
-                      <PeriodDisplay
-                        startDate={paypayStats.startDate}
-                        endDate={paypayStats.endDate}
-                      />
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+            <Step1PayPayUpload
+              payPayFile={payPayFile}
+              onFileChange={handlePayPayFileChange}
+              paypayStats={paypayStats}
+            />
 
             {/* Step 2: MoneyForward ME CSV Input (Optional) */}
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-              <h2 className="text-2xl font-bold text-slate-100 mb-4">
-                2. 既に登録済みの取引を除外（任意）
-              </h2>
-              <p className="text-sm text-slate-400 mb-4">
-                マネーフォワード
-                MEのアプリまたはWebサイトからエクスポートした取引履歴CSVを選択してください。既に登録済みの取引が自動で除外されます。
-              </p>
-
-              {!isMfmeSkipped ? (
-                <>
-                  <p className="text-sm font-semibold text-yellow-300 mb-4">
-                    ⚠️
-                    既に取り込み済みの取引がある場合は、ここでCSVを選択してください
-                  </p>
-                  <label
-                    htmlFor="mfme-csv-input"
-                    className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors block ${
-                      isMfDragging
-                        ? "border-purple-500 bg-purple-500/10"
-                        : "border-slate-600 hover:border-purple-400"
-                    }`}
-                    {...mfDragHandlers}
-                  >
-                    <input
-                      id="mfme-csv-input"
-                      ref={mfInputRef}
-                      type="file"
-                      accept=".csv"
-                      multiple
-                      onChange={(e) => handleMfCsvFileChange(e.target.files)}
-                      className="sr-only"
-                    />
-                    <p className="text-slate-400 pointer-events-none">
-                      {mfmeFiles && mfmeFiles.length > 0
-                        ? `${mfmeFiles.length}個のファイルを選択中`
-                        : "ここにファイルをドラッグ＆ドロップ（複数選択可）"}
-                    </p>
-                  </label>
-                  {mfStats && mfStats.count > 0 && (
-                    <div className="mt-4 space-y-1 text-sm text-slate-400">
-                      <p>読み込み件数: {mfStats.count}件</p>
-                      {mfStats.startDate && mfStats.endDate && (
-                        <p>
-                          明細の期間:{" "}
-                          <PeriodDisplay
-                            startDate={mfStats.startDate}
-                            endDate={mfStats.endDate}
-                          />
-                        </p>
-                      )}
-                      <p>重複として除外: {mfStats.duplicates}件</p>
-                    </div>
-                  )}
-                  {(!mfmeFiles || mfmeFiles.length === 0) && (
-                    <div className="mt-4">
-                      <button
-                        onClick={handleSkipMfme}
-                        className="w-full px-4 py-3 bg-slate-700 text-slate-200 rounded-lg font-semibold hover:bg-slate-600 transition-colors"
-                      >
-                        取り込み済み取引の除外をスキップ
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <p className="text-slate-300 font-semibold mb-1">
-                        ✓ 取り込み済み取引の除外をスキップしました
-                      </p>
-                      <p className="text-sm text-slate-400">
-                        全ての取引が変換対象となります
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setIsMfmeSkipped(false)}
-                      className="px-3 py-1.5 text-sm bg-slate-600 text-slate-200 rounded hover:bg-slate-500 transition-colors whitespace-nowrap"
-                    >
-                      やり直す
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <Step2MfmeFilter
+              mfmeFiles={mfmeFiles}
+              isMfmeSkipped={isMfmeSkipped}
+              onFileChange={handleMfCsvFileChange}
+              onSkip={handleSkipMfme}
+              onUndo={handleUndoSkip}
+              mfStats={mfStats}
+            />
 
             {isLoading && (
               <div className="text-center py-6">
@@ -485,92 +324,13 @@ export default function Home() {
 
             {Object.keys(processedChunks).length > 0 &&
               (mfmeFiles || isMfmeSkipped) && (
-                <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-                  <h2 className="text-2xl font-bold text-slate-100 mb-4">
-                    3. マネーフォワード ME取込用ファイル
-                  </h2>
-                  <div className="space-y-6">
-                    {Object.keys(processedChunks).map((name) => {
-                      const chunks = processedChunks[name];
-                      if (!chunks || chunks.length === 0) return null;
-
-                      return (
-                        <div key={name} className="space-y-3">
-                          <div className="flex items-baseline gap-3">
-                            <h3 className="text-xl font-bold">{name}</h3>
-                            <span className="text-sm text-slate-400">
-                              {chunks.reduce(
-                                (sum, chunk) => sum + chunk.count,
-                                0
-                              )}
-                              件
-                            </span>
-                          </div>
-                          {!name.startsWith("PayPay") && (
-                            <div className="text-sm bg-yellow-900/50 border border-yellow-500/30 text-yellow-300 p-3 rounded-md">
-                              <p>
-                                <strong>注意:</strong> マネーフォワード MEで「
-                                {name}
-                                」を直接連携している場合、CSVを取り込むと明細が重複する恐れがあります。
-                              </p>
-                            </div>
-                          )}
-                          <div className="space-y-3">
-                            {chunks.map((chunk, index) => {
-                              const totalParts = chunks.length;
-                              const filename = `paypay-${name.toLowerCase().replace(/\s/g, "-")}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
-                              return (
-                                <div
-                                  key={filename}
-                                  className={`rounded-lg p-4 border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
-                                    chunk.imported
-                                      ? "bg-slate-700/30 border-slate-600/50"
-                                      : "bg-slate-700/50 border-slate-600"
-                                  }`}
-                                >
-                                  <div
-                                    className={`${chunk.imported ? "line-through text-slate-500" : ""}`}
-                                  >
-                                    <p className="font-semibold">
-                                      {totalParts > 1
-                                        ? `ファイル ${index + 1}/${totalParts}`
-                                        : filename}
-                                    </p>
-                                    <div className="text-sm text-slate-400 flex gap-x-4">
-                                      <p>{chunk.count}件</p>
-                                      {chunk.startDate && chunk.endDate && (
-                                        <p>
-                                          期間:{" "}
-                                          <PeriodDisplay
-                                            startDate={chunk.startDate}
-                                            endDate={chunk.endDate}
-                                          />
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() =>
-                                      handleShare(filename, chunk.data, () =>
-                                        setModalContext({ name, index })
-                                      )
-                                    }
-                                    disabled={chunk.imported}
-                                    className="w-full sm:w-auto px-5 py-2.5 rounded-md shrink-0 font-semibold text-white transition-all duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500"
-                                  >
-                                    {chunk.imported
-                                      ? "取り込み済み"
-                                      : "取り込み"}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <Step3FileList
+                  processedChunks={processedChunks}
+                  onShare={handleShare}
+                  onShareClick={(name, index) =>
+                    setModalContext({ name, index })
+                  }
+                />
               )}
           </div>
         </div>
