@@ -35,8 +35,19 @@ export type ProcessOutput = {
 const parseDate = (dateValue: string | undefined): Date | null => {
   if (!dateValue) return null;
   try {
-    // `YYYY/MM/DD HH:mm:ss` を `YYYY-MM-DDTHH:mm:ss` に変換
-    const dateStr = dateValue.replace(/\//g, "-").replace(" ", "T");
+    let dateStr = dateValue.replace(/\//g, "-");
+    const hasTime = dateStr.includes(" ");
+
+    if (hasTime) {
+      // 時刻がある場合（PayPay CSV）はJSTとして扱う
+      // `YYYY/MM/DD HH:mm:ss` → `YYYY-MM-DDTHH:mm:ss+09:00`
+      dateStr = dateStr.replace(" ", "T") + "+09:00";
+    } else {
+      // 時刻がない場合（MFME CSV）はUTC 00:00:00として扱う
+      // `YYYY/MM/DD` → `YYYY-MM-DDT00:00:00Z`
+      dateStr += "T00:00:00Z";
+    }
+
     const date = new Date(dateStr);
     return isNaN(date.getTime()) ? null : date;
   } catch {
