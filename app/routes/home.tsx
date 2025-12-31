@@ -1,10 +1,4 @@
 import { useEffect, useState } from "react";
-import type { Route } from "./+types/home";
-import {
-  filterTransactions,
-  createChunksFromGroupedRecords,
-  type ProcessedResult,
-} from "~/services/csv-processor";
 import Step1PayPayUpload, {
   type PayPayParsedData,
 } from "~/components/Step1PayPayUpload";
@@ -12,6 +6,12 @@ import Step2MfmeFilter, {
   type MfmeParsedData,
 } from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
+import {
+  createChunksFromGroupedRecords,
+  filterTransactions,
+  type ProcessedResult,
+} from "~/services/csv-processor";
+import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -38,7 +38,7 @@ const downloadCsv = (filename: string, blob: Blob) => {
 const handleShare = async (
   filename: string,
   data: string,
-  onShared: () => void
+  onShared: () => void,
 ) => {
   const blob = new Blob([`\uFEFF${data}`], { type: "text/csv" });
   const file = new File([blob], filename, { type: "text/csv" });
@@ -176,7 +176,8 @@ export default function Home() {
     const { exclusionSet } = mfmeData;
 
     // フィルタリング処理
-    const { groupedRecords, duplicates: calculatedDuplicates } = filterTransactions(transactions, exclusionSet);
+    const { groupedRecords, duplicates: calculatedDuplicates } =
+      filterTransactions(transactions, exclusionSet);
     setDuplicates(calculatedDuplicates);
 
     // チャンクに分割してCSV文字列化
@@ -233,9 +234,7 @@ export default function Home() {
               <Step3FileList
                 processedChunks={processedChunks}
                 onShare={handleShare}
-                onShareClick={(name, index) =>
-                  setModalContext({ name, index })
-                }
+                onShareClick={(name, index) => setModalContext({ name, index })}
               />
             )}
           </div>

@@ -1,8 +1,5 @@
 import { useRef, useState } from "react";
-import type {
-  FileStats,
-  PayPayTransaction,
-} from "~/services/csv-processor";
+import type { FileStats, PayPayTransaction } from "~/services/csv-processor";
 import { extractTransactionsFromPayPayCsv } from "~/services/csv-processor";
 import { readFileAsText } from "~/utils/file-reader";
 
@@ -57,7 +54,7 @@ export default function Step1PayPayUpload({
 
       if (result.transactions.length === 0) {
         throw new Error(
-          "PayPayのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。"
+          "PayPayのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。",
         );
       }
 
@@ -71,7 +68,7 @@ export default function Step1PayPayUpload({
       }
       onDataParsed(null);
     }
-  }
+  };
 
   const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();

@@ -52,7 +52,7 @@ export const parseDate = (dateValue: string | undefined): Date | null => {
 export const updateDateRange = (
   date: Date,
   minDate: Date | null,
-  maxDate: Date | null
+  maxDate: Date | null,
 ): [Date | null, Date | null] => {
   const newMinDate = !minDate || date < minDate ? date : minDate;
   const newMaxDate = !maxDate || date > maxDate ? date : maxDate;
@@ -60,7 +60,7 @@ export const updateDateRange = (
 };
 
 export const createMfmeExclusionSet = (
-  mfmeCsvs: string[]
+  mfmeCsvs: string[],
 ): {
   exclusionSet: Set<string>;
   stats: Omit<MfFileStats, "duplicates">;
@@ -146,7 +146,7 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
       [stats.startDate, stats.endDate] = updateDateRange(
         date,
         stats.startDate,
-        stats.endDate
+        stats.endDate,
       );
     }
 
@@ -155,7 +155,7 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
     const createTransaction = (
       name: string,
       amountStr: string,
-      rec: Record
+      rec: Record,
     ): PayPayTransaction => {
       const dateKey = rec["取引日"]?.split(" ")[0]; // YYYY/MM/DD
       const amountKey = isExpense ? `-${amountStr}` : amountStr;
@@ -208,7 +208,7 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
  */
 export function filterTransactions(
   transactions: PayPayTransaction[],
-  exclusionSet: Set<string>
+  exclusionSet: Set<string>,
 ): {
   groupedRecords: { [paymentMethod: string]: Record[] };
   duplicates: number;
@@ -241,7 +241,7 @@ export function filterTransactions(
  */
 export function createChunksFromGroupedRecords(
   groupedRecords: { [paymentMethod: string]: Record[] },
-  headers: string[]
+  headers: string[],
 ): ProcessedResult {
   const chunks: ProcessedResult = {};
   const chunkSize = 100;
