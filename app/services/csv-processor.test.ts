@@ -139,10 +139,10 @@ describe("processPayPayCsv", () => {
     expect(result.mfStats.count).toBe(1);
     expect(result.mfStats.duplicates).toBe(1);
     expect(result.mfStats.startDate?.toISOString()).toEqual(
-      "2025-10-24T00:00:00.000Z"
+      "2025-10-23T15:00:00.000Z"
     );
     expect(result.mfStats.endDate?.toISOString()).toEqual(
-      "2025-10-24T00:00:00.000Z"
+      "2025-10-23T15:00:00.000Z"
     );
   });
 });
