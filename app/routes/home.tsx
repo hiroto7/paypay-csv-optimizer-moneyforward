@@ -9,6 +9,7 @@ import {
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
 import Step2MfmeFilter from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
+import { readFileAsText, readFilesAsText } from "~/utils/file-reader";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -188,46 +189,11 @@ export default function Home() {
       setPaypayStats(null);
       setMfStats(null);
 
-      const readPayPayFile = new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (typeof e.target?.result === "string") {
-            resolve(e.target.result);
-          } else {
-            reject(new Error("Failed to read PayPay CSV file."));
-          }
-        };
-        reader.onerror = () =>
-          reject(new Error("Error reading PayPay CSV file."));
-        reader.readAsText(payPayFile, "Shift_JIS");
-      });
-
-      const readMfmeFiles = mfmeFiles
-        ? Promise.all(
-            Array.from(mfmeFiles).map(
-              (file) =>
-                new Promise<string>((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = (e) => {
-                    if (typeof e.target?.result === "string") {
-                      resolve(e.target.result);
-                    } else {
-                      reject(new Error(`Failed to read file: ${file.name}`));
-                    }
-                  };
-                  reader.onerror = () =>
-                    reject(new Error(`Error reading file: ${file.name}`));
-                  reader.readAsText(file, "Shift_JIS");
-                })
-            )
-          )
-        : Promise.resolve([]);
-
       try {
-        const [payPayContent, mfmeContents] = await Promise.all([
-          readPayPayFile,
-          readMfmeFiles,
-        ]);
+        const payPayContent = await readFileAsText(payPayFile, "Shift_JIS");
+        const mfmeContents = mfmeFiles
+          ? await readFilesAsText(mfmeFiles, "Shift_JIS")
+          : [];
 
         const result = processPayPayCsv(payPayContent, mfmeContents);
         const { chunks, paypayStats, mfStats } = result;
