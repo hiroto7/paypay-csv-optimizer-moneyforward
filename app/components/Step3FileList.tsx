@@ -89,6 +89,7 @@ export default function Step3FileList({
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() =>
                           onShare(filename, chunk.data, () =>
                             onShareClick(name, index),

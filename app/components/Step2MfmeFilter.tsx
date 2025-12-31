@@ -193,6 +193,7 @@ export default function Step2MfmeFilter({
           {(!mfmeFiles || mfmeFiles.length === 0) && (
             <div className="mt-4">
               <button
+                type="button"
                 onClick={handleSkip}
                 className="w-full px-4 py-3 bg-slate-700 text-slate-200 rounded-lg font-semibold hover:bg-slate-600 transition-colors"
               >
@@ -213,6 +214,7 @@ export default function Step2MfmeFilter({
               </p>
             </div>
             <button
+              type="button"
               onClick={handleUndo}
               className="px-3 py-1.5 text-sm bg-slate-600 text-slate-200 rounded hover:bg-slate-500 transition-colors whitespace-nowrap"
             >

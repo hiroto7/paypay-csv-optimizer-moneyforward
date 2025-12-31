@@ -35,7 +35,7 @@ export const parseDate = (dateValue: string | undefined): Date | null => {
     if (hasTime) {
       // 時刻がある場合（PayPay CSV）はJSTとして扱う
       // `YYYY/MM/DD HH:mm:ss` → `YYYY-MM-DDTHH:mm:ss+09:00`
-      dateStr = dateStr.replace(" ", "T") + "+09:00";
+      dateStr = `${dateStr.replace(" ", "T")}+09:00`;
     } else {
       // 時刻がない場合（MFME CSV）はJST 00:00:00として扱う
       // `YYYY/MM/DD` → `YYYY-MM-DDT00:00:00+09:00`
@@ -43,7 +43,7 @@ export const parseDate = (dateValue: string | undefined): Date | null => {
     }
 
     const date = new Date(dateStr);
-    return isNaN(date.getTime()) ? null : date;
+    return Number.isNaN(date.getTime()) ? null : date;
   } catch {
     return null;
   }

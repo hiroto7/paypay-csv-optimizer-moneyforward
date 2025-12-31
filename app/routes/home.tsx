@@ -13,7 +13,7 @@ import {
 } from "~/services/csv-processor";
 import type { Route } from "./+types/home";
 
-export function meta({}: Route.MetaArgs) {
+export function meta(_args: Route.MetaArgs) {
   return [
     { title: "PayPay CSV Optimizer for マネーフォワード ME" },
     {
@@ -78,13 +78,11 @@ const MfImportGuideModal = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center transition-opacity duration-300"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center transition-opacity duration-300">
       <div
         className="bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-6 md:p-8 max-w-lg w-full mx-4"
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         <h3 className="text-2xl font-bold mb-6 text-slate-100">
           マネーフォワード MEでの取り込み手順
@@ -115,12 +113,14 @@ const MfImportGuideModal = ({
         </div>
         <div className="mt-8 flex justify-end gap-4">
           <button
+            type="button"
             onClick={onClose}
             className="px-5 py-2.5 bg-slate-700 text-slate-200 rounded-md font-semibold hover:bg-slate-600 transition-colors"
           >
             閉じる
           </button>
           <button
+            type="button"
             onClick={onImported}
             className="px-5 py-2.5 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-500 transition-colors"
           >
