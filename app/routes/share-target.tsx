@@ -11,25 +11,45 @@ const toSearchParamValue = (value: unknown) => {
 };
 
 export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
-  const file = formData.get("csv");
-  const params = new URLSearchParams({ shareTarget: "poc" });
+  const params = new URLSearchParams({
+    shareTarget: "poc",
+    requestMethod: request.method,
+    contentType: toSearchParamValue(request.headers.get("content-type")),
+  });
 
-  if (file instanceof File) {
-    params.set("fileName", toSearchParamValue(file.name));
-    params.set("fileType", toSearchParamValue(file.type));
-    params.set("fileSize", toSearchParamValue(file.size));
-  } else {
-    params.set("fileName", "not-file");
-    params.set("fileType", "not-file");
+  try {
+    const formData = await request.formData();
+    const file = formData.get("csv");
+
+    if (file instanceof File) {
+      params.set("fileName", toSearchParamValue(file.name));
+      params.set("fileType", toSearchParamValue(file.type));
+      params.set("fileSize", toSearchParamValue(file.size));
+    } else {
+      params.set("fileName", "not-file");
+      params.set("fileType", "not-file");
+      params.set("fileSize", "0");
+    }
+  } catch {
+    params.set("fileName", "form-data-parse-failed");
+    params.set("fileType", "form-data-parse-failed");
     params.set("fileSize", "0");
   }
 
   return redirect(`/?${params.toString()}`);
 }
 
-export function loader() {
-  return redirect("/");
+export function loader({ request }: Route.LoaderArgs) {
+  const params = new URLSearchParams({
+    shareTarget: "poc",
+    requestMethod: request.method,
+    contentType: toSearchParamValue(request.headers.get("content-type")),
+    fileName: "loader-called",
+    fileType: "loader-called",
+    fileSize: "0",
+  });
+
+  return redirect(`/?${params.toString()}`);
 }
 
 export default function ShareTarget() {
