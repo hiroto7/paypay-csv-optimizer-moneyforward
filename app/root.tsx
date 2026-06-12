@@ -48,6 +48,26 @@ if ("serviceWorker" in navigator) {
     });
   });
 }
+
+(() => {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get("shareTarget") !== "poc") {
+    return;
+  }
+
+  const fileName = params.get("fileName") ?? "unknown";
+  const fileType = params.get("fileType") ?? "unknown";
+  const fileSize = params.get("fileSize") ?? "unknown";
+
+  window.alert([
+    "共有ファイルを受け取りました",
+    "",
+    ` + "`ファイル名: ${fileName}`" + `,
+    ` + "`MIME type: ${fileType}`" + `,
+    ` + "`サイズ: ${fileSize} bytes`" + `,
+  ].join("\n"));
+})();
 `,
           }}
         />
