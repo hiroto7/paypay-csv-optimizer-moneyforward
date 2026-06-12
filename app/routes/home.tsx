@@ -399,9 +399,13 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500">
+          <div
+            className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-zinc-500"
+            title="ブラウザ内で処理"
+          >
             <LockKeyhole className="size-3.5" aria-hidden="true" />
-            ブラウザ内で処理
+            <span className="hidden sm:inline">ブラウザ内で処理</span>
+            <span className="sr-only sm:hidden">ブラウザ内で処理</span>
           </div>
         </div>
       </header>
