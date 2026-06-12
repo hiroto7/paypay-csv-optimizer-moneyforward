@@ -1,31 +1,19 @@
+import { CheckCircle2, FileText, UploadCloud } from "lucide-react";
 import { useState } from "react";
-
-type DropzoneTone = "red" | "purple";
-
-const toneClasses: Record<DropzoneTone, { active: string; idle: string }> = {
-  red: {
-    active: "border-red-500 bg-red-500/10",
-    idle: "border-slate-600 hover:border-red-400",
-  },
-  purple: {
-    active: "border-purple-500 bg-purple-500/10",
-    idle: "border-slate-600 hover:border-purple-400",
-  },
-};
 
 interface CsvDropzoneProps {
   id: string;
   multiple?: boolean;
-  tone: DropzoneTone;
-  label: string;
+  fileLabel?: string | undefined;
+  prompt: string;
   onFilesSelected: (files: FileList | null) => void;
 }
 
 export default function CsvDropzone({
   id,
   multiple = false,
-  tone,
-  label,
+  fileLabel,
+  prompt,
   onFilesSelected,
 }: CsvDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -43,13 +31,15 @@ export default function CsvDropzone({
     onFilesSelected(event.dataTransfer.files);
   };
 
-  const classes = toneClasses[tone];
-
   return (
     <label
       htmlFor={id}
-      className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors block ${
-        isDragging ? classes.active : classes.idle
+      className={`group flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed px-5 py-6 text-center transition-colors ${
+        isDragging
+          ? "border-red-500 bg-red-50"
+          : fileLabel
+            ? "border-emerald-300 bg-emerald-50/60 hover:border-emerald-400"
+            : "border-zinc-300 bg-zinc-50 hover:border-zinc-400 hover:bg-white"
       }`}
       onDragEnter={(event) => {
         event.preventDefault();
@@ -67,7 +57,26 @@ export default function CsvDropzone({
         onChange={(event) => onFilesSelected(event.target.files)}
         className="sr-only"
       />
-      <p className="text-slate-400 pointer-events-none">{label}</p>
+      {fileLabel ? (
+        <CheckCircle2 className="size-6 text-emerald-600" aria-hidden="true" />
+      ) : isDragging ? (
+        <FileText className="size-6 text-red-600" aria-hidden="true" />
+      ) : (
+        <UploadCloud
+          className="size-6 text-zinc-500 transition-colors group-hover:text-zinc-700"
+          aria-hidden="true"
+        />
+      )}
+      <span
+        className={`max-w-full break-words text-sm font-semibold ${
+          fileLabel ? "text-emerald-900" : "text-zinc-700"
+        }`}
+      >
+        {fileLabel ?? prompt}
+      </span>
+      <span className="text-xs text-zinc-500">
+        {fileLabel ? "クリックして変更" : "CSV / ドラッグ＆ドロップ対応"}
+      </span>
     </label>
   );
 }

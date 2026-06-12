@@ -15,6 +15,7 @@
     "csv-parse": "^6.2.1",
     "csv-stringify": "^6.7.0",
     "isbot": "^5.1.42",
+    "lucide-react": "^1.17.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router": "^7.17.0"

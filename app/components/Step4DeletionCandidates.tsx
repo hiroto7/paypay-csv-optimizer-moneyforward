@@ -1,3 +1,9 @@
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  ListChecks,
+} from "lucide-react";
 import type { DeletionCandidate } from "~/services/csv-processor";
 
 interface Step4DeletionCandidatesProps {
@@ -6,7 +12,7 @@ interface Step4DeletionCandidatesProps {
 }
 
 const reasonLabel = (reason: DeletionCandidate["reason"]) =>
-  reason === "wrong-account" ? "別口座取り込み" : "重複取り込み";
+  reason === "wrong-account" ? "別口座の可能性" : "重複の可能性";
 
 export default function Step4DeletionCandidates({
   candidates,
@@ -17,112 +23,120 @@ export default function Step4DeletionCandidates({
   ).length;
   const duplicateCount = candidates.length - wrongAccountCount;
 
-  return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-      <h2 className="text-2xl font-bold text-slate-100 mb-4">
-        4. 削除候補の確認
-      </h2>
-      <p className="text-sm text-slate-400 mb-4">
-        PayPay明細とマネーフォワード
-        ME明細を突き合わせ、重複取り込みや別口座取り込みの可能性がある明細を探します。
-      </p>
+  if (candidates.length === 0) {
+    return (
+      <section
+        className="flex min-h-96 flex-col items-center justify-center px-6 py-12 text-center"
+        aria-labelledby="audit-result-title"
+      >
+        <div className="flex size-12 items-center justify-center bg-emerald-50 text-emerald-700">
+          <CheckCircle2 className="size-6" aria-hidden="true" />
+        </div>
+        <h2
+          id="audit-result-title"
+          className="mt-4 text-lg font-bold text-zinc-950"
+        >
+          要確認明細は見つかりませんでした
+        </h2>
+        <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
+          読み込んだ期間では、PayPay明細と一致する重複や別口座への取り込みは検出されていません。
+        </p>
+      </section>
+    );
+  }
 
-      {candidates.length === 0 ? (
-        <div className="bg-emerald-900/30 border border-emerald-500/30 text-emerald-200 rounded-lg p-4">
-          <p className="font-semibold">削除候補は見つかりませんでした</p>
-          <p className="text-sm text-emerald-100/80 mt-1">
-            読み込んだ範囲では、同じPayPay明細の重複や別口座への取り込みは検出されていません。
+  return (
+    <section aria-labelledby="audit-result-title">
+      <div className="flex flex-col gap-4 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <AlertTriangle
+              className="size-5 text-amber-600"
+              aria-hidden="true"
+            />
+            <h2
+              id="audit-result-title"
+              className="text-base font-bold text-zinc-950"
+            >
+              要確認明細 {candidates.length}件
+            </h2>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">
+            別口座 {wrongAccountCount}件 / 重複 {duplicateCount}件
           </p>
         </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-              <p className="text-sm text-slate-400">削除候補</p>
-              <p className="text-2xl font-bold text-slate-100">
-                {candidates.length}件
-              </p>
-            </div>
-            <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-              <p className="text-sm text-slate-400">別口座取り込み</p>
-              <p className="text-2xl font-bold text-yellow-200">
-                {wrongAccountCount}件
-              </p>
-            </div>
-            <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-              <p className="text-sm text-slate-400">重複取り込み</p>
-              <p className="text-2xl font-bold text-red-200">
-                {duplicateCount}件
-              </p>
-            </div>
-          </div>
+        <button
+          type="button"
+          onClick={onDownload}
+          className="inline-flex h-9 items-center justify-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
+        >
+          <Download className="size-4" aria-hidden="true" />
+          照合結果をダウンロード
+        </button>
+      </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-700">
-            <table className="min-w-full divide-y divide-slate-700 text-sm">
-              <thead className="bg-slate-800">
-                <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-300">
-                    理由
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-300">
-                    日付
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-300">
-                    内容
-                  </th>
-                  <th className="px-3 py-2 text-right font-semibold text-slate-300">
-                    金額
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-300">
-                    実際の口座
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-300">
-                    期待される口座
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700 bg-slate-900/30">
-                {candidates.slice(0, 20).map((candidate) => (
-                  <tr key={candidate.key}>
-                    <td className="px-3 py-2 text-slate-200">
-                      {reasonLabel(candidate.reason)}
-                    </td>
-                    <td className="px-3 py-2 text-slate-300 whitespace-nowrap">
-                      {candidate.date}
-                    </td>
-                    <td className="px-3 py-2 text-slate-300">
-                      {candidate.content}
-                    </td>
-                    <td className="px-3 py-2 text-slate-300 text-right whitespace-nowrap">
-                      {candidate.amount}
-                    </td>
-                    <td className="px-3 py-2 text-slate-300">
-                      {candidate.actualInstitution}
-                    </td>
-                    <td className="px-3 py-2 text-slate-300">
-                      {candidate.expectedInstitution}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {candidates.length > 20 && (
-            <p className="text-sm text-slate-400">
-              画面には先頭20件のみ表示しています。全件はCSVで確認してください。
-            </p>
-          )}
-
-          <button
-            type="button"
-            onClick={onDownload}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-md font-semibold text-white transition-colors bg-red-600 hover:bg-red-500"
-          >
-            削除候補CSVをダウンロード
-          </button>
+      <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs leading-5 text-amber-950">
+        <div className="flex gap-2">
+          <ListChecks className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p>
+            この一覧は削除候補です。MoneyForward
+            ME上で内容と口座を確認してから、必要な明細だけを削除してください。
+          </p>
         </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-[800px] w-full text-sm">
+          <thead>
+            <tr className="border-b border-zinc-200 bg-zinc-50 text-xs text-zinc-500">
+              <th className="px-5 py-3 text-left font-semibold">判定</th>
+              <th className="px-3 py-3 text-left font-semibold">日付</th>
+              <th className="px-3 py-3 text-left font-semibold">内容</th>
+              <th className="px-3 py-3 text-right font-semibold">金額</th>
+              <th className="px-3 py-3 text-left font-semibold">実際の口座</th>
+              <th className="px-5 py-3 text-left font-semibold">想定口座</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-200">
+            {candidates.slice(0, 50).map((candidate) => (
+              <tr key={candidate.key} className="hover:bg-zinc-50">
+                <td className="px-5 py-3">
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold ${
+                      candidate.reason === "wrong-account"
+                        ? "bg-amber-100 text-amber-900"
+                        : "bg-red-50 text-red-800"
+                    }`}
+                  >
+                    {reasonLabel(candidate.reason)}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-zinc-600">
+                  {candidate.date}
+                </td>
+                <td className="max-w-64 px-3 py-3 font-medium text-zinc-800">
+                  {candidate.content}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-zinc-700">
+                  {Number(candidate.amount).toLocaleString("ja-JP")}円
+                </td>
+                <td className="px-3 py-3 text-zinc-700">
+                  {candidate.actualInstitution}
+                </td>
+                <td className="px-5 py-3 text-zinc-700">
+                  {candidate.expectedInstitution}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {candidates.length > 50 && (
+        <p className="border-t border-zinc-200 px-5 py-3 text-xs text-zinc-500">
+          画面には先頭50件を表示しています。全件はダウンロードしたCSVで確認できます。
+        </p>
       )}
-    </div>
+    </section>
   );
 }

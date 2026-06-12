@@ -1,3 +1,11 @@
+import {
+  AlertTriangle,
+  CalendarDays,
+  Check,
+  Download,
+  FileSpreadsheet,
+  Rows3,
+} from "lucide-react";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { ProcessedResult } from "~/services/csv-processor";
 
@@ -11,91 +19,131 @@ interface Step3FileListProps {
   onShareClick: (name: string, index: number) => void;
 }
 
+const createFilename = (name: string, index: number, totalParts: number) => {
+  const normalizedName = name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-|-$/g, "");
+  return `paypay-${normalizedName || "transactions"}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
+};
+
 export default function Step3FileList({
   processedChunks,
   onShare,
   onShareClick,
 }: Step3FileListProps) {
-  return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-      <h2 className="text-2xl font-bold text-slate-100 mb-4">
-        3. マネーフォワード ME取込用ファイル
-      </h2>
-      <div className="space-y-6">
-        {Object.keys(processedChunks).map((name) => {
-          const chunks = processedChunks[name];
-          if (!chunks || chunks.length === 0) return null;
+  const groups = Object.entries(processedChunks).filter(
+    ([, chunks]) => chunks.length > 0,
+  );
+  const totalFiles = groups.reduce((sum, [, chunks]) => sum + chunks.length, 0);
+  const totalRecords = groups.reduce(
+    (sum, [, chunks]) =>
+      sum + chunks.reduce((chunkSum, chunk) => chunkSum + chunk.count, 0),
+    0,
+  );
 
-          return (
-            <div key={name} className="space-y-3">
-              <div className="flex items-baseline gap-3">
-                <h3 className="text-xl font-bold">{name}</h3>
-                <span className="text-sm text-slate-400">
-                  {chunks.reduce((sum, chunk) => sum + chunk.count, 0)}件
-                </span>
+  return (
+    <section aria-labelledby="output-title">
+      <div className="flex flex-col gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 id="output-title" className="text-base font-bold text-zinc-950">
+            変換結果
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            {totalRecords}件を{totalFiles}ファイルに分割しました
+          </p>
+        </div>
+        <div className="flex gap-4 text-xs text-zinc-600">
+          <span className="inline-flex items-center gap-1.5">
+            <Rows3 className="size-3.5" aria-hidden="true" />
+            {groups.length}口座
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <FileSpreadsheet className="size-3.5" aria-hidden="true" />
+            {totalFiles}ファイル
+          </span>
+        </div>
+      </div>
+
+      <div className="divide-y divide-zinc-200">
+        {groups.map(([name, chunks]) => (
+          <div key={name} className="px-5 py-5">
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h3 className="text-sm font-bold text-zinc-950">{name}</h3>
+              <span className="text-xs text-zinc-500">
+                {chunks.reduce((sum, chunk) => sum + chunk.count, 0)}件
+              </span>
+            </div>
+
+            {!name.startsWith("PayPay") && (
+              <div className="mb-3 flex gap-2 border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <AlertTriangle
+                  className="mt-0.5 size-4 shrink-0"
+                  aria-hidden="true"
+                />
+                <p>
+                  MFMEで「{name}
+                  」を直接連携している場合は、重複しないか確認してください。
+                </p>
               </div>
-              {!name.startsWith("PayPay") && (
-                <div className="text-sm bg-yellow-900/50 border border-yellow-500/30 text-yellow-300 p-3 rounded-md">
-                  <p>
-                    <strong>注意:</strong> マネーフォワード MEで「{name}
-                    」を直接連携している場合、CSVを取り込むと明細が重複する恐れがあります。
-                  </p>
-                </div>
-              )}
-              <div className="space-y-3">
-                {chunks.map((chunk, index) => {
-                  const totalParts = chunks.length;
-                  const filename = `paypay-${name.toLowerCase().replace(/\s/g, "-")}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
-                  return (
-                    <div
-                      key={filename}
-                      className={`rounded-lg p-4 border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
+            )}
+
+            <div className="divide-y divide-zinc-200 border-y border-zinc-200">
+              {chunks.map((chunk, index) => {
+                const filename = createFilename(name, index, chunks.length);
+                return (
+                  <div
+                    key={filename}
+                    className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                  >
+                    <div className={chunk.imported ? "opacity-55" : ""}>
+                      <p className="break-all text-sm font-semibold text-zinc-800">
+                        {filename}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+                        <span>{chunk.count}件</span>
+                        {chunk.startDate && chunk.endDate && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <CalendarDays
+                              className="size-3.5"
+                              aria-hidden="true"
+                            />
+                            <PeriodDisplay
+                              startDate={chunk.startDate}
+                              endDate={chunk.endDate}
+                            />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onShare(filename, chunk.data, () =>
+                          onShareClick(name, index),
+                        )
+                      }
+                      disabled={chunk.imported}
+                      className={`inline-flex h-9 w-full items-center justify-center gap-2 px-4 text-sm font-semibold sm:w-auto ${
                         chunk.imported
-                          ? "bg-slate-700/30 border-slate-600/50"
-                          : "bg-slate-700/50 border-slate-600"
+                          ? "cursor-default bg-zinc-100 text-zinc-500"
+                          : "bg-zinc-900 text-white hover:bg-zinc-700"
                       }`}
                     >
-                      <div
-                        className={`${chunk.imported ? "line-through text-slate-500" : ""}`}
-                      >
-                        <p className="font-semibold">
-                          {totalParts > 1
-                            ? `ファイル ${index + 1}/${totalParts}`
-                            : filename}
-                        </p>
-                        <div className="text-sm text-slate-400 flex gap-x-4">
-                          <p>{chunk.count}件</p>
-                          {chunk.startDate && chunk.endDate && (
-                            <p>
-                              期間:{" "}
-                              <PeriodDisplay
-                                startDate={chunk.startDate}
-                                endDate={chunk.endDate}
-                              />
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onShare(filename, chunk.data, () =>
-                            onShareClick(name, index),
-                          )
-                        }
-                        disabled={chunk.imported}
-                        className="w-full sm:w-auto px-5 py-2.5 rounded-md shrink-0 font-semibold text-white transition-all duration-200 ease-in-out disabled:bg-slate-600 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500"
-                      >
-                        {chunk.imported ? "取り込み済み" : "取り込み"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+                      {chunk.imported ? (
+                        <Check className="size-4" aria-hidden="true" />
+                      ) : (
+                        <Download className="size-4" aria-hidden="true" />
+                      )}
+                      {chunk.imported ? "確認済み" : "取り込む"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }

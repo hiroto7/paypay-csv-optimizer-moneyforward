@@ -1,3 +1,4 @@
+import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
 import { useState } from "react";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
@@ -41,58 +42,74 @@ export default function Step1PayPayUpload({
 
       if (result.transactions.length === 0) {
         throw new Error(
-          "PayPayのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。",
+          "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
         );
       }
 
       setPaypayStats(result.stats);
       onDataParsed(result);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("PayPayのCSVファイルの読み込みに失敗しました。");
-      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "PayPay CSVの読み込みに失敗しました。",
+      );
+      setPaypayStats(null);
       onDataParsed(null);
     }
   };
 
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-      <h2 className="text-2xl font-bold text-slate-100 mb-4">
-        1. PayPayの取引履歴CSVを選択
-      </h2>
+    <section aria-labelledby="paypay-upload-title">
+      <div className="mb-3 flex items-start gap-3">
+        <div className="flex size-8 shrink-0 items-center justify-center bg-red-50 text-red-600">
+          <ReceiptText className="size-4" aria-hidden="true" />
+        </div>
+        <div>
+          <h2
+            id="paypay-upload-title"
+            className="text-sm font-bold text-zinc-950"
+          >
+            PayPay取引履歴
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-500">変換・照合の基準データ</p>
+        </div>
+      </div>
+
       <CsvDropzone
         id="paypay-csv-input"
-        tone="red"
-        label={
-          payPayFile
-            ? payPayFile.name
-            : "ファイルをドラッグ＆ドロップするか、ここをクリックして選択"
-        }
+        fileLabel={payPayFile?.name}
+        prompt="PayPay CSVを選択"
         onFilesSelected={handleFileChange}
       />
+
       {paypayStats && (
-        <div className="mt-4 space-y-1 text-sm text-slate-400">
-          <p>読み込み件数: {paypayStats.count}件</p>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
+          <span className="inline-flex items-center gap-1.5">
+            <ReceiptText className="size-3.5" aria-hidden="true" />
+            {paypayStats.count}件
+          </span>
           {paypayStats.startDate && paypayStats.endDate && (
-            <p>
-              明細の期間:{" "}
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="size-3.5" aria-hidden="true" />
               <PeriodDisplay
                 startDate={paypayStats.startDate}
                 endDate={paypayStats.endDate}
               />
-            </p>
+            </span>
           )}
         </div>
       )}
+
       {error && (
-        <div className="mt-4 bg-red-900/50 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
-          <p>
-            <strong>エラー:</strong> {error}
-          </p>
+        <div
+          className="mt-3 flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
+          role="alert"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p>{error}</p>
         </div>
       )}
-    </div>
+    </section>
   );
 }
