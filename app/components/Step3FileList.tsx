@@ -19,12 +19,32 @@ interface Step3FileListProps {
   onShareClick: (name: string, index: number) => void;
 }
 
-const createFilename = (name: string, index: number, totalParts: number) => {
-  const normalizedName = name
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-|-$/g, "");
-  return `paypay-${normalizedName || "transactions"}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
+const createFilename = (
+  filenameBase: string,
+  index: number,
+  totalParts: number,
+) => `paypay-${filenameBase}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
+
+const createUniqueFilenameBases = (names: string[]) => {
+  const usedBases = new Set<string>();
+
+  return names.map((name) => {
+    const normalizedName =
+      name
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, "-")
+        .replace(/^-|-$/g, "") || "transactions";
+    let filenameBase = normalizedName;
+    let suffix = 2;
+
+    while (usedBases.has(filenameBase)) {
+      filenameBase = `${normalizedName}-${suffix}`;
+      suffix++;
+    }
+
+    usedBases.add(filenameBase);
+    return filenameBase;
+  });
 };
 
 export default function Step3FileList({
@@ -34,6 +54,9 @@ export default function Step3FileList({
 }: Step3FileListProps) {
   const groups = Object.entries(processedChunks).filter(
     ([, chunks]) => chunks.length > 0,
+  );
+  const uniqueFilenameBases = createUniqueFilenameBases(
+    groups.map(([name]) => name),
   );
   const totalFiles = groups.reduce((sum, [, chunks]) => sum + chunks.length, 0);
   const totalRecords = groups.reduce(
@@ -66,7 +89,7 @@ export default function Step3FileList({
       </div>
 
       <div className="divide-y divide-zinc-200">
-        {groups.map(([name, chunks]) => (
+        {groups.map(([name, chunks], groupIndex) => (
           <div key={name} className="px-5 py-5">
             <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
               <h3 className="text-sm font-bold text-zinc-950">{name}</h3>
@@ -90,7 +113,11 @@ export default function Step3FileList({
 
             <div className="divide-y divide-zinc-200 border-y border-zinc-200">
               {chunks.map((chunk, index) => {
-                const filename = createFilename(name, index, chunks.length);
+                const filename = createFilename(
+                  uniqueFilenameBases[groupIndex] ?? name,
+                  index,
+                  chunks.length,
+                );
                 return (
                   <div
                     key={filename}

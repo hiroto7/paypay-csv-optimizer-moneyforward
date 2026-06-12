@@ -8,7 +8,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Step1PayPayUpload, {
   type PayPayParsedData,
 } from "~/components/Step1PayPayUpload";
@@ -83,87 +83,177 @@ const MfImportGuideModal = ({
   accountName: string;
   onClose: () => void;
   onImported: () => void;
-}) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4">
-    <div
-      className="w-full max-w-lg border border-zinc-200 bg-white shadow-2xl"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="import-guide-title"
-    >
-      <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
-        <div>
-          <h2
-            id="import-guide-title"
-            className="text-base font-bold text-zinc-950"
+}) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const previouslyFocusedElement =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    return () => previouslyFocusedElement?.focus();
+  }, []);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusableElements = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusableElements || focusableElements.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement?.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement?.focus();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4">
+      <div
+        ref={dialogRef}
+        className="w-full max-w-lg border border-zinc-200 bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-guide-title"
+        aria-describedby="import-guide-description"
+        onKeyDown={handleKeyDown}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
+          <div>
+            <h2
+              id="import-guide-title"
+              className="text-base font-bold text-zinc-950"
+            >
+              MoneyForward MEで保存
+            </h2>
+            <p
+              id="import-guide-description"
+              className="mt-1 text-xs text-zinc-500"
+            >
+              CSVを渡した後、口座を確認してください
+            </p>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            className="inline-flex size-8 shrink-0 items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+            aria-label="閉じる"
+            title="閉じる"
           >
-            MoneyForward MEで保存
-          </h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            CSVを渡した後、口座を確認してください
-          </p>
+            <X className="size-4" aria-hidden="true" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex size-8 shrink-0 items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-          aria-label="閉じる"
-          title="閉じる"
-        >
-          <X className="size-4" aria-hidden="true" />
-        </button>
-      </div>
 
-      <ol className="divide-y divide-zinc-200 px-5">
-        {[
-          "MoneyForward MEの「読み込んだ明細」を開く",
-          `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
-          "内容を確認して右上の「保存」を押す",
-        ].map((instruction, index) => (
-          <li
-            key={instruction}
-            className="grid grid-cols-[28px_1fr] gap-3 py-4 text-sm text-zinc-700"
+        <ol className="divide-y divide-zinc-200 px-5">
+          {[
+            "MoneyForward MEの「読み込んだ明細」を開く",
+            `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
+            "内容を確認して右上の「保存」を押す",
+          ].map((instruction, index) => (
+            <li
+              key={instruction}
+              className="grid grid-cols-[28px_1fr] gap-3 py-4 text-sm text-zinc-700"
+            >
+              <span className="flex size-7 items-center justify-center bg-zinc-100 text-xs font-bold text-zinc-700">
+                {index + 1}
+              </span>
+              <span className="pt-1">{instruction}</span>
+            </li>
+          ))}
+        </ol>
+
+        <div className="flex justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
           >
-            <span className="flex size-7 items-center justify-center bg-zinc-100 text-xs font-bold text-zinc-700">
-              {index + 1}
-            </span>
-            <span className="pt-1">{instruction}</span>
-          </li>
-        ))}
-      </ol>
-
-      <div className="flex justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="h-9 border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-        >
-          後で確認
-        </button>
-        <button
-          type="button"
-          onClick={onImported}
-          className="inline-flex h-9 items-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
-        >
-          <Check className="size-4" aria-hidden="true" />
-          MoneyForward MEで保存した
-        </button>
+            後で確認
+          </button>
+          <button
+            type="button"
+            onClick={onImported}
+            className="inline-flex h-9 items-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
+          >
+            <Check className="size-4" aria-hidden="true" />
+            MoneyForward MEで保存した
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 function WorkspaceEmptyState({
   mode,
   hasPayPay,
   hasMfme,
+  hasOutput,
 }: {
   mode: AppMode;
   hasPayPay: boolean;
   hasMfme: boolean;
+  hasOutput: boolean;
 }) {
   const isAudit = mode === "audit";
-  const ready = hasPayPay && (isAudit ? hasMfme : true);
+  const hasRequiredInputs = hasPayPay && hasMfme;
+  const conversionIsEmpty = !isAudit && hasRequiredInputs && !hasOutput;
+
+  const title = (() => {
+    if (!hasPayPay) {
+      return isAudit
+        ? "2種類のCSVを選択してください"
+        : "PayPay CSVを選択してください";
+    }
+    if (!hasMfme) {
+      return isAudit
+        ? "MoneyForward ME CSVを選択してください"
+        : "既存明細を除外するか選択してください";
+    }
+    if (conversionIsEmpty) {
+      return "変換対象の取引はありません";
+    }
+    return "明細を照合できます";
+  })();
+
+  const description = (() => {
+    if (!hasPayPay) {
+      return isAudit
+        ? "照合するPayPay取引履歴とMoneyForward ME明細のCSVを選択してください。"
+        : "PayPayの併用払いを分割し、MoneyForward MEへ取り込める100件単位のCSVを作成します。";
+    }
+    if (!hasMfme) {
+      return isAudit
+        ? "PayPay取引履歴と比較するMoneyForward ME明細のCSVを選択してください。"
+        : "MoneyForward ME明細を選択するか、既存明細を除外せずにCSVを作成してください。";
+    }
+    if (conversionIsEmpty) {
+      return "選択したMoneyForward ME明細に、PayPayの全取引が取り込み済みとして含まれています。";
+    }
+    return "PayPayの取引履歴とMoneyForward MEの明細を比較し、重複や別口座への取り込み候補を表示します。";
+  })();
 
   return (
     <div className="flex min-h-80 flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[520px] sm:py-12">
@@ -174,19 +264,9 @@ function WorkspaceEmptyState({
           <FileCheck2 className="size-6" aria-hidden="true" />
         )}
       </div>
-      <h2 className="mt-4 text-lg font-bold text-zinc-950">
-        {ready
-          ? isAudit
-            ? "明細を照合できます"
-            : "変換条件を選択してください"
-          : isAudit
-            ? "2種類のCSVを選択してください"
-            : "PayPay CSVを選択してください"}
-      </h2>
+      <h2 className="mt-4 text-lg font-bold text-zinc-950">{title}</h2>
       <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
-        {isAudit
-          ? "PayPayの取引履歴とMoneyForward MEの明細を比較し、重複や別口座への取り込み候補を表示します。"
-          : "PayPayの併用払いを分割し、MoneyForward MEへ取り込める100件単位のCSVを作成します。"}
+        {description}
       </p>
       <div className="mt-6 flex items-center gap-2 text-xs font-semibold">
         <span
@@ -231,33 +311,43 @@ export default function Home() {
     index: number;
   } | null>(null);
 
-  const processingResult = useMemo(() => {
-    if (!payPayData || !mfmeData) {
+  const conversionResult = useMemo(() => {
+    if (mode !== "convert" || !payPayData || !mfmeData) {
       return {
         chunks: {} satisfies ProcessedResult,
         duplicates: 0,
-        deletionCandidates: [],
       };
     }
 
-    const { transactions, headers } = payPayData;
-    const { exclusionCounts, records } = mfmeData;
     const { groupedRecords, duplicates } = filterTransactions(
-      transactions,
-      exclusionCounts,
+      payPayData.transactions,
+      mfmeData.exclusionCounts,
     );
 
     return {
-      chunks: createChunksFromGroupedRecords(groupedRecords, headers),
+      chunks: createChunksFromGroupedRecords(
+        groupedRecords,
+        payPayData.headers,
+      ),
       duplicates,
-      deletionCandidates: findMfmeDeletionCandidates(transactions, records),
     };
-  }, [payPayData, mfmeData]);
+  }, [mode, payPayData, mfmeData]);
+
+  const deletionCandidates = useMemo(() => {
+    if (mode !== "audit" || !payPayData || !mfmeData) {
+      return [];
+    }
+
+    return findMfmeDeletionCandidates(
+      payPayData.transactions,
+      mfmeData.records,
+    );
+  }, [mode, payPayData, mfmeData]);
 
   const processedChunks = useMemo<ProcessedResult>(
     () =>
       Object.fromEntries(
-        Object.entries(processingResult.chunks).map(([name, chunks]) => [
+        Object.entries(conversionResult.chunks).map(([name, chunks]) => [
           name,
           chunks.map((chunk, index) => ({
             ...chunk,
@@ -265,8 +355,12 @@ export default function Home() {
           })),
         ]),
       ),
-    [processingResult.chunks, importedChunkKeys],
+    [conversionResult.chunks, importedChunkKeys],
   );
+
+  const handleCloseModal = useCallback(() => {
+    setModalContext(null);
+  }, []);
 
   const handleMarkAsImported = () => {
     if (!modalContext) return;
@@ -275,12 +369,12 @@ export default function Home() {
       nextKeys.add(`${modalContext.name}:${modalContext.index}`);
       return nextKeys;
     });
-    setModalContext(null);
+    handleCloseModal();
   };
 
   const resetImportState = () => {
     setImportedChunkKeys(new Set());
-    setModalContext(null);
+    handleCloseModal();
   };
 
   const hasMfmeRecords = Boolean(mfmeData && mfmeData.stats.count > 0);
@@ -367,7 +461,7 @@ export default function Home() {
                     setMfmeData(data);
                     resetImportState();
                   }}
-                  duplicates={processingResult.duplicates}
+                  duplicates={conversionResult.duplicates}
                   totalTransactions={payPayData?.transactions.length}
                 />
               </div>
@@ -389,17 +483,17 @@ export default function Home() {
                   mode={mode}
                   hasPayPay={Boolean(payPayData)}
                   hasMfme={Boolean(mfmeData)}
+                  hasOutput={hasOutput}
                 />
               )
             ) : canShowAudit ? (
-              <Step4DeletionCandidates
-                candidates={processingResult.deletionCandidates}
-              />
+              <Step4DeletionCandidates candidates={deletionCandidates} />
             ) : (
               <WorkspaceEmptyState
                 mode={mode}
                 hasPayPay={Boolean(payPayData)}
                 hasMfme={hasMfmeRecords}
+                hasOutput={false}
               />
             )}
           </div>
@@ -409,7 +503,7 @@ export default function Home() {
       {modalContext && (
         <MfImportGuideModal
           accountName={modalContext.name}
-          onClose={() => setModalContext(null)}
+          onClose={handleCloseModal}
           onImported={handleMarkAsImported}
         />
       )}
