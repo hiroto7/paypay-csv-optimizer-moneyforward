@@ -82,10 +82,8 @@ export default function Step4DeletionCandidates({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700 bg-slate-900/30">
-                {candidates.slice(0, 20).map((candidate, index) => (
-                  <tr
-                    key={`${candidate.id}-${candidate.date}-${candidate.amount}-${candidate.actualInstitution}-${index}`}
-                  >
+                {candidates.slice(0, 20).map((candidate) => (
+                  <tr key={candidate.key}>
                     <td className="px-3 py-2 text-slate-200">
                       {reasonLabel(candidate.reason)}
                     </td>

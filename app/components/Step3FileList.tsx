@@ -1,17 +1,5 @@
+import PeriodDisplay from "~/components/PeriodDisplay";
 import type { ProcessedResult } from "~/services/csv-processor";
-
-const PeriodDisplay = ({
-  startDate,
-  endDate,
-}: {
-  startDate: Date;
-  endDate: Date;
-}) => {
-  const dtf = new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-  });
-  return <>{dtf.formatRange(startDate, endDate)}</>;
-};
 
 interface Step3FileListProps {
   processedChunks: ProcessedResult;

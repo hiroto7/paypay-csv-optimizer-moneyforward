@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  createDeletionCandidatesCsv,
   createChunksFromGroupedRecords,
+  createDeletionCandidatesCsv,
   createMfmeExclusionSet,
   extractTransactionsFromPayPayCsv,
-  findMfmeDeletionCandidates,
   filterTransactions,
+  findMfmeDeletionCandidates,
   parseDate,
   updateDateRange,
 } from "./csv-processor";
@@ -343,6 +343,7 @@ describe("findMfmeDeletionCandidates", () => {
   it("削除候補CSVを生成できること", () => {
     const csv = createDeletionCandidatesCsv([
       {
+        key: "id01",
         reason: "wrong-account",
         date: "2025/10/24",
         amount: "-190",

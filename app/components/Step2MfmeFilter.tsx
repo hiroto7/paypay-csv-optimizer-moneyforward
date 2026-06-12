@@ -1,25 +1,14 @@
-import { useRef, useState } from "react";
-import type { MfFileStats, Record } from "~/services/csv-processor";
+import { useState } from "react";
+import CsvDropzone from "~/components/CsvDropzone";
+import PeriodDisplay from "~/components/PeriodDisplay";
+import type { CsvRecord, MfFileStats } from "~/services/csv-processor";
 import { createMfmeExclusionSet } from "~/services/csv-processor";
 import { readFilesAsTextAuto } from "~/utils/file-reader";
-
-const PeriodDisplay = ({
-  startDate,
-  endDate,
-}: {
-  startDate: Date;
-  endDate: Date;
-}) => {
-  const dtf = new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-  });
-  return <>{dtf.formatRange(startDate, endDate)}</>;
-};
 
 export type MfmeParsedData = {
   exclusionSet: Set<string>;
   stats: Omit<MfFileStats, "duplicates">;
-  records: Record[];
+  records: CsvRecord[];
 };
 
 interface Step2MfmeFilterProps {
@@ -33,7 +22,6 @@ export default function Step2MfmeFilter({
   duplicates,
   totalTransactions,
 }: Step2MfmeFilterProps) {
-  const [isDragging, setIsDragging] = useState(false);
   const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
   const [isMfmeSkipped, setIsMfmeSkipped] = useState(false);
   const [mfStats, setMfStats] = useState<Omit<
@@ -41,7 +29,6 @@ export default function Step2MfmeFilter({
     "duplicates"
   > | null>(null);
   const [error, setError] = useState<string>("");
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (files: FileList | null) => {
     setMfmeFiles(files);
@@ -111,28 +98,6 @@ export default function Step2MfmeFilter({
     setError("");
   };
 
-  const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragging(false);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFileChange(e.dataTransfer.files);
-  };
-
   return (
     <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
       <h2 className="text-2xl font-bold text-slate-100 mb-4">
@@ -148,33 +113,17 @@ export default function Step2MfmeFilter({
           <p className="text-sm font-semibold text-yellow-300 mb-4">
             ⚠️ 既に取り込み済みの取引がある場合は、ここでCSVを選択してください
           </p>
-          <label
-            htmlFor="mfme-csv-input"
-            className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors block ${
-              isDragging
-                ? "border-purple-500 bg-purple-500/10"
-                : "border-slate-600 hover:border-purple-400"
-            }`}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
-            <input
-              id="mfme-csv-input"
-              ref={inputRef}
-              type="file"
-              accept=".csv"
-              multiple
-              onChange={(e) => handleFileChange(e.target.files)}
-              className="sr-only"
-            />
-            <p className="text-slate-400 pointer-events-none">
-              {mfmeFiles && mfmeFiles.length > 0
+          <CsvDropzone
+            id="mfme-csv-input"
+            multiple
+            tone="purple"
+            label={
+              mfmeFiles && mfmeFiles.length > 0
                 ? `${mfmeFiles.length}個のファイルを選択中`
-                : "ここにファイルをドラッグ＆ドロップ（複数選択可）"}
-            </p>
-          </label>
+                : "ここにファイルをドラッグ＆ドロップ（複数選択可）"
+            }
+            onFilesSelected={handleFileChange}
+          />
           {mfStats && mfStats.count > 0 && (
             <div className="mt-4 space-y-1 text-sm text-slate-400">
               <p>読み込み件数: {mfStats.count}件</p>

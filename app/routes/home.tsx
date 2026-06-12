@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import Step1PayPayUpload, {
   type PayPayParsedData,
 } from "~/components/Step1PayPayUpload";
@@ -8,11 +8,10 @@ import Step2MfmeFilter, {
 import Step3FileList from "~/components/Step3FileList";
 import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
 import {
-  createDeletionCandidatesCsv,
   createChunksFromGroupedRecords,
-  findMfmeDeletionCandidates,
+  createDeletionCandidatesCsv,
   filterTransactions,
-  type DeletionCandidate,
+  findMfmeDeletionCandidates,
   type ProcessedResult,
 } from "~/services/csv-processor";
 import type { Route } from "./+types/home";
@@ -48,11 +47,7 @@ const handleShare = async (
   const blob = new Blob([`\uFEFF${data}`], { type: "text/csv" });
   const file = new File([blob], filename, { type: "text/csv" });
 
-  if (
-    navigator.share &&
-    navigator.canShare &&
-    navigator.canShare({ files: [file] })
-  ) {
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file] });
       onShared();
@@ -140,64 +135,76 @@ const MfImportGuideModal = ({
 export default function Home() {
   const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
   const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
-  const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
-  const [deletionCandidates, setDeletionCandidates] = useState<
-    DeletionCandidate[]
-  >([]);
-  const [duplicates, setDuplicates] = useState<number>(0);
+  const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [modalContext, setModalContext] = useState<{
     name: string;
     index: number;
   } | null>(null);
 
+  const processingResult = useMemo(() => {
+    if (!payPayData || !mfmeData) {
+      return {
+        chunks: {} satisfies ProcessedResult,
+        duplicates: 0,
+        deletionCandidates: [],
+      };
+    }
+
+    const { transactions, headers } = payPayData;
+    const { exclusionSet, records } = mfmeData;
+    const { groupedRecords, duplicates } = filterTransactions(
+      transactions,
+      exclusionSet,
+    );
+
+    return {
+      chunks: createChunksFromGroupedRecords(groupedRecords, headers),
+      duplicates,
+      deletionCandidates: findMfmeDeletionCandidates(transactions, records),
+    };
+  }, [payPayData, mfmeData]);
+
+  const processedChunks = useMemo<ProcessedResult>(() => {
+    return Object.fromEntries(
+      Object.entries(processingResult.chunks).map(([name, chunks]) => [
+        name,
+        chunks.map((chunk, index) => ({
+          ...chunk,
+          imported: importedChunkKeys.has(`${name}:${index}`),
+        })),
+      ]),
+    );
+  }, [processingResult.chunks, importedChunkKeys]);
+
   const handleMarkAsImported = () => {
     if (!modalContext) return;
 
-    setProcessedChunks((prev) => {
-      const newChunks = { ...prev };
-      const chunkToUpdate = newChunks[modalContext.name]?.[modalContext.index];
-      if (chunkToUpdate) {
-        chunkToUpdate.imported = true;
-      }
-      return newChunks;
+    setImportedChunkKeys((currentKeys) => {
+      const nextKeys = new Set(currentKeys);
+      nextKeys.add(`${modalContext.name}:${modalContext.index}`);
+      return nextKeys;
     });
     setModalContext(null);
   };
 
   const handlePayPayDataParsed = (data: PayPayParsedData | null) => {
     setPayPayData(data);
+    setImportedChunkKeys(new Set());
+    setModalContext(null);
   };
 
   const handleMfmeDataParsed = (data: MfmeParsedData | null) => {
     setMfmeData(data);
+    setImportedChunkKeys(new Set());
+    setModalContext(null);
   };
 
-  useEffect(() => {
-    // PayPayデータまたはMFMEデータのどちらかがないときは何もしない
-    if (!payPayData || !mfmeData) {
-      setProcessedChunks({});
-      setDeletionCandidates([]);
-      setDuplicates(0);
-      return;
-    }
-
-    const { transactions, headers } = payPayData;
-    const { exclusionSet, records } = mfmeData;
-
-    // フィルタリング処理
-    const { groupedRecords, duplicates: calculatedDuplicates } =
-      filterTransactions(transactions, exclusionSet);
-    setDuplicates(calculatedDuplicates);
-
-    // チャンクに分割してCSV文字列化
-    const chunks = createChunksFromGroupedRecords(groupedRecords, headers);
-
-    setProcessedChunks(chunks);
-    setDeletionCandidates(findMfmeDeletionCandidates(transactions, records));
-  }, [payPayData, mfmeData]);
-
   const handleDownloadDeletionCandidates = () => {
-    const csv = createDeletionCandidatesCsv(deletionCandidates);
+    const csv = createDeletionCandidatesCsv(
+      processingResult.deletionCandidates,
+    );
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv" });
     downloadCsv("mfme-delete-candidates.csv", blob);
   };
@@ -242,7 +249,7 @@ export default function Home() {
             {/* Step 2: MoneyForward ME CSV Input (Optional) */}
             <Step2MfmeFilter
               onDataParsed={handleMfmeDataParsed}
-              duplicates={duplicates}
+              duplicates={processingResult.duplicates}
               totalTransactions={payPayData?.transactions.length}
             />
 
@@ -256,7 +263,7 @@ export default function Home() {
 
             {payPayData && mfmeData && mfmeData.stats.count > 0 && (
               <Step4DeletionCandidates
-                candidates={deletionCandidates}
+                candidates={processingResult.deletionCandidates}
                 onDownload={handleDownloadDeletionCandidates}
               />
             )}
