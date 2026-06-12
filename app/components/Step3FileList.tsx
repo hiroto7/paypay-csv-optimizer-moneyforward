@@ -82,7 +82,7 @@ export default function Step3FileList({
                   aria-hidden="true"
                 />
                 <p>
-                  MFMEで「{name}
+                  MoneyForward MEで「{name}
                   」を直接連携している場合は、重複しないか確認してください。
                 </p>
               </div>

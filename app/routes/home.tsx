@@ -1,11 +1,11 @@
 import {
+  ArrowLeft,
   ArrowRight,
   Check,
   FileCheck2,
   FileSearch,
   LockKeyhole,
   Search,
-  Upload,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -19,14 +19,13 @@ import Step3FileList from "~/components/Step3FileList";
 import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
 import {
   createChunksFromGroupedRecords,
-  createDeletionCandidatesCsv,
   filterTransactions,
   findMfmeDeletionCandidates,
   type ProcessedResult,
 } from "~/services/csv-processor";
 import type { Route } from "./+types/home";
 
-type WorkspaceMode = "convert" | "audit";
+type AppMode = "convert" | "audit";
 
 export function meta(_args: Route.MetaArgs) {
   return [
@@ -147,7 +146,7 @@ const MfImportGuideModal = ({
           className="inline-flex h-9 items-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
         >
           <Check className="size-4" aria-hidden="true" />
-          保存を確認した
+          MoneyForward MEで保存した
         </button>
       </div>
     </div>
@@ -159,7 +158,7 @@ function WorkspaceEmptyState({
   hasPayPay,
   hasMfme,
 }: {
-  mode: WorkspaceMode;
+  mode: AppMode;
   hasPayPay: boolean;
   hasMfme: boolean;
 }) {
@@ -221,7 +220,7 @@ function WorkspaceEmptyState({
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<WorkspaceMode>("convert");
+  const [mode, setMode] = useState<AppMode>("convert");
   const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
   const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
   const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
@@ -242,10 +241,10 @@ export default function Home() {
     }
 
     const { transactions, headers } = payPayData;
-    const { exclusionSet, records } = mfmeData;
+    const { exclusionCounts, records } = mfmeData;
     const { groupedRecords, duplicates } = filterTransactions(
       transactions,
-      exclusionSet,
+      exclusionCounts,
     );
 
     return {
@@ -289,16 +288,6 @@ export default function Home() {
   const canShowConversion = Boolean(payPayData && mfmeData && hasOutput);
   const canShowAudit = Boolean(payPayData && hasMfmeRecords);
 
-  const handleDownloadAudit = () => {
-    const csv = createDeletionCandidatesCsv(
-      processingResult.deletionCandidates,
-    );
-    downloadCsv(
-      "mfme-review-candidates.csv",
-      new Blob([`\uFEFF${csv}`], { type: "text/csv" }),
-    );
-  };
-
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
       <header className="border-b border-zinc-200 bg-white">
@@ -326,9 +315,10 @@ export default function Home() {
       <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-bold text-red-600">WORKSPACE</p>
-            <h2 className="mt-1 text-2xl font-bold text-zinc-950">
-              {mode === "convert" ? "CSVを変換" : "取り込みを調査"}
+            <h2 className="text-2xl font-bold text-zinc-950">
+              {mode === "convert"
+                ? "取り込み用CSVを作成"
+                : "重複登録・口座間違いを確認"}
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-zinc-600">
               {mode === "convert"
@@ -337,49 +327,31 @@ export default function Home() {
             </p>
           </div>
 
-          <div
-            className="grid grid-cols-2 border border-zinc-300 bg-white p-1"
-            role="tablist"
-            aria-label="作業モード"
-          >
+          {mode === "convert" ? (
             <button
               type="button"
-              role="tab"
-              aria-selected={mode === "convert"}
-              onClick={() => setMode("convert")}
-              className={`inline-flex h-9 items-center justify-center gap-2 px-4 text-sm font-semibold ${
-                mode === "convert"
-                  ? "bg-zinc-900 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-            >
-              <Upload className="size-4" aria-hidden="true" />
-              CSV変換
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "audit"}
               onClick={() => setMode("audit")}
-              className={`inline-flex h-9 items-center justify-center gap-2 px-4 text-sm font-semibold ${
-                mode === "audit"
-                  ? "bg-zinc-900 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900"
             >
-              <Search className="size-4" aria-hidden="true" />
-              取り込み調査
+              <Search className="size-3.5" aria-hidden="true" />
+              重複登録・口座間違いを確認
             </button>
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMode("convert")}
+              className="inline-flex h-9 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              取り込み用CSVの作成に戻る
+            </button>
+          )}
         </div>
 
         <div className="grid items-start gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="border border-zinc-200 bg-white">
             <div className="border-b border-zinc-200 px-5 py-4">
               <h2 className="text-sm font-bold text-zinc-950">入力ファイル</h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                タブを切り替えても選択内容は保持されます
-              </p>
             </div>
             <div className="space-y-6 p-5">
               <Step1PayPayUpload
@@ -422,7 +394,6 @@ export default function Home() {
             ) : canShowAudit ? (
               <Step4DeletionCandidates
                 candidates={processingResult.deletionCandidates}
-                onDownload={handleDownloadAudit}
               />
             ) : (
               <WorkspaceEmptyState

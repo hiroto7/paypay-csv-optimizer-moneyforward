@@ -1,4 +1,3 @@
-import { stringify } from "csv-stringify/browser/esm/sync";
 import {
   type CsvRecord,
   createBaseMatchKey,
@@ -34,7 +33,22 @@ export function findMfmeDeletionCandidates(
   transactions: PayPayTransaction[],
   mfmeRecords: CsvRecord[],
 ): DeletionCandidate[] {
+  const transactionsByBaseKey = new Map<string, PayPayTransaction[]>();
   const mfmeRecordsByBaseKey = new Map<string, CsvRecord[]>();
+
+  for (const transaction of transactions) {
+    const key = createBaseMatchKey(
+      transaction.dateKey,
+      transaction.amountKey,
+      transaction.contentKey,
+    );
+    const existingTransactions = transactionsByBaseKey.get(key);
+    if (existingTransactions) {
+      existingTransactions.push(transaction);
+    } else {
+      transactionsByBaseKey.set(key, [transaction]);
+    }
+  }
 
   for (const record of mfmeRecords) {
     if (record[MFME_COLUMNS.included] === "0") {
@@ -54,45 +68,62 @@ export function findMfmeDeletionCandidates(
     }
   }
 
-  const candidates = new Map<string, DeletionCandidate>();
+  const candidates: DeletionCandidate[] = [];
 
-  for (const transaction of transactions) {
-    const matches = mfmeRecordsByBaseKey.get(
-      createBaseMatchKey(
-        transaction.dateKey,
-        transaction.amountKey,
-        transaction.contentKey,
-      ),
-    );
-
-    if (!matches) {
+  for (const [baseKey, matchingTransactions] of transactionsByBaseKey) {
+    const matchingRecords = mfmeRecordsByBaseKey.get(baseKey);
+    if (!matchingRecords) {
       continue;
     }
 
-    const expectedMatches = matches.filter(
-      (record) =>
-        record[MFME_COLUMNS.institution] === transaction.paymentMethod,
-    );
-    const duplicateExpectedRecords = new Set(expectedMatches.slice(1));
+    const expectedCounts = new Map<string, number>();
+    for (const transaction of matchingTransactions) {
+      expectedCounts.set(
+        transaction.paymentMethod,
+        (expectedCounts.get(transaction.paymentMethod) ?? 0) + 1,
+      );
+    }
 
-    matches.forEach((record, index) => {
+    const matchedCounts = new Map<string, number>();
+    const unmatchedRecords: Array<{ record: CsvRecord; index: number }> = [];
+
+    matchingRecords.forEach((record, index) => {
       const actualInstitution = record[MFME_COLUMNS.institution] ?? "";
-      const candidateKey = createMfmeCandidateKey(record, index);
-      const isWrongAccount = actualInstitution !== transaction.paymentMethod;
-      const isDuplicate = duplicateExpectedRecords.has(record);
+      const expectedCount = expectedCounts.get(actualInstitution) ?? 0;
+      const matchedCount = matchedCounts.get(actualInstitution) ?? 0;
 
-      if (!isWrongAccount && !isDuplicate) {
+      if (matchedCount < expectedCount) {
+        matchedCounts.set(actualInstitution, matchedCount + 1);
         return;
       }
 
-      candidates.set(candidateKey, {
-        key: candidateKey,
-        reason: isWrongAccount ? "wrong-account" : "duplicate",
+      unmatchedRecords.push({ record, index });
+    });
+
+    const missingInstitutions = [...expectedCounts].flatMap(
+      ([institution, expectedCount]) =>
+        Array.from(
+          {
+            length: expectedCount - (matchedCounts.get(institution) ?? 0),
+          },
+          () => institution,
+        ),
+    );
+
+    unmatchedRecords.forEach(({ record, index }, unmatchedIndex) => {
+      const expectedInstitution = missingInstitutions[unmatchedIndex];
+      const reason: DeletionCandidateReason =
+        expectedInstitution === undefined ? "duplicate" : "wrong-account";
+
+      candidates.push({
+        key: createMfmeCandidateKey(record, index),
+        reason,
         date: record[MFME_COLUMNS.date] ?? "",
         amount: normalizeAmount(record[MFME_COLUMNS.amount]),
         content: record[MFME_COLUMNS.content] ?? "",
-        expectedInstitution: transaction.paymentMethod,
-        actualInstitution,
+        expectedInstitution:
+          expectedInstitution ?? record[MFME_COLUMNS.institution] ?? "",
+        actualInstitution: record[MFME_COLUMNS.institution] ?? "",
         category: record[MFME_COLUMNS.category] ?? "",
         subCategory: record[MFME_COLUMNS.subCategory] ?? "",
         memo: record[MFME_COLUMNS.memo] ?? "",
@@ -101,25 +132,5 @@ export function findMfmeDeletionCandidates(
     });
   }
 
-  return [...candidates.values()];
-}
-
-export function createDeletionCandidatesCsv(
-  candidates: DeletionCandidate[],
-): string {
-  const rows = candidates.map((candidate) => ({
-    削除候補理由:
-      candidate.reason === "wrong-account" ? "別口座取り込み" : "重複取り込み",
-    日付: candidate.date,
-    内容: candidate.content,
-    金額: candidate.amount,
-    期待される口座: candidate.expectedInstitution,
-    実際の口座: candidate.actualInstitution,
-    大項目: candidate.category,
-    中項目: candidate.subCategory,
-    メモ: candidate.memo,
-    MFME_ID: candidate.id,
-  }));
-
-  return stringify(rows, { header: true });
+  return candidates;
 }

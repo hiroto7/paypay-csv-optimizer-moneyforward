@@ -11,7 +11,7 @@ export type MfFileStats = FileStats & {
 };
 
 export type MfmeParsedResult = {
-  exclusionSet: Set<string>;
+  exclusionCounts: Map<string, number>;
   stats: Omit<MfFileStats, "duplicates">;
   records: CsvRecord[];
 };
@@ -19,7 +19,7 @@ export type MfmeParsedResult = {
 export const createMfmeExclusionSet = (
   mfmeCsvs: string[],
 ): MfmeParsedResult => {
-  const exclusionSet = new Set<string>();
+  const exclusionCounts = new Map<string, number>();
   const allRecords: CsvRecord[] = [];
   let count = 0;
   let minDate: Date | null = null;
@@ -49,15 +49,14 @@ export const createMfmeExclusionSet = (
         if (record[MFME_COLUMNS.included] === "0") {
           continue;
         }
-        exclusionSet.add(
-          createTransactionKey(dateStr, amount, institution, content),
-        );
+        const key = createTransactionKey(dateStr, amount, institution, content);
+        exclusionCounts.set(key, (exclusionCounts.get(key) ?? 0) + 1);
       }
     }
   }
 
   return {
-    exclusionSet,
+    exclusionCounts,
     stats: { count, startDate: minDate, endDate: maxDate },
     records: allRecords,
   };

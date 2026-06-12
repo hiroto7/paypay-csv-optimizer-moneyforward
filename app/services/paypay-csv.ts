@@ -123,17 +123,24 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
 
 export function filterTransactions(
   transactions: PayPayTransaction[],
-  exclusionSet: Set<string>,
+  exclusionCounts: ReadonlyMap<string, number>,
 ): {
   groupedRecords: { [paymentMethod: string]: CsvRecord[] };
   duplicates: number;
 } {
   let duplicates = 0;
   const groupedRecords: { [paymentMethod: string]: CsvRecord[] } = {};
+  const remainingExclusionCounts = new Map(exclusionCounts);
 
   for (const transaction of transactions) {
-    if (exclusionSet.has(transaction.key)) {
+    const remainingCount = remainingExclusionCounts.get(transaction.key) ?? 0;
+    if (remainingCount > 0) {
       duplicates++;
+      if (remainingCount === 1) {
+        remainingExclusionCounts.delete(transaction.key);
+      } else {
+        remainingExclusionCounts.set(transaction.key, remainingCount - 1);
+      }
       continue;
     }
 
