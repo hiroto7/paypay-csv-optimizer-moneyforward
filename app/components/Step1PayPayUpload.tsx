@@ -1,5 +1,5 @@
 import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { FileStats, PayPayTransaction } from "~/services/csv-processor";
@@ -22,8 +22,10 @@ export default function Step1PayPayUpload({
   const [payPayFile, setPayPayFile] = useState<File | null>(null);
   const [paypayStats, setPaypayStats] = useState<FileStats | null>(null);
   const [error, setError] = useState<string>("");
+  const fileSelectionVersion = useRef(0);
 
   const handleFileChange = async (files: FileList | null) => {
+    const selectionVersion = ++fileSelectionVersion.current;
     const file = files?.[0] ?? null;
     setPayPayFile(file);
 
@@ -40,6 +42,10 @@ export default function Step1PayPayUpload({
       const content = await readFileAsTextAuto(file);
       const result = extractTransactionsFromPayPayCsv(content);
 
+      if (selectionVersion !== fileSelectionVersion.current) {
+        return;
+      }
+
       if (result.transactions.length === 0) {
         throw new Error(
           "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
@@ -49,6 +55,10 @@ export default function Step1PayPayUpload({
       setPaypayStats(result.stats);
       onDataParsed(result);
     } catch (err) {
+      if (selectionVersion !== fileSelectionVersion.current) {
+        return;
+      }
+
       setError(
         err instanceof Error
           ? err.message

@@ -127,6 +127,7 @@ export default function Step2MfmeFilter({
   };
 
   const allTransactionsExcluded =
+    allowSkip &&
     !error &&
     totalTransactions !== undefined &&
     duplicates !== undefined &&
