@@ -6,9 +6,13 @@ import Step2MfmeFilter, {
   type MfmeParsedData,
 } from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
+import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
 import {
+  createDeletionCandidatesCsv,
   createChunksFromGroupedRecords,
+  findMfmeDeletionCandidates,
   filterTransactions,
+  type DeletionCandidate,
   type ProcessedResult,
 } from "~/services/csv-processor";
 import type { Route } from "./+types/home";
@@ -33,6 +37,7 @@ const downloadCsv = (filename: string, blob: Blob) => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 const handleShare = async (
@@ -136,6 +141,9 @@ export default function Home() {
   const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
   const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
   const [processedChunks, setProcessedChunks] = useState<ProcessedResult>({});
+  const [deletionCandidates, setDeletionCandidates] = useState<
+    DeletionCandidate[]
+  >([]);
   const [duplicates, setDuplicates] = useState<number>(0);
   const [modalContext, setModalContext] = useState<{
     name: string;
@@ -168,12 +176,13 @@ export default function Home() {
     // PayPayデータまたはMFMEデータのどちらかがないときは何もしない
     if (!payPayData || !mfmeData) {
       setProcessedChunks({});
+      setDeletionCandidates([]);
       setDuplicates(0);
       return;
     }
 
     const { transactions, headers } = payPayData;
-    const { exclusionSet } = mfmeData;
+    const { exclusionSet, records } = mfmeData;
 
     // フィルタリング処理
     const { groupedRecords, duplicates: calculatedDuplicates } =
@@ -184,7 +193,14 @@ export default function Home() {
     const chunks = createChunksFromGroupedRecords(groupedRecords, headers);
 
     setProcessedChunks(chunks);
+    setDeletionCandidates(findMfmeDeletionCandidates(transactions, records));
   }, [payPayData, mfmeData]);
+
+  const handleDownloadDeletionCandidates = () => {
+    const csv = createDeletionCandidatesCsv(deletionCandidates);
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv" });
+    downloadCsv("mfme-delete-candidates.csv", blob);
+  };
 
   return (
     <div className="bg-slate-900 text-slate-200 min-h-screen font-sans">
@@ -235,6 +251,13 @@ export default function Home() {
                 processedChunks={processedChunks}
                 onShare={handleShare}
                 onShareClick={(name, index) => setModalContext({ name, index })}
+              />
+            )}
+
+            {payPayData && mfmeData && mfmeData.stats.count > 0 && (
+              <Step4DeletionCandidates
+                candidates={deletionCandidates}
+                onDownload={handleDownloadDeletionCandidates}
               />
             )}
           </div>

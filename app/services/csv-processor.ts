@@ -64,8 +64,10 @@ export const createMfmeExclusionSet = (
 ): {
   exclusionSet: Set<string>;
   stats: Omit<MfFileStats, "duplicates">;
+  records: Record[];
 } => {
   const exclusionSet = new Set<string>();
+  const allRecords: Record[] = [];
   let count = 0;
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
@@ -75,6 +77,8 @@ export const createMfmeExclusionSet = (
       columns: true,
       skip_empty_lines: true,
     });
+
+    allRecords.push(...records);
 
     for (const record of records) {
       count++;
@@ -101,6 +105,7 @@ export const createMfmeExclusionSet = (
   return {
     exclusionSet,
     stats: { count, startDate: minDate, endDate: maxDate },
+    records: allRecords,
   };
 };
 
@@ -108,6 +113,26 @@ export type PayPayTransaction = {
   key: string;
   record: Record;
   paymentMethod: string;
+  dateKey: string;
+  amountKey: string;
+  contentKey: string;
+};
+
+export type DeletionCandidateReason =
+  | "wrong-account"
+  | "duplicate";
+
+export type DeletionCandidate = {
+  reason: DeletionCandidateReason;
+  date: string;
+  amount: string;
+  content: string;
+  expectedInstitution: string;
+  actualInstitution: string;
+  category: string;
+  subCategory: string;
+  memo: string;
+  id: string;
 };
 
 /**
@@ -157,12 +182,19 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
       amountStr: string,
       rec: Record,
     ): PayPayTransaction => {
-      const dateKey = rec["取引日"]?.split(" ")[0]; // YYYY/MM/DD
+      const dateKey = rec["取引日"]?.split(" ")[0] ?? ""; // YYYY/MM/DD
       const amountKey = isExpense ? `-${amountStr}` : amountStr;
-      const contentKey = rec["取引先"];
+      const contentKey = rec["取引先"] ?? "";
       const key = `${dateKey}_${amountKey}_${name}_${contentKey}`;
 
-      return { key, record: rec, paymentMethod: name };
+      return {
+        key,
+        record: rec,
+        paymentMethod: name,
+        dateKey,
+        amountKey,
+        contentKey,
+      };
     };
 
     const transactionMethod = record["取引方法"];
@@ -279,4 +311,116 @@ export function createChunksFromGroupedRecords(
   }
 
   return chunks;
+}
+
+const normalizeAmount = (amount: string | undefined): string =>
+  amount?.replace(/,/g, "") ?? "";
+
+const createBaseMatchKey = (
+  date: string | undefined,
+  amount: string | undefined,
+  content: string | undefined,
+): string => `${date ?? ""}_${normalizeAmount(amount)}_${content ?? ""}`;
+
+const createMfmeCandidateKey = (record: Record, fallbackIndex: number): string =>
+  record["ID"] ??
+  `${record["日付"] ?? ""}_${record["金額（円）"] ?? ""}_${record["保有金融機関"] ?? ""}_${record["内容"] ?? ""}_${fallbackIndex}`;
+
+/**
+ * PayPayの取引とMFMEの明細を突き合わせ、誤取り込み後に削除候補となるMFME明細を抽出する。
+ *
+ * - 日付・金額・内容がPayPay取引と一致するMFME明細を対象にする
+ * - 期待口座（PayPayの支払い方法）と異なる口座に入っている明細は「別口座取り込み」候補
+ * - 期待口座に同一明細が複数ある場合は、2件目以降を「重複取り込み」候補
+ */
+export function findMfmeDeletionCandidates(
+  transactions: PayPayTransaction[],
+  mfmeRecords: Record[],
+): DeletionCandidate[] {
+  const mfmeRecordsByBaseKey = new Map<string, Record[]>();
+
+  for (const record of mfmeRecords) {
+    if (record["計算対象"] === "0") {
+      continue;
+    }
+
+    const key = createBaseMatchKey(
+      record["日付"],
+      record["金額（円）"],
+      record["内容"],
+    );
+    const existingRecords = mfmeRecordsByBaseKey.get(key);
+    if (existingRecords) {
+      existingRecords.push(record);
+    } else {
+      mfmeRecordsByBaseKey.set(key, [record]);
+    }
+  }
+
+  const candidates = new Map<string, DeletionCandidate>();
+
+  for (const transaction of transactions) {
+    const matches = mfmeRecordsByBaseKey.get(
+      createBaseMatchKey(
+        transaction.dateKey,
+        transaction.amountKey,
+        transaction.contentKey,
+      ),
+    );
+
+    if (!matches) {
+      continue;
+    }
+
+    const expectedMatches = matches.filter(
+      (record) => record["保有金融機関"] === transaction.paymentMethod,
+    );
+    const duplicateExpectedRecords = new Set(expectedMatches.slice(1));
+
+    matches.forEach((record, index) => {
+      const actualInstitution = record["保有金融機関"] ?? "";
+      const candidateKey = createMfmeCandidateKey(record, index);
+      const isWrongAccount = actualInstitution !== transaction.paymentMethod;
+      const isDuplicate = duplicateExpectedRecords.has(record);
+
+      if (!isWrongAccount && !isDuplicate) {
+        return;
+      }
+
+      candidates.set(candidateKey, {
+        reason: isWrongAccount ? "wrong-account" : "duplicate",
+        date: record["日付"] ?? "",
+        amount: normalizeAmount(record["金額（円）"]),
+        content: record["内容"] ?? "",
+        expectedInstitution: transaction.paymentMethod,
+        actualInstitution,
+        category: record["大項目"] ?? "",
+        subCategory: record["中項目"] ?? "",
+        memo: record["メモ"] ?? "",
+        id: record["ID"] ?? "",
+      });
+    });
+  }
+
+  return [...candidates.values()];
+}
+
+export function createDeletionCandidatesCsv(
+  candidates: DeletionCandidate[],
+): string {
+  const rows = candidates.map((candidate) => ({
+    削除候補理由:
+      candidate.reason === "wrong-account" ? "別口座取り込み" : "重複取り込み",
+    日付: candidate.date,
+    内容: candidate.content,
+    金額: candidate.amount,
+    期待される口座: candidate.expectedInstitution,
+    実際の口座: candidate.actualInstitution,
+    大項目: candidate.category,
+    中項目: candidate.subCategory,
+    メモ: candidate.memo,
+    MFME_ID: candidate.id,
+  }));
+
+  return stringify(rows, { header: true });
 }

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  createDeletionCandidatesCsv,
   createChunksFromGroupedRecords,
   createMfmeExclusionSet,
   extractTransactionsFromPayPayCsv,
+  findMfmeDeletionCandidates,
   filterTransactions,
   parseDate,
   updateDateRange,
@@ -307,5 +309,55 @@ describe("createChunksFromGroupedRecords", () => {
   it("空のgroupedRecordsの場合に空のオブジェクトを返すこと", () => {
     const chunks = createChunksFromGroupedRecords({}, []);
     expect(Object.keys(chunks)).toHaveLength(0);
+  });
+});
+
+describe("findMfmeDeletionCandidates", () => {
+  it("別口座に取り込まれたMFME明細を削除候補として抽出できること", () => {
+    const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
+    const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
+    const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,id01`;
+    const { records } = createMfmeExclusionSet([mfmeCsv]);
+
+    const candidates = findMfmeDeletionCandidates(transactions, records);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.reason).toBe("wrong-account");
+    expect(candidates[0]?.expectedInstitution).toBe("PayPay残高");
+    expect(candidates[0]?.actualInstitution).toBe("別の口座");
+  });
+
+  it("同じ口座に重複して取り込まれたMFME明細の2件目以降を削除候補として抽出できること", () => {
+    const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
+    const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
+    const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id02`;
+    const { records } = createMfmeExclusionSet([mfmeCsv]);
+
+    const candidates = findMfmeDeletionCandidates(transactions, records);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.reason).toBe("duplicate");
+    expect(candidates[0]?.id).toBe("id02");
+  });
+
+  it("削除候補CSVを生成できること", () => {
+    const csv = createDeletionCandidatesCsv([
+      {
+        reason: "wrong-account",
+        date: "2025/10/24",
+        amount: "-190",
+        content: "ダミーストアA",
+        expectedInstitution: "PayPay残高",
+        actualInstitution: "別の口座",
+        category: "食費",
+        subCategory: "食費",
+        memo: "メモ",
+        id: "id01",
+      },
+    ]);
+
+    expect(csv).toContain("削除候補理由");
+    expect(csv).toContain("別口座取り込み");
+    expect(csv).toContain("期待される口座");
   });
 });

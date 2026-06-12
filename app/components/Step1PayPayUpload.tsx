@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { FileStats, PayPayTransaction } from "~/services/csv-processor";
 import { extractTransactionsFromPayPayCsv } from "~/services/csv-processor";
-import { readFileAsText } from "~/utils/file-reader";
+import { readFileAsTextAuto } from "~/utils/file-reader";
 
 const PeriodDisplay = ({
   startDate,
@@ -49,7 +49,7 @@ export default function Step1PayPayUpload({
     setError("");
 
     try {
-      const content = await readFileAsText(file, "Shift_JIS");
+      const content = await readFileAsTextAuto(file);
       const result = extractTransactionsFromPayPayCsv(content);
 
       if (result.transactions.length === 0) {

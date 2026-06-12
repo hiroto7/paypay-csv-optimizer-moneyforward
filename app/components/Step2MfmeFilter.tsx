@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import type { MfFileStats } from "~/services/csv-processor";
+import type { MfFileStats, Record } from "~/services/csv-processor";
 import { createMfmeExclusionSet } from "~/services/csv-processor";
-import { readFilesAsText } from "~/utils/file-reader";
+import { readFilesAsTextAuto } from "~/utils/file-reader";
 
 const PeriodDisplay = ({
   startDate,
@@ -19,6 +19,7 @@ const PeriodDisplay = ({
 export type MfmeParsedData = {
   exclusionSet: Set<string>;
   stats: Omit<MfFileStats, "duplicates">;
+  records: Record[];
 };
 
 interface Step2MfmeFilterProps {
@@ -58,7 +59,7 @@ export default function Step2MfmeFilter({
     setError("");
 
     try {
-      const contents = await readFilesAsText(files, "Shift_JIS");
+      const contents = await readFilesAsTextAuto(files);
       const result = createMfmeExclusionSet(contents);
 
       if (result.stats.count === 0) {
@@ -97,6 +98,7 @@ export default function Step2MfmeFilter({
     onDataParsed({
       exclusionSet: new Set(),
       stats: { count: 0, startDate: null, endDate: null },
+      records: [],
     });
     setMfStats(null);
     setError("");
