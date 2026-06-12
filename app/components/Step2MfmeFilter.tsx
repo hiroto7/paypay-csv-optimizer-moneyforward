@@ -1,54 +1,56 @@
+import {
+  AlertCircle,
+  CalendarDays,
+  CircleOff,
+  Database,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { useRef, useState } from "react";
-import type { MfFileStats } from "~/services/csv-processor";
+import CsvDropzone from "~/components/CsvDropzone";
+import PeriodDisplay from "~/components/PeriodDisplay";
+import type { CsvRecord, MfFileStats } from "~/services/csv-processor";
 import { createMfmeExclusionSet } from "~/services/csv-processor";
-import { readFilesAsText } from "~/utils/file-reader";
-
-const PeriodDisplay = ({
-  startDate,
-  endDate,
-}: {
-  startDate: Date;
-  endDate: Date;
-}) => {
-  const dtf = new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "short",
-  });
-  return <>{dtf.formatRange(startDate, endDate)}</>;
-};
+import { readFilesAsTextAuto } from "~/utils/file-reader";
 
 export type MfmeParsedData = {
-  exclusionSet: Set<string>;
+  exclusionCounts: Map<string, number>;
   stats: Omit<MfFileStats, "duplicates">;
+  records: CsvRecord[];
 };
 
 interface Step2MfmeFilterProps {
   onDataParsed: (data: MfmeParsedData | null) => void;
-  duplicates?: number;
+  duplicates?: number | undefined;
   totalTransactions?: number | undefined;
+  allowSkip: boolean;
 }
 
 export default function Step2MfmeFilter({
   onDataParsed,
   duplicates,
   totalTransactions,
+  allowSkip,
 }: Step2MfmeFilterProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [mfmeFiles, setMfmeFiles] = useState<FileList | null>(null);
+  const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
+  const [fileInputVersion, setFileInputVersion] = useState(0);
   const [isMfmeSkipped, setIsMfmeSkipped] = useState(false);
   const [mfStats, setMfStats] = useState<Omit<
     MfFileStats,
     "duplicates"
   > | null>(null);
   const [error, setError] = useState<string>("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileSelectionVersion = useRef(0);
 
   const handleFileChange = async (files: FileList | null) => {
-    setMfmeFiles(files);
-    if (files && files.length > 0) {
+    const selectionVersion = ++fileSelectionVersion.current;
+    const selectedFiles = Array.from(files ?? []);
+    setMfmeFiles(selectedFiles);
+    if (selectedFiles.length > 0) {
       setIsMfmeSkipped(false);
     }
 
-    if (!files || files.length === 0) {
+    if (selectedFiles.length === 0) {
       onDataParsed(null);
       setMfStats(null);
       setError("");
@@ -58,190 +60,207 @@ export default function Step2MfmeFilter({
     setError("");
 
     try {
-      const contents = await readFilesAsText(files, "Shift_JIS");
+      const contents = await readFilesAsTextAuto(selectedFiles);
       const result = createMfmeExclusionSet(contents);
 
-      if (result.stats.count === 0) {
-        throw new Error(
-          "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。",
-        );
+      if (selectionVersion !== fileSelectionVersion.current) {
+        return;
       }
 
-      // count > 0 だが exclusionSet.size === 0 の場合:
-      // - 正常なMFMEのCSVだが、すべて「計算対象 = 0」の可能性がある（エラーにしない）
-      // - または誤ったCSV（PayPayなど）の可能性がある
-      // stats.count > 0 かつ exclusionSet.size === 0 かつ startDate/endDate が null の場合は誤ったCSV
-      if (result.exclusionSet.size === 0 && result.stats.count > 0) {
-        if (result.stats.startDate === null && result.stats.endDate === null) {
-          throw new Error(
-            "マネーフォワード MEのCSVファイルから取引を読み込めませんでした。正しいファイルを選択しているか確認してください。",
-          );
-        }
+      if (
+        result.stats.count === 0 ||
+        (result.exclusionCounts.size === 0 &&
+          result.stats.startDate === null &&
+          result.stats.endDate === null)
+      ) {
+        throw new Error(
+          "MoneyForward MEの明細を読み込めませんでした。エクスポートしたCSVか確認してください。",
+        );
       }
 
       setMfStats(result.stats);
       onDataParsed(result);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("マネーフォワード MEのCSVファイルの読み込みに失敗しました。");
+      if (selectionVersion !== fileSelectionVersion.current) {
+        return;
       }
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "MoneyForward ME CSVの読み込みに失敗しました。",
+      );
+      setMfStats(null);
       onDataParsed(null);
     }
   };
 
   const handleSkip = () => {
+    fileSelectionVersion.current++;
     setIsMfmeSkipped(true);
-    setMfmeFiles(null);
+    setMfmeFiles([]);
+    setFileInputVersion((version) => version + 1);
     onDataParsed({
-      exclusionSet: new Set(),
+      exclusionCounts: new Map(),
       stats: { count: 0, startDate: null, endDate: null },
+      records: [],
     });
     setMfStats(null);
     setError("");
   };
 
+  const handleClearFiles = () => {
+    fileSelectionVersion.current++;
+    setMfmeFiles([]);
+    setFileInputVersion((version) => version + 1);
+    onDataParsed(null);
+    setMfStats(null);
+    setError("");
+  };
+
   const handleUndo = () => {
+    fileSelectionVersion.current++;
     setIsMfmeSkipped(false);
     onDataParsed(null);
     setMfStats(null);
     setError("");
   };
 
-  const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragging(false);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFileChange(e.dataTransfer.files);
-  };
+  const allTransactionsExcluded =
+    allowSkip &&
+    !error &&
+    totalTransactions !== undefined &&
+    duplicates !== undefined &&
+    totalTransactions > 0 &&
+    duplicates === totalTransactions;
 
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 shadow-lg p-6 md:p-8">
-      <h2 className="text-2xl font-bold text-slate-100 mb-4">
-        2. 既に登録済みの取引を除外（任意）
-      </h2>
-      <p className="text-sm text-slate-400 mb-4">
-        マネーフォワード
-        MEのアプリまたはWebサイトからエクスポートした取引履歴CSVを選択してください。既に登録済みの取引が自動で除外されます。
-      </p>
-
-      {!isMfmeSkipped ? (
-        <>
-          <p className="text-sm font-semibold text-yellow-300 mb-4">
-            ⚠️ 既に取り込み済みの取引がある場合は、ここでCSVを選択してください
+    <section aria-labelledby="mfme-upload-title">
+      <div className="mb-3 flex items-start gap-3">
+        <div className="flex size-8 shrink-0 items-center justify-center bg-blue-50 text-blue-700">
+          <Database className="size-4" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2
+              id="mfme-upload-title"
+              className="text-sm font-bold text-zinc-950"
+            >
+              MoneyForward ME明細
+            </h2>
+            <span className="text-xs text-zinc-500">
+              {allowSkip ? "任意" : "必須"}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            {allowSkip
+              ? "取り込み済み明細の除外に使用"
+              : "重複・別口座取り込みの照合対象"}
           </p>
-          <label
-            htmlFor="mfme-csv-input"
-            className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors block ${
-              isDragging
-                ? "border-purple-500 bg-purple-500/10"
-                : "border-slate-600 hover:border-purple-400"
-            }`}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
-            <input
-              id="mfme-csv-input"
-              ref={inputRef}
-              type="file"
-              accept=".csv"
-              multiple
-              onChange={(e) => handleFileChange(e.target.files)}
-              className="sr-only"
+        </div>
+      </div>
+
+      {isMfmeSkipped && allowSkip ? (
+        <div className="flex items-start justify-between gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3">
+          <div className="flex gap-2">
+            <CircleOff
+              className="mt-0.5 size-4 shrink-0 text-zinc-600"
+              aria-hidden="true"
             />
-            <p className="text-slate-400 pointer-events-none">
-              {mfmeFiles && mfmeFiles.length > 0
-                ? `${mfmeFiles.length}個のファイルを選択中`
-                : "ここにファイルをドラッグ＆ドロップ（複数選択可）"}
-            </p>
-          </label>
-          {mfStats && mfStats.count > 0 && (
-            <div className="mt-4 space-y-1 text-sm text-slate-400">
-              <p>読み込み件数: {mfStats.count}件</p>
-              {mfStats.startDate && mfStats.endDate && (
-                <p>
-                  明細の期間:{" "}
-                  <PeriodDisplay
-                    startDate={mfStats.startDate}
-                    endDate={mfStats.endDate}
-                  />
-                </p>
-              )}
-              {duplicates !== undefined && (
-                <p>重複として除外: {duplicates}件</p>
-              )}
+            <div>
+              <p className="text-sm font-semibold text-zinc-800">
+                既存明細の除外なし
+              </p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                PayPayの全取引を変換します
+              </p>
             </div>
-          )}
-          {(!mfmeFiles || mfmeFiles.length === 0) && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="w-full px-4 py-3 bg-slate-700 text-slate-200 rounded-lg font-semibold hover:bg-slate-600 transition-colors"
-              >
-                取り込み済み取引の除外をスキップ
-              </button>
-            </div>
-          )}
-        </>
+          </div>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="inline-flex size-8 shrink-0 items-center justify-center border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"
+            title="選択をやり直す"
+            aria-label="選択をやり直す"
+          >
+            <RotateCcw className="size-4" aria-hidden="true" />
+          </button>
+        </div>
       ) : (
-        <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <p className="text-slate-300 font-semibold mb-1">
-                ✓ 取り込み済み取引の除外をスキップしました
-              </p>
-              <p className="text-sm text-slate-400">
-                全ての取引が変換対象となります
-              </p>
-            </div>
+        <>
+          <CsvDropzone
+            key={fileInputVersion}
+            id="mfme-csv-input"
+            multiple
+            fileLabel={
+              mfmeFiles.length > 0
+                ? `${mfmeFiles.length}ファイル選択済み`
+                : undefined
+            }
+            prompt="MoneyForward ME CSVを選択"
+            onFilesSelected={handleFileChange}
+          />
+
+          {mfmeFiles.length > 0 && (
             <button
               type="button"
-              onClick={handleUndo}
-              className="px-3 py-1.5 text-sm bg-slate-600 text-slate-200 rounded hover:bg-slate-500 transition-colors whitespace-nowrap"
+              onClick={handleClearFiles}
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
             >
-              やり直す
+              <X className="size-3.5" aria-hidden="true" />
+              ファイルの選択を解除
             </button>
+          )}
+
+          {allowSkip && mfmeFiles.length === 0 && (
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="mt-2 w-full px-3 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+            >
+              既存明細を除外せずにCSVを作成
+            </button>
+          )}
+        </>
+      )}
+
+      {mfStats && mfStats.count > 0 && (
+        <div className="mt-3 space-y-1 text-xs text-zinc-600">
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <span className="inline-flex items-center gap-1.5">
+              <Database className="size-3.5" aria-hidden="true" />
+              {mfStats.count}件
+            </span>
+            {mfStats.startDate && mfStats.endDate && (
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="size-3.5" aria-hidden="true" />
+                <PeriodDisplay
+                  startDate={mfStats.startDate}
+                  endDate={mfStats.endDate}
+                />
+              </span>
+            )}
           </div>
+          {allowSkip && duplicates !== undefined && duplicates > 0 && (
+            <p className="font-semibold text-emerald-700">
+              {duplicates}件を取り込み済みとして除外
+            </p>
+          )}
         </div>
       )}
-      {error && (
-        <div className="mt-4 bg-red-900/50 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
+
+      {(error || allTransactionsExcluded) && (
+        <div
+          className="mt-3 flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
+          role="alert"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>
-            <strong>エラー:</strong> {error}
+            {error ||
+              "変換対象がありません。すべての取引が取り込み済みの可能性があります。"}
           </p>
         </div>
       )}
-      {!error &&
-        totalTransactions !== undefined &&
-        duplicates !== undefined &&
-        totalTransactions > 0 &&
-        duplicates === totalTransactions && (
-          <div className="mt-4 bg-red-900/50 border border-red-500/50 text-red-300 px-4 py-3 rounded-lg">
-            <p>
-              <strong>エラー:</strong>{" "}
-              変換できる取引が見つかりませんでした。全ての取引が既に取り込み済みでないか確認してください。
-            </p>
-          </div>
-        )}
-    </div>
+    </section>
   );
 }
