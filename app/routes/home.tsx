@@ -27,7 +27,14 @@ import {
   type ProcessedResult,
 } from "~/services/paypay-csv";
 import { readFileAsTextAuto } from "~/utils/file-reader";
-import { consumeSharedFiles } from "~/utils/shared-file-store";
+import {
+  clearInputFiles,
+  consumeSharedFiles,
+  type InputFiles,
+  loadInputFiles,
+  mergeUniqueFiles,
+  saveInputFiles,
+} from "~/utils/shared-file-store";
 import type { Route } from "./+types/home";
 
 type AppMode = "convert" | "audit";
@@ -320,44 +327,102 @@ export default function Home() {
     name: string;
     index: number;
   } | null>(null);
-  const [sharedPayPayFile, setSharedPayPayFile] = useState<File | null>(null);
-  const [sharedMfmeFiles, setSharedMfmeFiles] = useState<File[]>([]);
+  const [payPayFile, setPayPayFile] = useState<File | null>(null);
+  const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
   const [sharedFileNotice, setSharedFileNotice] =
     useState<SharedFileNotice | null>(null);
+  const inputFilesRef = useRef<InputFiles>({
+    payPayFile: null,
+    mfmeFiles: [],
+  });
+
+  const applyInputFiles = useCallback((inputFiles: InputFiles) => {
+    inputFilesRef.current = inputFiles;
+    setPayPayFile(inputFiles.payPayFile);
+    setMfmeFiles(inputFiles.mfmeFiles);
+  }, []);
+
+  const persistInputFiles = useCallback(
+    async (inputFiles: InputFiles): Promise<boolean> => {
+      applyInputFiles(inputFiles);
+
+      try {
+        if (!inputFiles.payPayFile && inputFiles.mfmeFiles.length === 0) {
+          await clearInputFiles();
+        } else {
+          await saveInputFiles(inputFiles);
+        }
+        return true;
+      } catch (error) {
+        console.error("Failed to save input files:", error);
+        setSharedFileNotice({
+          tone: "error",
+          message: "選択したCSVの一時保存に失敗しました。",
+        });
+        return false;
+      }
+    },
+    [applyInputFiles],
+  );
+
+  const handlePayPayFileSelected = useCallback(
+    (file: File | null) => {
+      void persistInputFiles({
+        ...inputFilesRef.current,
+        payPayFile: file,
+      });
+    },
+    [persistInputFiles],
+  );
+
+  const handleMfmeFilesSelected = useCallback(
+    (files: File[]) => {
+      void persistInputFiles({
+        ...inputFilesRef.current,
+        mfmeFiles: files,
+      });
+    },
+    [persistInputFiles],
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sharedFilesId = params.get("shared-files");
     const shareError = params.get("share-error");
 
-    if (!sharedFilesId && !shareError) {
-      return;
-    }
-
-    params.delete("shared-files");
-    params.delete("share-error");
-    const cleanUrl = `${window.location.pathname}${
-      params.size > 0 ? `?${params.toString()}` : ""
-    }${window.location.hash}`;
-    window.history.replaceState(null, "", cleanUrl);
-
-    if (shareError) {
-      setSharedFileNotice({
-        tone: "error",
-        message:
-          "共有されたCSVを受け取れませんでした。通常のファイル選択をお試しください。",
-      });
-      return;
-    }
-
-    if (!sharedFilesId) {
-      return;
+    if (sharedFilesId || shareError || params.has("share-debug")) {
+      params.delete("shared-files");
+      params.delete("share-error");
+      params.delete("share-debug");
+      const cleanUrl = `${window.location.pathname}${
+        params.size > 0 ? `?${params.toString()}` : ""
+      }${window.location.hash}`;
+      window.history.replaceState(null, "", cleanUrl);
     }
 
     let isCancelled = false;
 
     void (async () => {
       try {
+        const savedInputFiles = await loadInputFiles();
+        if (isCancelled) {
+          return;
+        }
+        applyInputFiles(savedInputFiles);
+
+        if (shareError) {
+          setSharedFileNotice({
+            tone: "error",
+            message:
+              "共有されたCSVを受け取れませんでした。通常のファイル選択をお試しください。",
+          });
+          return;
+        }
+
+        if (!sharedFilesId) {
+          return;
+        }
+
         const files = await consumeSharedFiles(sharedFilesId);
         const classifiedFiles = await Promise.all(
           files.map(async (file) => ({
@@ -380,12 +445,18 @@ export default function Home() {
           .filter(({ type }) => type === "unknown")
           .map(({ file }) => file);
 
+        const nextInputFiles = { ...savedInputFiles };
         if (payPayFiles[0]) {
-          setSharedPayPayFile(payPayFiles[0].file);
+          nextInputFiles.payPayFile = payPayFiles[0].file;
         }
         if (mfmeFiles.length > 0) {
-          setSharedMfmeFiles(mfmeFiles);
+          nextInputFiles.mfmeFiles = await mergeUniqueFiles(
+            savedInputFiles.mfmeFiles,
+            mfmeFiles,
+          );
         }
+        await saveInputFiles(nextInputFiles);
+        applyInputFiles(nextInputFiles);
 
         if (files.length === 0) {
           setSharedFileNotice({
@@ -394,12 +465,20 @@ export default function Home() {
               "共有ファイルの一時データが見つかりませんでした。もう一度共有してください。",
           });
         } else {
+          const loadedTypes = [
+            payPayFiles.length > 0 ? "PayPay CSV" : null,
+            mfmeFiles.length > 0
+              ? `MoneyForward ME CSV ${mfmeFiles.length}件`
+              : null,
+          ].filter((value): value is string => value !== null);
           setSharedFileNotice({
-            tone: "success",
+            tone: unknownFiles.length > 0 ? "error" : "success",
             message:
               unknownFiles.length > 0
-                ? `${files.length}件のCSVを受け取りました。判定できないファイルの種類を選択してください。`
-                : `${files.length}件のCSVを共有から読み込みました。`,
+                ? loadedTypes.length > 0
+                  ? `${loadedTypes.join("と")}を読み込みました。形式を判定できないCSV ${unknownFiles.length}件は読み込みませんでした。`
+                  : "PayPayまたはMoneyForward MEの必要な列を確認できないため、共有されたCSVを読み込めませんでした。"
+                : `${loadedTypes.join("と")}を読み込みました。`,
           });
         }
       } catch (error) {
@@ -418,7 +497,7 @@ export default function Home() {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [applyInputFiles]);
 
   const conversionResult = useMemo(() => {
     if (mode !== "convert" || !payPayData || !mfmeData) {
@@ -496,9 +575,12 @@ export default function Home() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center bg-red-600 text-sm font-black text-white">
-              P
-            </div>
+            <img
+              src="/pwa-icon.svg"
+              alt=""
+              className="size-9 shrink-0 rounded-lg"
+              aria-hidden="true"
+            />
             <div className="min-w-0">
               <h1 className="truncate text-sm font-bold text-zinc-950 sm:text-base">
                 PayPay CSV Optimizer
@@ -522,26 +604,20 @@ export default function Home() {
       <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7">
         {sharedFileNotice && (
           <div
-            className={`mb-5 flex items-start justify-between gap-3 border px-4 py-3 text-sm ${
+            className={`mb-5 flex items-center justify-between gap-3 border px-4 py-2.5 text-sm ${
               sharedFileNotice.tone === "success"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                 : "border-red-200 bg-red-50 text-red-800"
             }`}
             role={sharedFileNotice.tone === "error" ? "alert" : "status"}
           >
-            <div className="flex gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {sharedFileNotice.tone === "success" ? (
-                <UploadCloud
-                  className="mt-0.5 size-4 shrink-0"
-                  aria-hidden="true"
-                />
+                <UploadCloud className="size-4 shrink-0" aria-hidden="true" />
               ) : (
-                <AlertCircle
-                  className="mt-0.5 size-4 shrink-0"
-                  aria-hidden="true"
-                />
+                <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
               )}
-              <p>{sharedFileNotice.message}</p>
+              <p className="leading-5">{sharedFileNotice.message}</p>
             </div>
             <button
               type="button"
@@ -596,7 +672,8 @@ export default function Home() {
             </div>
             <div className="space-y-6 p-5">
               <Step1PayPayUpload
-                sharedFile={sharedPayPayFile}
+                file={payPayFile}
+                onFileSelected={handlePayPayFileSelected}
                 onDataParsed={(data) => {
                   setPayPayData(data);
                   resetImportState();
@@ -605,7 +682,8 @@ export default function Home() {
               <div className="border-t border-zinc-200 pt-5">
                 <Step2MfmeFilter
                   allowSkip={mode === "convert"}
-                  sharedFiles={sharedMfmeFiles}
+                  files={mfmeFiles}
+                  onFilesSelected={handleMfmeFilesSelected}
                   onDataParsed={(data) => {
                     setMfmeData(data);
                     resetImportState();

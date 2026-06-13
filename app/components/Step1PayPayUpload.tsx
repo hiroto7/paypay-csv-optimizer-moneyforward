@@ -1,5 +1,6 @@
 import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ClearFileSelectionButton from "~/components/ClearFileSelectionButton";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { FileStats } from "~/services/csv-date";
@@ -16,25 +17,25 @@ export type PayPayParsedData = {
 };
 
 interface Step1PayPayUploadProps {
+  file: File | null;
+  onFileSelected: (file: File | null) => void;
   onDataParsed: (data: PayPayParsedData | null) => void;
-  sharedFile?: File | null | undefined;
 }
 
 export default function Step1PayPayUpload({
+  file,
+  onFileSelected,
   onDataParsed,
-  sharedFile,
 }: Step1PayPayUploadProps) {
-  const [payPayFile, setPayPayFile] = useState<File | null>(null);
   const [paypayStats, setPaypayStats] = useState<FileStats | null>(null);
   const [error, setError] = useState<string>("");
+  const [fileInputVersion, setFileInputVersion] = useState(0);
   const fileSelectionVersion = useRef(0);
-
-  const lastSharedFile = useRef<File | null>(null);
+  const lastProcessedFile = useRef<File | null>(null);
 
   const processFile = useCallback(
     async (file: File | null) => {
       const selectionVersion = ++fileSelectionVersion.current;
-      setPayPayFile(file);
 
       if (!file) {
         onDataParsed(null);
@@ -79,17 +80,22 @@ export default function Step1PayPayUpload({
   );
 
   const handleFileChange = (files: FileList | null) => {
-    void processFile(files?.[0] ?? null);
+    onFileSelected(files?.[0] ?? null);
   };
 
   useEffect(() => {
-    if (!sharedFile || sharedFile === lastSharedFile.current) {
+    if (file === lastProcessedFile.current) {
       return;
     }
 
-    lastSharedFile.current = sharedFile;
-    void processFile(sharedFile);
-  }, [processFile, sharedFile]);
+    lastProcessedFile.current = file;
+    void processFile(file);
+  }, [file, processFile]);
+
+  const handleClearFile = () => {
+    setFileInputVersion((version) => version + 1);
+    onFileSelected(null);
+  };
 
   return (
     <section aria-labelledby="paypay-upload-title">
@@ -109,11 +115,14 @@ export default function Step1PayPayUpload({
       </div>
 
       <CsvDropzone
+        key={fileInputVersion}
         id="paypay-csv-input"
-        fileLabel={payPayFile?.name}
+        fileLabel={file?.name}
         prompt="PayPay CSVを選択"
         onFilesSelected={handleFileChange}
       />
+
+      {file && <ClearFileSelectionButton onClick={handleClearFile} />}
 
       {paypayStats && (
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">

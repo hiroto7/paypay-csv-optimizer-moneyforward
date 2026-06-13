@@ -1,15 +1,21 @@
 const DATABASE_NAME = "paypay-csv-share-target";
-const DATABASE_VERSION = 1;
-const STORE_NAME = "shared-files";
+const DATABASE_VERSION = 3;
+const SHARED_FILES_STORE_NAME = "shared-files";
+const INPUT_FILES_STORE_NAME = "input-files";
+
+const createStoreIfMissing = (database, storeName) => {
+  if (!database.objectStoreNames.contains(storeName)) {
+    database.createObjectStore(storeName, { keyPath: "id" });
+  }
+};
 
 const openDatabase = () =>
   new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
 
     request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(STORE_NAME)) {
-        request.result.createObjectStore(STORE_NAME, { keyPath: "id" });
-      }
+      createStoreIfMissing(request.result, SHARED_FILES_STORE_NAME);
+      createStoreIfMissing(request.result, INPUT_FILES_STORE_NAME);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -21,8 +27,11 @@ const storeSharedFiles = async (files) => {
 
   try {
     await new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).put({
+      const transaction = database.transaction(
+        SHARED_FILES_STORE_NAME,
+        "readwrite",
+      );
+      transaction.objectStore(SHARED_FILES_STORE_NAME).put({
         id,
         files,
         receivedAt: Date.now(),
@@ -35,6 +44,32 @@ const storeSharedFiles = async (files) => {
   }
 
   return id;
+};
+
+const getSharedFiles = (formData) => {
+  const files = [];
+
+  for (const value of formData.values()) {
+    if (!(value instanceof Blob) || value.size === 0) {
+      continue;
+    }
+
+    files.push(
+      value instanceof File
+        ? value
+        : new File([value], "shared.csv", {
+            type: value.type || "application/octet-stream",
+          }),
+    );
+  }
+
+  return files;
+};
+
+const errorRedirect = (url, error) => {
+  const redirectUrl = new URL("/", url.origin);
+  redirectUrl.searchParams.set("share-error", error);
+  return Response.redirect(redirectUrl.href, 303);
 };
 
 self.addEventListener("install", () => {
@@ -56,15 +91,10 @@ self.addEventListener("fetch", (event) => {
     (async () => {
       try {
         const formData = await event.request.formData();
-        const files = formData
-          .getAll("csv")
-          .filter((value) => value instanceof File);
+        const files = getSharedFiles(formData);
 
         if (files.length === 0) {
-          return Response.redirect(
-            new URL("/?share-error=no-file", url.origin).href,
-            303,
-          );
+          return errorRedirect(url, "no-file");
         }
 
         const id = await storeSharedFiles(files);
@@ -74,10 +104,7 @@ self.addEventListener("fetch", (event) => {
         );
       } catch (error) {
         console.error("Failed to receive shared files:", error);
-        return Response.redirect(
-          new URL("/?share-error=receive-failed", url.origin).href,
-          303,
-        );
+        return errorRedirect(url, "receive-failed");
       }
     })(),
   );
