@@ -58,7 +58,7 @@ npm run dev
 ```bash
 npm test
 npm run typecheck
-npx biome check .
+npm run check
 npm run build
 ```
 
