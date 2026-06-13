@@ -4,9 +4,9 @@ import {
   CircleOff,
   Database,
   RotateCcw,
-  X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import ClearFileSelectionButton from "~/components/ClearFileSelectionButton";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { CsvRecord } from "~/services/csv-schema";
@@ -20,6 +20,8 @@ export type MfmeParsedData = {
 };
 
 interface Step2MfmeFilterProps {
+  files: File[];
+  onFilesSelected: (files: File[]) => void;
   onDataParsed: (data: MfmeParsedData | null) => void;
   duplicates?: number | undefined;
   totalTransactions?: number | undefined;
@@ -27,12 +29,13 @@ interface Step2MfmeFilterProps {
 }
 
 export default function Step2MfmeFilter({
+  files,
+  onFilesSelected,
   onDataParsed,
   duplicates,
   totalTransactions,
   allowSkip,
 }: Step2MfmeFilterProps) {
-  const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
   const [fileInputVersion, setFileInputVersion] = useState(0);
   const [isMfmeSkipped, setIsMfmeSkipped] = useState(false);
   const [mfStats, setMfStats] = useState<Omit<
@@ -41,65 +44,83 @@ export default function Step2MfmeFilter({
   > | null>(null);
   const [error, setError] = useState<string>("");
   const fileSelectionVersion = useRef(0);
+  const lastProcessedFiles = useRef<File[] | null>(null);
 
-  const handleFileChange = async (files: FileList | null) => {
-    const selectionVersion = ++fileSelectionVersion.current;
-    const selectedFiles = Array.from(files ?? []);
-    setMfmeFiles(selectedFiles);
-    if (selectedFiles.length > 0) {
-      setIsMfmeSkipped(false);
-    }
+  const processFiles = useCallback(
+    async (selectedFiles: File[]) => {
+      const selectionVersion = ++fileSelectionVersion.current;
+      if (selectedFiles.length > 0) {
+        setIsMfmeSkipped(false);
+      }
 
-    if (selectedFiles.length === 0) {
-      onDataParsed(null);
-      setMfStats(null);
+      if (selectedFiles.length === 0) {
+        onDataParsed(null);
+        setMfStats(null);
+        setError("");
+        return;
+      }
+
       setError("");
+
+      try {
+        const contents = await readFilesAsTextAuto(selectedFiles);
+        const result = createMfmeExclusionSet(contents);
+
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        if (
+          result.stats.count === 0 ||
+          (result.exclusionCounts.size === 0 &&
+            result.stats.startDate === null &&
+            result.stats.endDate === null)
+        ) {
+          throw new Error(
+            "MoneyForward MEの明細を読み込めませんでした。エクスポートしたCSVか確認してください。",
+          );
+        }
+
+        setMfStats(result.stats);
+        onDataParsed(result);
+      } catch (err) {
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "MoneyForward ME CSVの読み込みに失敗しました。",
+        );
+        setMfStats(null);
+        onDataParsed(null);
+      }
+    },
+    [onDataParsed],
+  );
+
+  const handleFileChange = (selectedFiles: FileList | null) => {
+    onFilesSelected(Array.from(selectedFiles ?? []));
+  };
+
+  useEffect(() => {
+    if (files === lastProcessedFiles.current) {
       return;
     }
 
-    setError("");
-
-    try {
-      const contents = await readFilesAsTextAuto(selectedFiles);
-      const result = createMfmeExclusionSet(contents);
-
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      if (
-        result.stats.count === 0 ||
-        (result.exclusionCounts.size === 0 &&
-          result.stats.startDate === null &&
-          result.stats.endDate === null)
-      ) {
-        throw new Error(
-          "MoneyForward MEの明細を読み込めませんでした。エクスポートしたCSVか確認してください。",
-        );
-      }
-
-      setMfStats(result.stats);
-      onDataParsed(result);
-    } catch (err) {
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "MoneyForward ME CSVの読み込みに失敗しました。",
-      );
-      setMfStats(null);
-      onDataParsed(null);
+    lastProcessedFiles.current = files;
+    if (files.length === 0 && isMfmeSkipped) {
+      return;
     }
-  };
+    void processFiles(files);
+  }, [files, isMfmeSkipped, processFiles]);
 
   const handleSkip = () => {
     fileSelectionVersion.current++;
     setIsMfmeSkipped(true);
-    setMfmeFiles([]);
     setFileInputVersion((version) => version + 1);
+    onFilesSelected([]);
     onDataParsed({
       exclusionCounts: new Map(),
       stats: { count: 0, startDate: null, endDate: null },
@@ -111,8 +132,8 @@ export default function Step2MfmeFilter({
 
   const handleClearFiles = () => {
     fileSelectionVersion.current++;
-    setMfmeFiles([]);
     setFileInputVersion((version) => version + 1);
+    onFilesSelected([]);
     onDataParsed(null);
     setMfStats(null);
     setError("");
@@ -193,26 +214,17 @@ export default function Step2MfmeFilter({
             id="mfme-csv-input"
             multiple
             fileLabel={
-              mfmeFiles.length > 0
-                ? `${mfmeFiles.length}ファイル選択済み`
-                : undefined
+              files.length > 0 ? `${files.length}ファイル選択済み` : undefined
             }
             prompt="MoneyForward ME CSVを選択"
             onFilesSelected={handleFileChange}
           />
 
-          {mfmeFiles.length > 0 && (
-            <button
-              type="button"
-              onClick={handleClearFiles}
-              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-            >
-              <X className="size-3.5" aria-hidden="true" />
-              ファイルの選択を解除
-            </button>
+          {files.length > 0 && (
+            <ClearFileSelectionButton onClick={handleClearFiles} />
           )}
 
-          {allowSkip && mfmeFiles.length === 0 && (
+          {allowSkip && files.length === 0 && (
             <button
               type="button"
               onClick={handleSkip}

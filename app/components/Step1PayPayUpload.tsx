@@ -1,5 +1,6 @@
 import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import ClearFileSelectionButton from "~/components/ClearFileSelectionButton";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { FileStats } from "~/services/csv-date";
@@ -16,60 +17,84 @@ export type PayPayParsedData = {
 };
 
 interface Step1PayPayUploadProps {
+  file: File | null;
+  onFileSelected: (file: File | null) => void;
   onDataParsed: (data: PayPayParsedData | null) => void;
 }
 
 export default function Step1PayPayUpload({
+  file,
+  onFileSelected,
   onDataParsed,
 }: Step1PayPayUploadProps) {
-  const [payPayFile, setPayPayFile] = useState<File | null>(null);
   const [paypayStats, setPaypayStats] = useState<FileStats | null>(null);
   const [error, setError] = useState<string>("");
+  const [fileInputVersion, setFileInputVersion] = useState(0);
   const fileSelectionVersion = useRef(0);
+  const lastProcessedFile = useRef<File | null>(null);
 
-  const handleFileChange = async (files: FileList | null) => {
-    const selectionVersion = ++fileSelectionVersion.current;
-    const file = files?.[0] ?? null;
-    setPayPayFile(file);
+  const processFile = useCallback(
+    async (file: File | null) => {
+      const selectionVersion = ++fileSelectionVersion.current;
 
-    if (!file) {
-      onDataParsed(null);
-      setPaypayStats(null);
+      if (!file) {
+        onDataParsed(null);
+        setPaypayStats(null);
+        setError("");
+        return;
+      }
+
       setError("");
+
+      try {
+        const content = await readFileAsTextAuto(file);
+        const result = extractTransactionsFromPayPayCsv(content);
+
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        if (result.transactions.length === 0) {
+          throw new Error(
+            "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
+          );
+        }
+
+        setPaypayStats(result.stats);
+        onDataParsed(result);
+      } catch (err) {
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "PayPay CSVの読み込みに失敗しました。",
+        );
+        setPaypayStats(null);
+        onDataParsed(null);
+      }
+    },
+    [onDataParsed],
+  );
+
+  const handleFileChange = (files: FileList | null) => {
+    onFileSelected(files?.[0] ?? null);
+  };
+
+  useEffect(() => {
+    if (file === lastProcessedFile.current) {
       return;
     }
 
-    setError("");
+    lastProcessedFile.current = file;
+    void processFile(file);
+  }, [file, processFile]);
 
-    try {
-      const content = await readFileAsTextAuto(file);
-      const result = extractTransactionsFromPayPayCsv(content);
-
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      if (result.transactions.length === 0) {
-        throw new Error(
-          "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
-        );
-      }
-
-      setPaypayStats(result.stats);
-      onDataParsed(result);
-    } catch (err) {
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "PayPay CSVの読み込みに失敗しました。",
-      );
-      setPaypayStats(null);
-      onDataParsed(null);
-    }
+  const handleClearFile = () => {
+    setFileInputVersion((version) => version + 1);
+    onFileSelected(null);
   };
 
   return (
@@ -90,11 +115,14 @@ export default function Step1PayPayUpload({
       </div>
 
       <CsvDropzone
+        key={fileInputVersion}
         id="paypay-csv-input"
-        fileLabel={payPayFile?.name}
+        fileLabel={file?.name}
         prompt="PayPay CSVを選択"
         onFilesSelected={handleFileChange}
       />
+
+      {file && <ClearFileSelectionButton onClick={handleClearFile} />}
 
       {paypayStats && (
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">

@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "build": "react-router build",
-    "check": "biome check .",
-    "check:ci": "biome ci .",
     "dev": "react-router dev",
+    "icons:check": "node scripts/generate-icons.mjs --check",
+    "icons:generate": "node scripts/generate-icons.mjs",
+    "lint": "biome check .",
+    "lint:ci": "biome ci .",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run"
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
     "@react-router/dev": "^7.17.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.0",
     "@tsconfig/strictest": "^2.0.8",
     "@types/node": "^25",

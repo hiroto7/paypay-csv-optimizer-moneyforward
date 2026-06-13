@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -11,6 +12,8 @@ import type { Route } from "./+types/root";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
+  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -24,11 +27,26 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+
+    void navigator.serviceWorker
+      .register("/share-target-sw.js", { scope: "/" })
+      .catch((error: unknown) => {
+        console.error("Service worker registration failed:", error);
+      });
+  }, []);
+
   return (
     <html lang="ja">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#dc2626" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <Meta />
         <Links />
       </head>
