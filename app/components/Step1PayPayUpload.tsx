@@ -1,5 +1,5 @@
 import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { FileStats } from "~/services/csv-date";
@@ -17,60 +17,79 @@ export type PayPayParsedData = {
 
 interface Step1PayPayUploadProps {
   onDataParsed: (data: PayPayParsedData | null) => void;
+  sharedFile?: File | null | undefined;
 }
 
 export default function Step1PayPayUpload({
   onDataParsed,
+  sharedFile,
 }: Step1PayPayUploadProps) {
   const [payPayFile, setPayPayFile] = useState<File | null>(null);
   const [paypayStats, setPaypayStats] = useState<FileStats | null>(null);
   const [error, setError] = useState<string>("");
   const fileSelectionVersion = useRef(0);
 
-  const handleFileChange = async (files: FileList | null) => {
-    const selectionVersion = ++fileSelectionVersion.current;
-    const file = files?.[0] ?? null;
-    setPayPayFile(file);
+  const lastSharedFile = useRef<File | null>(null);
 
-    if (!file) {
-      onDataParsed(null);
-      setPaypayStats(null);
+  const processFile = useCallback(
+    async (file: File | null) => {
+      const selectionVersion = ++fileSelectionVersion.current;
+      setPayPayFile(file);
+
+      if (!file) {
+        onDataParsed(null);
+        setPaypayStats(null);
+        setError("");
+        return;
+      }
+
       setError("");
+
+      try {
+        const content = await readFileAsTextAuto(file);
+        const result = extractTransactionsFromPayPayCsv(content);
+
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        if (result.transactions.length === 0) {
+          throw new Error(
+            "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
+          );
+        }
+
+        setPaypayStats(result.stats);
+        onDataParsed(result);
+      } catch (err) {
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "PayPay CSVの読み込みに失敗しました。",
+        );
+        setPaypayStats(null);
+        onDataParsed(null);
+      }
+    },
+    [onDataParsed],
+  );
+
+  const handleFileChange = (files: FileList | null) => {
+    void processFile(files?.[0] ?? null);
+  };
+
+  useEffect(() => {
+    if (!sharedFile || sharedFile === lastSharedFile.current) {
       return;
     }
 
-    setError("");
-
-    try {
-      const content = await readFileAsTextAuto(file);
-      const result = extractTransactionsFromPayPayCsv(content);
-
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      if (result.transactions.length === 0) {
-        throw new Error(
-          "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
-        );
-      }
-
-      setPaypayStats(result.stats);
-      onDataParsed(result);
-    } catch (err) {
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "PayPay CSVの読み込みに失敗しました。",
-      );
-      setPaypayStats(null);
-      onDataParsed(null);
-    }
-  };
+    lastSharedFile.current = sharedFile;
+    void processFile(sharedFile);
+  }, [processFile, sharedFile]);
 
   return (
     <section aria-labelledby="paypay-upload-title">

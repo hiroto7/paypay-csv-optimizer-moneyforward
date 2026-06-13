@@ -6,7 +6,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { CsvRecord } from "~/services/csv-schema";
@@ -24,6 +24,7 @@ interface Step2MfmeFilterProps {
   duplicates?: number | undefined;
   totalTransactions?: number | undefined;
   allowSkip: boolean;
+  sharedFiles?: File[] | undefined;
 }
 
 export default function Step2MfmeFilter({
@@ -31,6 +32,7 @@ export default function Step2MfmeFilter({
   duplicates,
   totalTransactions,
   allowSkip,
+  sharedFiles,
 }: Step2MfmeFilterProps) {
   const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
   const [fileInputVersion, setFileInputVersion] = useState(0);
@@ -41,59 +43,79 @@ export default function Step2MfmeFilter({
   > | null>(null);
   const [error, setError] = useState<string>("");
   const fileSelectionVersion = useRef(0);
+  const lastSharedFiles = useRef<File[] | null>(null);
 
-  const handleFileChange = async (files: FileList | null) => {
-    const selectionVersion = ++fileSelectionVersion.current;
-    const selectedFiles = Array.from(files ?? []);
-    setMfmeFiles(selectedFiles);
-    if (selectedFiles.length > 0) {
-      setIsMfmeSkipped(false);
-    }
+  const processFiles = useCallback(
+    async (selectedFiles: File[]) => {
+      const selectionVersion = ++fileSelectionVersion.current;
+      setMfmeFiles(selectedFiles);
+      if (selectedFiles.length > 0) {
+        setIsMfmeSkipped(false);
+      }
 
-    if (selectedFiles.length === 0) {
-      onDataParsed(null);
-      setMfStats(null);
+      if (selectedFiles.length === 0) {
+        onDataParsed(null);
+        setMfStats(null);
+        setError("");
+        return;
+      }
+
       setError("");
+
+      try {
+        const contents = await readFilesAsTextAuto(selectedFiles);
+        const result = createMfmeExclusionSet(contents);
+
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        if (
+          result.stats.count === 0 ||
+          (result.exclusionCounts.size === 0 &&
+            result.stats.startDate === null &&
+            result.stats.endDate === null)
+        ) {
+          throw new Error(
+            "MoneyForward MEの明細を読み込めませんでした。エクスポートしたCSVか確認してください。",
+          );
+        }
+
+        setMfStats(result.stats);
+        onDataParsed(result);
+      } catch (err) {
+        if (selectionVersion !== fileSelectionVersion.current) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "MoneyForward ME CSVの読み込みに失敗しました。",
+        );
+        setMfStats(null);
+        onDataParsed(null);
+      }
+    },
+    [onDataParsed],
+  );
+
+  const handleFileChange = (files: FileList | null) => {
+    void processFiles(Array.from(files ?? []));
+  };
+
+  useEffect(() => {
+    if (
+      !sharedFiles ||
+      sharedFiles.length === 0 ||
+      sharedFiles === lastSharedFiles.current
+    ) {
       return;
     }
 
-    setError("");
-
-    try {
-      const contents = await readFilesAsTextAuto(selectedFiles);
-      const result = createMfmeExclusionSet(contents);
-
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      if (
-        result.stats.count === 0 ||
-        (result.exclusionCounts.size === 0 &&
-          result.stats.startDate === null &&
-          result.stats.endDate === null)
-      ) {
-        throw new Error(
-          "MoneyForward MEの明細を読み込めませんでした。エクスポートしたCSVか確認してください。",
-        );
-      }
-
-      setMfStats(result.stats);
-      onDataParsed(result);
-    } catch (err) {
-      if (selectionVersion !== fileSelectionVersion.current) {
-        return;
-      }
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "MoneyForward ME CSVの読み込みに失敗しました。",
-      );
-      setMfStats(null);
-      onDataParsed(null);
-    }
-  };
+    lastSharedFiles.current = sharedFiles;
+    void processFiles(sharedFiles);
+  }, [processFiles, sharedFiles]);
 
   const handleSkip = () => {
     fileSelectionVersion.current++;
