@@ -9,8 +9,8 @@ import {
 import { useRef, useState } from "react";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
-import type { CsvRecord, MfFileStats } from "~/services/csv-processor";
-import { createMfmeExclusionSet } from "~/services/csv-processor";
+import type { CsvRecord } from "~/services/csv-schema";
+import { createMfmeExclusionSet, type MfFileStats } from "~/services/mfme-csv";
 import { readFilesAsTextAuto } from "~/utils/file-reader";
 
 export type MfmeParsedData = {

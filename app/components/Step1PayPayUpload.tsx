@@ -2,8 +2,11 @@ import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
 import { useRef, useState } from "react";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
-import type { FileStats, PayPayTransaction } from "~/services/csv-processor";
-import { extractTransactionsFromPayPayCsv } from "~/services/csv-processor";
+import type { FileStats } from "~/services/csv-date";
+import {
+  extractTransactionsFromPayPayCsv,
+  type PayPayTransaction,
+} from "~/services/paypay-csv";
 import { readFileAsTextAuto } from "~/utils/file-reader";
 
 export type PayPayParsedData = {
