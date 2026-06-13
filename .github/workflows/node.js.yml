@@ -17,7 +17,8 @@ jobs:
           node-version: 24.x
           cache: "npm"
       - run: npm ci
+      - run: npm run icons:check
       - run: npm run build
       - run: npm run typecheck
-      - run: npm run check:ci
+      - run: npm run lint:ci
       - run: npm test

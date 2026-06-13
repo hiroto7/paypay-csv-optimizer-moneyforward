@@ -59,7 +59,7 @@ npm run dev
 ```bash
 npm test
 npm run typecheck
-npm run check
+npm run lint
 npm run build
 ```
 
