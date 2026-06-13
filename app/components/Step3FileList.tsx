@@ -7,7 +7,7 @@ import {
   Rows3,
 } from "lucide-react";
 import PeriodDisplay from "~/components/PeriodDisplay";
-import type { ProcessedResult } from "~/services/csv-processor";
+import type { ProcessedResult } from "~/services/paypay-csv";
 
 interface Step3FileListProps {
   processedChunks: ProcessedResult;
