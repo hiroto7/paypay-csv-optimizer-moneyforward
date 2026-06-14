@@ -58,10 +58,15 @@ npm run dev
 
 ```bash
 npm test
+npm run test:vrt
 npm run typecheck
 npm run lint
 npm run build
 ```
+
+VRTはPlaywright公式Dockerイメージ内のLinux/AMD64環境で実行します。事前に
+Dockerを起動してください。基準画像を更新する場合は、表示差分を確認したうえで
+`npm run test:vrt:update`を実行します。
 
 ## 使用技術
 
