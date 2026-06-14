@@ -10,10 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import PeriodDisplay from "~/components/PeriodDisplay";
-import type {
-  ProcessedCsvChunk,
-  ProcessedResult,
-} from "~/services/paypay-csv";
+import type { ProcessedCsvChunk, ProcessedResult } from "~/services/paypay-csv";
 import { sum } from "~/utils/array";
 
 interface Step3FileListProps {
@@ -200,10 +197,8 @@ export default function Step3FileList({
     countRecords(chunks),
   );
   const manualImportSummary = manualImportGroups
-    .slice(0, 3)
     .map(({ name, chunks }) => `${name} ${countRecords(chunks)}件`)
     .join("、");
-  const omittedMethodCount = Math.max(manualImportGroups.length - 3, 0);
 
   return (
     <section aria-labelledby="output-title">
@@ -254,7 +249,6 @@ export default function Step3FileList({
                 </p>
                 <p className="mt-2 text-xs leading-5 text-zinc-600">
                   {manualImportSummary}
-                  {omittedMethodCount > 0 && `、ほか${omittedMethodCount}件`}
                 </p>
                 <p className="mt-2 text-xs leading-5 text-zinc-600">
                   カード・銀行口座としてMoneyForward
