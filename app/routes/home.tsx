@@ -20,6 +20,10 @@ import Step2MfmeFilter, {
 } from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
 import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
+import UsageGuide, {
+  type BeforeInstallPromptEvent,
+  USAGE_GUIDE_DISMISSED_KEY,
+} from "~/components/UsageGuide";
 import { detectCsvFileType } from "~/services/csv-file-type";
 import { findMfmeDeletionCandidates } from "~/services/deletion-candidates";
 import {
@@ -332,6 +336,11 @@ export default function Home() {
   const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
   const [sharedFileNotice, setSharedFileNotice] =
     useState<SharedFileNotice | null>(null);
+  const [showUsageIntro, setShowUsageIntro] = useState(false);
+  const [isUsageGuideOpen, setIsUsageGuideOpen] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
   const inputFilesRef = useRef<InputFiles>({
     payPayFile: null,
     mfmeFiles: [],
@@ -390,15 +399,30 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const sharedFilesId = params.get("shared-files");
     const shareError = params.get("share-error");
+    const shouldOpenUsageGuide = params.get("usage-guide") === "1";
+    const isSharedLaunch = Boolean(
+      sharedFilesId || shareError || params.has("share-debug"),
+    );
 
-    if (sharedFilesId || shareError || params.has("share-debug")) {
+    if (isSharedLaunch || shouldOpenUsageGuide) {
       params.delete("shared-files");
       params.delete("share-error");
       params.delete("share-debug");
+      params.delete("usage-guide");
       const cleanUrl = `${window.location.pathname}${
         params.size > 0 ? `?${params.toString()}` : ""
       }${window.location.hash}`;
       window.history.replaceState(null, "", cleanUrl);
+    }
+
+    if (shouldOpenUsageGuide) {
+      localStorage.setItem(USAGE_GUIDE_DISMISSED_KEY, "true");
+      setIsUsageGuideOpen(true);
+    } else if (
+      !isSharedLaunch &&
+      localStorage.getItem(USAGE_GUIDE_DISMISSED_KEY) !== "true"
+    ) {
+      setShowUsageIntro(true);
     }
 
     let isCancelled = false;
@@ -499,6 +523,58 @@ export default function Home() {
       isCancelled = true;
     };
   }, [applyInputFiles]);
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+        true;
+    setIsStandalone(standalone);
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event as BeforeInstallPromptEvent);
+    };
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null);
+      setIsStandalone(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const dismissUsageIntro = useCallback(() => {
+    localStorage.setItem(USAGE_GUIDE_DISMISSED_KEY, "true");
+    setShowUsageIntro(false);
+  }, []);
+
+  const openUsageGuide = useCallback(() => {
+    dismissUsageIntro();
+    setIsUsageGuideOpen(true);
+  }, [dismissUsageIntro]);
+
+  const handleInstall = useCallback(async () => {
+    if (!installPromptEvent) {
+      return;
+    }
+
+    try {
+      await installPromptEvent.prompt();
+      await installPromptEvent.userChoice;
+    } catch (error) {
+      console.error("Failed to show install prompt:", error);
+    } finally {
+      setInstallPromptEvent(null);
+    }
+  }, [installPromptEvent]);
 
   const conversionResult = useMemo(() => {
     if (mode !== "convert" || !payPayData || !mfmeData) {
@@ -631,6 +707,29 @@ export default function Home() {
           </div>
         )}
 
+        <section className="mb-6 py-3 sm:mb-8 sm:py-5">
+          <p className="max-w-4xl text-3xl font-extrabold leading-tight tracking-tight text-zinc-950 sm:text-5xl sm:leading-tight">
+            <span className="block sm:inline">PayPay CSV取り込みの、</span>{" "}
+            <span className="block sm:inline">重複・併用払い問題を解消。</span>
+          </p>
+          <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-zinc-600 sm:text-base sm:leading-7">
+            MoneyForward
+            MEへ取り込む前に、登録済み明細を除外し、併用払いを支払い方法ごとに分割します。
+          </p>
+        </section>
+
+        <UsageGuide
+          installPromptEvent={installPromptEvent}
+          isInstallAvailable={!isStandalone && installPromptEvent !== null}
+          showInstallGuide={!isStandalone}
+          isOpen={isUsageGuideOpen}
+          showIntro={showUsageIntro}
+          onClose={() => setIsUsageGuideOpen(false)}
+          onDismissIntro={dismissUsageIntro}
+          onInstall={handleInstall}
+          onOpen={openUsageGuide}
+        />
+
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-zinc-950">
@@ -728,7 +827,7 @@ export default function Home() {
         </div>
       </main>
 
-      <AppFooter />
+      <AppFooter onShowUsageGuide={openUsageGuide} />
 
       {modalContext && (
         <MfImportGuideModal
