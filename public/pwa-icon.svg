@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>PayPay CSV Optimizer for MoneyForward</title>
   <defs>
     <linearGradient id="flow" x1="71" y1="112" x2="380" y2="400" gradientUnits="userSpaceOnUse">
       <stop stop-color="#ef233c"/>
