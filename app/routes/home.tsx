@@ -709,12 +709,12 @@ export default function Home() {
 
         <section className="mb-6 py-3 sm:mb-8 sm:py-5">
           <p className="max-w-4xl text-3xl font-extrabold leading-tight tracking-tight text-zinc-950 sm:text-5xl sm:leading-tight">
-            <span className="block sm:inline">PayPayの明細を、</span>{" "}
-            <span className="block sm:inline">MoneyForward MEへ</span>{" "}
-            <span className="block sm:inline">かんたん・正確に。</span>
+            <span className="block sm:inline">PayPayの支出も、</span>{" "}
+            <span className="block sm:inline">MoneyForward MEで</span>{" "}
+            <span className="block sm:inline">まとめて家計管理。</span>
           </p>
           <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-zinc-600 sm:text-base sm:leading-7">
-            併用払いを分割し、取り込み済みの明細を除いて、登録しやすいCSVに自動で整理します。
+            そのままでは取り込めないPayPayの取引履歴を、一件ずつ手入力・修正せずにまとめて取り込めます。
           </p>
         </section>
 
