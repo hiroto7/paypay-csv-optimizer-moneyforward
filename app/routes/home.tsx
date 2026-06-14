@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AppFooter from "~/components/AppFooter";
 import Step1PayPayUpload, {
   type PayPayParsedData,
 } from "~/components/Step1PayPayUpload";
@@ -726,6 +727,8 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      <AppFooter />
 
       {modalContext && (
         <MfImportGuideModal
