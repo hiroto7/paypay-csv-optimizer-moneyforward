@@ -14,6 +14,7 @@ import type {
   ProcessedCsvChunk,
   ProcessedResult,
 } from "~/services/paypay-csv";
+import { sum } from "~/utils/array";
 
 interface Step3FileListProps {
   processedChunks: ProcessedResult;
@@ -62,7 +63,7 @@ const createUniqueFilenameBases = (names: string[]) => {
 const isPayPayMethod = (name: string) => name.startsWith("PayPay");
 
 const countRecords = (chunks: ProcessedCsvChunk[]) =>
-  chunks.reduce((sum, chunk) => sum + chunk.count, 0);
+  sum(chunks, (chunk) => chunk.count);
 
 function FileGroupList({
   groups,
@@ -189,18 +190,14 @@ export default function Step3FileList({
   );
   const payPayGroups = groups.filter(({ name }) => isPayPayMethod(name));
   const manualImportGroups = groups.filter(({ name }) => !isPayPayMethod(name));
-  const totalFiles = groups.reduce((sum, { chunks }) => sum + chunks.length, 0);
-  const totalRecords = groups.reduce(
-    (sum, { chunks }) => sum + countRecords(chunks),
-    0,
+  const totalFiles = sum(groups, ({ chunks }) => chunks.length);
+  const totalRecords = sum(groups, ({ chunks }) => countRecords(chunks));
+  const manualImportFiles = sum(
+    manualImportGroups,
+    ({ chunks }) => chunks.length,
   );
-  const manualImportFiles = manualImportGroups.reduce(
-    (sum, { chunks }) => sum + chunks.length,
-    0,
-  );
-  const manualImportRecords = manualImportGroups.reduce(
-    (sum, { chunks }) => sum + countRecords(chunks),
-    0,
+  const manualImportRecords = sum(manualImportGroups, ({ chunks }) =>
+    countRecords(chunks),
   );
   const manualImportSummary = manualImportGroups
     .slice(0, 3)
