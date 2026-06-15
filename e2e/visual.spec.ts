@@ -67,10 +67,46 @@ test("変換結果と保存確認モーダルを表示できる", async ({ page 
     fullPage: true,
   });
 
-  const downloadPromise = page.waitForEvent("download");
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: () =>
+        new Promise<void>((resolve) => {
+          (
+            window as typeof window & {
+              resolveShare?: () => void;
+            }
+          ).resolveShare = resolve;
+        }),
+    });
+  });
+
   await page.getByRole("button", { name: "取り込む" }).first().click();
-  await downloadPromise;
   await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "MoneyForward MEに取り込む" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("共有シートでMoneyForward MEを選ぶ"),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("share-guide-modal.png", {
+    fullPage: true,
+  });
+
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        resolveShare?: () => void;
+      }
+    ).resolveShare?.();
+  });
+  await expect(
+    page.getByRole("button", { name: "MoneyForward MEで保存した" }),
+  ).toBeVisible();
   await expect(page).toHaveScreenshot("import-guide-modal.png", {
     fullPage: true,
   });
