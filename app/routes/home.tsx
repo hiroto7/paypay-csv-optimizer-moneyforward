@@ -5,6 +5,7 @@ import {
   Check,
   FileCheck2,
   FileSearch,
+  LoaderCircle,
   LockKeyhole,
   Search,
   UploadCloud,
@@ -67,37 +68,34 @@ const downloadCsv = (filename: string, blob: Blob) => {
   URL.revokeObjectURL(url);
 };
 
-const shareCsv = async (
-  filename: string,
-  data: string,
-  onShared: () => void,
-) => {
+const shareCsv = async (filename: string, data: string): Promise<boolean> => {
   const blob = new Blob([`\uFEFF${data}`], { type: "text/csv" });
   const file = new File([blob], filename, { type: "text/csv" });
 
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file] });
-      onShared();
-      return;
+      return true;
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        return;
+        return false;
       }
       console.error("Share failed, falling back to download:", error);
     }
   }
 
   downloadCsv(filename, blob);
-  onShared();
+  return true;
 };
 
 const MfImportGuideModal = ({
   accountName,
+  isSharing,
   onClose,
   onImported,
 }: {
   accountName: string;
+  isSharing: boolean;
   onClose: () => void;
   onImported: () => void;
 }) => {
@@ -162,13 +160,13 @@ const MfImportGuideModal = ({
               id="import-guide-title"
               className="text-base font-bold text-zinc-950"
             >
-              MoneyForward MEで保存
+              MoneyForward MEに取り込む
             </h2>
             <p
               id="import-guide-description"
               className="mt-1 text-xs text-zinc-500"
             >
-              CSVを渡した後、口座を確認してください
+              共有後、MoneyForward MEで口座を指定して保存してください
             </p>
           </div>
           <button
@@ -185,20 +183,46 @@ const MfImportGuideModal = ({
 
         <ol className="divide-y divide-zinc-200 px-5">
           {[
+            "共有シートでMoneyForward MEを選ぶ",
             "MoneyForward MEの「読み込んだ明細」を開く",
             `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
             "内容を確認して右上の「保存」を押す",
-          ].map((instruction, index) => (
-            <li
-              key={instruction}
-              className="grid grid-cols-[28px_1fr] gap-3 py-4 text-sm text-zinc-700"
-            >
-              <span className="flex size-7 items-center justify-center bg-zinc-100 text-xs font-bold text-zinc-700">
-                {index + 1}
-              </span>
-              <span className="pt-1">{instruction}</span>
-            </li>
-          ))}
+          ].map((instruction, index) => {
+            const isShareStep = index === 0;
+
+            return (
+              <li
+                key={instruction}
+                className={`grid grid-cols-[28px_1fr] gap-3 py-4 text-sm ${
+                  isShareStep && isSharing
+                    ? "font-semibold text-zinc-950"
+                    : "text-zinc-700"
+                }`}
+              >
+                <span
+                  className={`flex size-7 items-center justify-center text-xs font-bold ${
+                    isShareStep && !isSharing
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-zinc-100 text-zinc-700"
+                  }`}
+                >
+                  {isShareStep ? (
+                    isSharing ? (
+                      <LoaderCircle
+                        className="size-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Check className="size-4" aria-hidden="true" />
+                    )
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <span className="pt-1">{instruction}</span>
+              </li>
+            );
+          })}
         </ol>
 
         <div className="flex justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4">
@@ -212,10 +236,22 @@ const MfImportGuideModal = ({
           <button
             type="button"
             onClick={onImported}
-            className="inline-flex h-9 items-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
+            disabled={isSharing}
+            className={`inline-flex h-9 items-center gap-2 px-4 text-sm font-semibold ${
+              isSharing
+                ? "cursor-wait bg-zinc-200 text-zinc-500"
+                : "bg-zinc-900 text-white hover:bg-zinc-700"
+            }`}
           >
-            <Check className="size-4" aria-hidden="true" />
-            MoneyForward MEで保存した
+            {isSharing ? (
+              <LoaderCircle
+                className="size-4 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Check className="size-4" aria-hidden="true" />
+            )}
+            {isSharing ? "共有先を選択中" : "MoneyForward MEで保存した"}
           </button>
         </div>
       </div>
@@ -326,6 +362,7 @@ export default function Home() {
   const [modalContext, setModalContext] = useState<{
     name: string;
     index: number;
+    isSharing: boolean;
   } | null>(null);
   const [payPayFile, setPayPayFile] = useState<File | null>(null);
   const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
@@ -701,8 +738,15 @@ export default function Home() {
                 <Step3FileList
                   processedChunks={processedChunks}
                   onShare={shareCsv}
-                  onShareClick={(name, index) =>
-                    setModalContext({ name, index })
+                  onShareStart={(name, index) =>
+                    setModalContext({ name, index, isSharing: true })
+                  }
+                  onShareEnd={(shared) =>
+                    setModalContext((currentContext) =>
+                      shared && currentContext
+                        ? { ...currentContext, isSharing: false }
+                        : null,
+                    )
                   }
                 />
               ) : (
@@ -730,6 +774,7 @@ export default function Home() {
       {modalContext && (
         <MfImportGuideModal
           accountName={modalContext.name}
+          isSharing={modalContext.isSharing}
           onClose={handleCloseModal}
           onImported={handleMarkAsImported}
         />

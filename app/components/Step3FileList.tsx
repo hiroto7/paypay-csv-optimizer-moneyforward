@@ -6,21 +6,20 @@ import {
   ChevronUp,
   Download,
   FileSpreadsheet,
+  LoaderCircle,
   Rows3,
 } from "lucide-react";
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { ProcessedCsvChunk, ProcessedResult } from "~/services/paypay-csv";
 import { sum } from "~/utils/array";
 
 interface Step3FileListProps {
   processedChunks: ProcessedResult;
-  onShare: (
-    filename: string,
-    data: string,
-    onShared: () => void,
-  ) => Promise<void>;
-  onShareClick: (name: string, index: number) => void;
+  onShare: (filename: string, data: string) => Promise<boolean>;
+  onShareStart: (name: string, index: number) => void;
+  onShareEnd: (shared: boolean) => void;
 }
 
 type FileGroup = {
@@ -65,14 +64,21 @@ const countRecords = (chunks: ProcessedCsvChunk[]) =>
 function FileGroupList({
   groups,
   manualImport,
-  onShare,
-  onShareClick,
+  sharingFilename,
+  onImport,
 }: {
   groups: FileGroup[];
   manualImport: boolean;
-  onShare: Step3FileListProps["onShare"];
-  onShareClick: Step3FileListProps["onShareClick"];
+  sharingFilename: string | null;
+  onImport: (
+    filename: string,
+    data: string,
+    name: string,
+    index: number,
+  ) => void;
 }) {
+  const isSharing = sharingFilename !== null;
+
   return (
     <div className="divide-y divide-zinc-200">
       {groups.map(({ name, chunks, filenameBase }) => (
@@ -131,30 +137,35 @@ function FileGroupList({
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      onShare(filename, chunk.data, () =>
-                        onShareClick(name, index),
-                      )
-                    }
-                    disabled={chunk.imported}
+                    onClick={() => onImport(filename, chunk.data, name, index)}
+                    disabled={chunk.imported || isSharing}
                     className={`inline-flex min-h-9 w-full items-center justify-center gap-2 px-4 py-2 text-sm font-semibold sm:w-auto ${
                       chunk.imported
                         ? "cursor-default bg-zinc-100 text-zinc-500"
-                        : manualImport
-                          ? "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-                          : "bg-zinc-900 text-white hover:bg-zinc-700"
+                        : isSharing
+                          ? "cursor-wait bg-zinc-200 text-zinc-500"
+                          : manualImport
+                            ? "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                            : "bg-zinc-900 text-white hover:bg-zinc-700"
                     }`}
                   >
                     {chunk.imported ? (
                       <Check className="size-4" aria-hidden="true" />
+                    ) : sharingFilename === filename ? (
+                      <LoaderCircle
+                        className="size-4 animate-spin"
+                        aria-hidden="true"
+                      />
                     ) : (
                       <Download className="size-4" aria-hidden="true" />
                     )}
                     {chunk.imported
                       ? "確認済み"
-                      : manualImport
-                        ? "手動登録が必要なので取り込む"
-                        : "取り込む"}
+                      : sharingFilename === filename
+                        ? "共有先を選択中"
+                        : manualImport
+                          ? "手動登録が必要なので取り込む"
+                          : "取り込む"}
                   </button>
                 </div>
               );
@@ -169,9 +180,11 @@ function FileGroupList({
 export default function Step3FileList({
   processedChunks,
   onShare,
-  onShareClick,
+  onShareStart,
+  onShareEnd,
 }: Step3FileListProps) {
   const [showManualImports, setShowManualImports] = useState(false);
+  const [sharingFilename, setSharingFilename] = useState<string | null>(null);
   const groupEntries = Object.entries(processedChunks).filter(
     ([, chunks]) => chunks.length > 0,
   );
@@ -200,6 +213,22 @@ export default function Step3FileList({
     .map(({ name, chunks }) => `${name} ${countRecords(chunks)}件`)
     .join("、");
 
+  const handleImport = (
+    filename: string,
+    data: string,
+    name: string,
+    index: number,
+  ) => {
+    flushSync(() => {
+      setSharingFilename(filename);
+      onShareStart(name, index);
+    });
+    void onShare(filename, data)
+      .then(onShareEnd)
+      .catch(() => onShareEnd(false))
+      .finally(() => setSharingFilename(null));
+  };
+
   return (
     <section aria-labelledby="output-title">
       <div className="flex flex-col gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -227,8 +256,8 @@ export default function Step3FileList({
         <FileGroupList
           groups={payPayGroups}
           manualImport={false}
-          onShare={onShare}
-          onShareClick={onShareClick}
+          sharingFilename={sharingFilename}
+          onImport={handleImport}
         />
       )}
 
@@ -280,8 +309,8 @@ export default function Step3FileList({
               <FileGroupList
                 groups={manualImportGroups}
                 manualImport
-                onShare={onShare}
-                onShareClick={onShareClick}
+                sharingFilename={sharingFilename}
+                onImport={handleImport}
               />
             </div>
           )}
