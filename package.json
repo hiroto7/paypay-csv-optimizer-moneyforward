@@ -37,6 +37,7 @@
     "@types/node": "^25",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/web-app-manifest": "^1.0.9",
     "tailwindcss": "^4.1.13",
     "typescript": "^6.0.3",
     "vite": "^7.3.2",
