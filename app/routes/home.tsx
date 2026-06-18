@@ -204,17 +204,29 @@ const MfImportGuideModal = ({
 
         <ol className="divide-y divide-zinc-200 px-5">
           {[
-            "共有シートでMoneyForward MEを選ぶ",
-            "MoneyForward MEの「読み込んだ明細」を開く",
-            `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
-            "内容を確認して右上の「保存」を押す",
-          ].map((instruction, index) => {
+            { instruction: "共有シートでMoneyForward MEを選ぶ" },
+            { instruction: "「CSVを読み込む」を押す" },
+            {
+              instruction: "MoneyForward MEを開く",
+              description: "自動的に「読み込んだ明細」画面が開きます",
+            },
+            {
+              instruction: `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
+            },
+            { instruction: "内容を確認して右上の「保存」を押す" },
+            {
+              instruction:
+                "PP2MFに戻り、この画面の右下の「MoneyForward MEで保存した」を押す",
+              description:
+                "次回PP2MFを使うとき、今回取り込んだ明細は自動的に除外されるようになります",
+            },
+          ].map(({ instruction, description }, index) => {
             const isShareStep = index === 0;
 
             return (
               <li
                 key={instruction}
-                className={`grid grid-cols-[28px_1fr] gap-3 py-4 text-sm ${
+                className={`grid grid-cols-[28px_minmax(0,1fr)] items-start gap-3 py-4 text-sm ${
                   isShareStep && isSharing
                     ? "font-semibold text-zinc-950"
                     : "text-zinc-700"
@@ -240,7 +252,20 @@ const MfImportGuideModal = ({
                     index + 1
                   )}
                 </span>
-                <span className="pt-1">{instruction}</span>
+                <div
+                  className={
+                    description === undefined
+                      ? "flex min-h-7 min-w-0 items-center"
+                      : "min-w-0"
+                  }
+                >
+                  <span className="block leading-5">{instruction}</span>
+                  {description !== undefined && (
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      {description}
+                    </p>
+                  )}
+                </div>
               </li>
             );
           })}
