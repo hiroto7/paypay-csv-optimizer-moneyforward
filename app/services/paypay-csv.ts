@@ -14,6 +14,7 @@ export type ProcessedCsvChunk = {
   startDate: Date | null;
   endDate: Date | null;
   imported: boolean;
+  transactionKeys: string[];
 };
 
 export type ProcessedResult = {
@@ -126,10 +127,13 @@ export function filterTransactions(
   exclusionCounts: ReadonlyMap<string, number>,
 ): {
   groupedRecords: { [paymentMethod: string]: CsvRecord[] };
+  groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] };
   duplicates: number;
 } {
   let duplicates = 0;
   const groupedRecords: { [paymentMethod: string]: CsvRecord[] } = {};
+  const groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] } =
+    {};
   const remainingExclusionCounts = new Map(exclusionCounts);
 
   for (const transaction of transactions) {
@@ -150,27 +154,64 @@ export function filterTransactions(
     } else {
       groupedRecords[transaction.paymentMethod] = [transaction.record];
     }
+
+    const existingTransactions = groupedTransactions[transaction.paymentMethod];
+    if (existingTransactions) {
+      existingTransactions.push(transaction);
+    } else {
+      groupedTransactions[transaction.paymentMethod] = [transaction];
+    }
   }
 
-  return { groupedRecords, duplicates };
+  return { groupedRecords, groupedTransactions, duplicates };
 }
 
-export function createChunksFromGroupedRecords(
-  groupedRecords: { [paymentMethod: string]: CsvRecord[] },
+export function filterTransactionsBySources(
+  transactions: PayPayTransaction[],
+  mfmeCounts: ReadonlyMap<string, number>,
+  importedCounts: ReadonlyMap<string, number>,
+): {
+  groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] };
+  duplicates: number;
+  mfmeDuplicates: number;
+  importedDuplicates: number;
+} {
+  const mfmeResult = filterTransactions(transactions, mfmeCounts);
+  const transactionsAfterMfme = Object.values(
+    mfmeResult.groupedTransactions,
+  ).flat();
+  const importedResult = filterTransactions(
+    transactionsAfterMfme,
+    importedCounts,
+  );
+
+  return {
+    groupedTransactions: importedResult.groupedTransactions,
+    duplicates: mfmeResult.duplicates + importedResult.duplicates,
+    mfmeDuplicates: mfmeResult.duplicates,
+    importedDuplicates: importedResult.duplicates,
+  };
+}
+
+export function createChunksFromGroupedTransactions(
+  groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] },
   headers: string[],
 ): ProcessedResult {
   const chunks: ProcessedResult = {};
   const chunkSize = 100;
 
-  for (const [name, allRecords] of Object.entries(groupedRecords)) {
-    if (allRecords.length === 0) {
+  for (const [name, allTransactions] of Object.entries(groupedTransactions)) {
+    if (allTransactions.length === 0) {
       continue;
     }
 
     chunks[name] = [];
 
-    for (let i = 0; i < allRecords.length; i += chunkSize) {
-      const chunkOfRecords = allRecords.slice(i, i + chunkSize);
+    for (let i = 0; i < allTransactions.length; i += chunkSize) {
+      const chunkOfTransactions = allTransactions.slice(i, i + chunkSize);
+      const chunkOfRecords = chunkOfTransactions.map(
+        (transaction) => transaction.record,
+      );
 
       let minDate: Date | null = null;
       let maxDate: Date | null = null;
@@ -192,9 +233,35 @@ export function createChunksFromGroupedRecords(
         startDate: minDate,
         endDate: maxDate,
         imported: false,
+        transactionKeys: chunkOfTransactions.map(
+          (transaction) => transaction.key,
+        ),
       });
     }
   }
 
   return chunks;
+}
+
+export function createChunksFromGroupedRecords(
+  groupedRecords: { [paymentMethod: string]: CsvRecord[] },
+  headers: string[],
+): ProcessedResult {
+  const groupedTransactions = Object.fromEntries(
+    Object.entries(groupedRecords).map(([name, records]) => [
+      name,
+      records.map(
+        (record): PayPayTransaction => ({
+          key: "",
+          record,
+          paymentMethod: name,
+          dateKey: "",
+          amountKey: "",
+          contentKey: "",
+        }),
+      ),
+    ]),
+  );
+
+  return createChunksFromGroupedTransactions(groupedTransactions, headers);
 }
