@@ -1,10 +1,11 @@
-const DATABASE_NAME = "paypay-csv-share-target";
-const DATABASE_VERSION = 3;
+import { createFileIdentity } from "./file-reader";
+
+export const SHARED_FILE_DATABASE_NAME = "paypay-csv-share-target";
+export const SHARED_FILE_DATABASE_VERSION = 4;
+
 const SHARED_FILES_STORE_NAME = "shared-files";
 const INPUT_FILES_STORE_NAME = "input-files";
-const LEGACY_MFME_TRAY_STORE_NAME = "mfme-file-tray";
 const INPUT_FILES_ID = "current";
-const LEGACY_MFME_TRAY_LIFETIME_MS = 24 * 60 * 60 * 1000;
 
 type SharedFileRecord = {
   id: string;
@@ -15,16 +16,11 @@ type SharedFileRecord = {
 export type InputFiles = {
   payPayFile: File | null;
   mfmeFiles: File[];
+  auditMfmeFiles: File[];
 };
 
 type InputFilesRecord = InputFiles & {
   id: typeof INPUT_FILES_ID;
-  updatedAt: number;
-};
-
-type LegacyMfmeTrayRecord = {
-  id: typeof INPUT_FILES_ID;
-  files: File[];
   updatedAt: number;
 };
 
@@ -39,7 +35,10 @@ const createStoreIfMissing = (
 
 const openDatabase = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    const request = indexedDB.open(
+      SHARED_FILE_DATABASE_NAME,
+      SHARED_FILE_DATABASE_VERSION,
+    );
 
     request.onupgradeneeded = () => {
       createStoreIfMissing(request.result, SHARED_FILES_STORE_NAME);
@@ -49,28 +48,14 @@ const openDatabase = (): Promise<IDBDatabase> =>
     request.onerror = () => reject(request.error);
   });
 
-const fileIdentity = async (file: File): Promise<string> => {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    await file.arrayBuffer(),
-  );
-  return Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-};
-
 export const mergeUniqueFiles = async (
   currentFiles: readonly File[],
   newFiles: readonly File[],
 ): Promise<File[]> => {
   const filesByIdentity = new Map<string, File>();
 
-  for (const file of currentFiles) {
-    filesByIdentity.set(await fileIdentity(file), file);
-  }
-
-  for (const file of newFiles) {
-    filesByIdentity.set(await fileIdentity(file), file);
+  for (const file of [...currentFiles, ...newFiles]) {
+    filesByIdentity.set(await createFileIdentity(file), file);
   }
 
   return [...filesByIdentity.values()];
@@ -103,33 +88,22 @@ export const consumeSharedFiles = async (id: string): Promise<File[]> => {
   }
 };
 
-const consumeLegacyMfmeFiles = async (
+const readInputFiles = async (
   database: IDBDatabase,
-): Promise<File[]> => {
-  if (!database.objectStoreNames.contains(LEGACY_MFME_TRAY_STORE_NAME)) {
-    return [];
-  }
-
-  return new Promise((resolve, reject) => {
+): Promise<InputFilesRecord | null> =>
+  new Promise((resolve, reject) => {
     const transaction = database.transaction(
-      LEGACY_MFME_TRAY_STORE_NAME,
-      "readwrite",
+      INPUT_FILES_STORE_NAME,
+      "readonly",
     );
-    const store = transaction.objectStore(LEGACY_MFME_TRAY_STORE_NAME);
-    const request = store.get(INPUT_FILES_ID);
+    const request = transaction
+      .objectStore(INPUT_FILES_STORE_NAME)
+      .get(INPUT_FILES_ID);
 
-    request.onsuccess = () => {
-      const record = request.result as LegacyMfmeTrayRecord | undefined;
-      store.delete(INPUT_FILES_ID);
-      resolve(
-        record && Date.now() - record.updatedAt <= LEGACY_MFME_TRAY_LIFETIME_MS
-          ? record.files
-          : [],
-      );
-    };
+    request.onsuccess = () =>
+      resolve((request.result as InputFilesRecord | undefined) ?? null);
     request.onerror = () => reject(request.error);
   });
-};
 
 const writeInputFiles = async (
   database: IDBDatabase,
@@ -153,43 +127,14 @@ export const loadInputFiles = async (): Promise<InputFiles> => {
   const database = await openDatabase();
 
   try {
-    const legacyMfmeFiles = await consumeLegacyMfmeFiles(database);
-    const inputFiles = await new Promise<InputFiles | null>(
-      (resolve, reject) => {
-        const transaction = database.transaction(
-          INPUT_FILES_STORE_NAME,
-          "readonly",
-        );
-        const store = transaction.objectStore(INPUT_FILES_STORE_NAME);
-        const request = store.get(INPUT_FILES_ID);
-
-        request.onsuccess = () => {
-          const record = request.result as InputFilesRecord | undefined;
-          if (record) {
-            resolve({
-              payPayFile: record.payPayFile,
-              mfmeFiles: record.mfmeFiles,
-            });
-          } else {
-            resolve(null);
-          }
-        };
-        request.onerror = () => reject(request.error);
-      },
-    );
-
-    if (inputFiles) {
-      return inputFiles;
-    }
-
-    const migratedInputFiles = {
-      payPayFile: null,
-      mfmeFiles: legacyMfmeFiles,
-    };
-    if (legacyMfmeFiles.length > 0) {
-      await writeInputFiles(database, migratedInputFiles);
-    }
-    return migratedInputFiles;
+    const record = await readInputFiles(database);
+    return record
+      ? {
+          payPayFile: record.payPayFile,
+          mfmeFiles: record.mfmeFiles,
+          auditMfmeFiles: record.auditMfmeFiles,
+        }
+      : { payPayFile: null, mfmeFiles: [], auditMfmeFiles: [] };
   } finally {
     database.close();
   }

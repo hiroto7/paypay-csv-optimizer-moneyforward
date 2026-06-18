@@ -9,8 +9,10 @@ import {
 } from "./csv-test-fixtures";
 import {
   createChunksFromGroupedRecords,
+  createChunksFromGroupedTransactions,
   extractTransactionsFromPayPayCsv,
   filterTransactions,
+  filterTransactionsBySources,
 } from "./paypay-csv";
 
 describe("extractTransactionsFromPayPayCsv", () => {
@@ -153,6 +155,23 @@ describe("filterTransactions", () => {
   });
 });
 
+describe("filterTransactionsBySources", () => {
+  it("MFME CSVと前回の取り込み記録ごとの除外件数を集計すること", () => {
+    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}\n${VISA_PAYMENT_ROW}`;
+    const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
+    const result = filterTransactionsBySources(
+      transactions,
+      new Map([["2025/10/24_-190_PayPay残高_ダミーストアA", 1]]),
+      new Map([["2025/10/24_-190_PayPay残高_ダミーストアA", 1]]),
+    );
+
+    expect(result.duplicates).toBe(2);
+    expect(result.mfmeDuplicates).toBe(1);
+    expect(result.importedDuplicates).toBe(1);
+    expect(result.groupedTransactions["VISA 1234"]).toHaveLength(1);
+  });
+});
+
 describe("createChunksFromGroupedRecords", () => {
   it("100件ごとにレコードをチャンキングできること", () => {
     const rows = Array.from({ length: 105 }, (_, index) => {
@@ -205,6 +224,22 @@ describe("createChunksFromGroupedRecords", () => {
 
     expect(data).toContain("PayPay残高");
     expect(data).toContain("00000000000000000001");
+  });
+
+  it("トランザクションから作ったチャンクに除外保存用の取引キーを保持すること", () => {
+    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
+    const { transactions, headers } =
+      extractTransactionsFromPayPayCsv(csvContent);
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
+
+    const chunks = createChunksFromGroupedTransactions(
+      groupedTransactions,
+      headers,
+    );
+
+    expect(chunks["PayPay残高"]?.[0]?.transactionKeys).toEqual([
+      "2025/10/24_-190_PayPay残高_ダミーストアA",
+    ]);
   });
 
   it("imported フラグがfalseで初期化されること", () => {

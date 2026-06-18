@@ -1,5 +1,5 @@
 const DATABASE_NAME = "paypay-csv-share-target";
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 const SHARED_FILES_STORE_NAME = "shared-files";
 const INPUT_FILES_STORE_NAME = "input-files";
 

@@ -17,6 +17,8 @@ import { sum } from "~/utils/array";
 
 interface Step3FileListProps {
   processedChunks: ProcessedResult;
+  excludedByMfme: number;
+  excludedByImportedRecords: number;
   onShare: (filename: string, data: string) => Promise<boolean>;
   onShareStart: (name: string, index: number) => void;
   onShareEnd: (shared: boolean) => void;
@@ -160,7 +162,7 @@ function FileGroupList({
                       <Download className="size-4" aria-hidden="true" />
                     )}
                     {chunk.imported
-                      ? "確認済み"
+                      ? "取り込みました"
                       : sharingFilename === filename
                         ? "共有先を選択中"
                         : manualImport
@@ -179,6 +181,8 @@ function FileGroupList({
 
 export default function Step3FileList({
   processedChunks,
+  excludedByMfme,
+  excludedByImportedRecords,
   onShare,
   onShareStart,
   onShareEnd,
@@ -202,6 +206,7 @@ export default function Step3FileList({
   const manualImportGroups = groups.filter(({ name }) => !isPayPayMethod(name));
   const totalFiles = sum(groups, ({ chunks }) => chunks.length);
   const totalRecords = sum(groups, ({ chunks }) => countRecords(chunks));
+  const totalExcluded = excludedByMfme + excludedByImportedRecords;
   const manualImportFiles = sum(
     manualImportGroups,
     ({ chunks }) => chunks.length,
@@ -251,6 +256,22 @@ export default function Step3FileList({
           </span>
         </div>
       </div>
+
+      {totalExcluded > 0 && (
+        <div className="border-b border-zinc-200 bg-zinc-50 px-5 py-3">
+          <p className="text-xs font-semibold text-zinc-800">
+            登録済みの明細 {totalExcluded}件を除外しました
+          </p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+            {excludedByMfme > 0 && (
+              <span>MoneyForward ME CSV: {excludedByMfme}件</span>
+            )}
+            {excludedByImportedRecords > 0 && (
+              <span>前回の取り込み記録: {excludedByImportedRecords}件</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {payPayGroups.length > 0 && (
         <FileGroupList

@@ -38,6 +38,16 @@ export const readFileAsTextAuto = async (file: File): Promise<string> => {
   }
 };
 
+export const createFileIdentity = async (file: File): Promise<string> => {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    await file.arrayBuffer(),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+};
+
 /**
  * 複数のファイルをテキストとして読み込む
  * @param files 読み込むファイルのリスト
