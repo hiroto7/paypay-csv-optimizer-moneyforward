@@ -110,7 +110,7 @@ export default function Step1PayPayUpload({
           >
             PayPay取引履歴
           </h2>
-          <p className="mt-0.5 text-xs text-zinc-500">変換・照合の基準データ</p>
+          <p className="mt-0.5 text-xs text-zinc-500">変換・照合する明細</p>
         </div>
       </div>
 
