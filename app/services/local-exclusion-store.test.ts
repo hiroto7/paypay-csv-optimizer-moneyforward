@@ -105,8 +105,8 @@ describe("createStatsFromTransactionCounts", () => {
     );
 
     expect(stats.count).toBe(3);
-    expect(stats.startDate?.getDate()).toBe(13);
-    expect(stats.endDate?.getDate()).toBe(16);
+    expect(stats.startDate?.toISOString()).toBe("2026-06-12T15:00:00.000Z");
+    expect(stats.endDate?.toISOString()).toBe("2026-06-15T15:00:00.000Z");
   });
 
   it("日付を取得できない記録も件数には含める", () => {
