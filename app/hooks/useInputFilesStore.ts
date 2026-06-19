@@ -104,7 +104,7 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
             setNotice({
               tone: "success",
               message:
-                "MoneyForward ME CSVを更新したため、以前の「保存した」記録をリセットしました。",
+                "MoneyForward MEの入出金履歴を更新したため、以前の「保存した」記録をリセットしました。",
             });
           }
         } catch (error) {
@@ -203,9 +203,9 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
           }
 
           const loadedTypes = [
-            payPayFiles.length > 0 ? "PayPay CSV" : null,
+            payPayFiles.length > 0 ? "PayPayの取引履歴" : null,
             receivedMfmeFiles.length > 0
-              ? `MoneyForward ME CSV ${receivedMfmeFiles.length}件`
+              ? `MoneyForward MEの入出金履歴 ${receivedMfmeFiles.length}件`
               : null,
           ].filter((value): value is string => value !== null);
           setNotice({
@@ -214,7 +214,7 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
               unknownFiles.length > 0
                 ? loadedTypes.length > 0
                   ? `${loadedTypes.join("と")}を読み込みました。形式を判定できないCSV ${unknownFiles.length}件は読み込みませんでした。`
-                  : "PayPayまたはMoneyForward MEの必要な列を確認できないため、共有されたCSVを読み込めませんでした。"
+                  : "PayPayの取引履歴またはMoneyForward MEの入出金履歴として必要な列がないため、共有されたファイルを読み込めませんでした。"
                 : `${loadedTypes.join("と")}を読み込みました。${didResetImportedRecords ? "以前の「保存した」記録はリセットしました。" : ""}`,
           });
         } catch (error) {

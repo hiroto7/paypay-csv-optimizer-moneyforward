@@ -1,3 +1,5 @@
+import { type FileStats, parseDate, updateDateRange } from "./csv-date";
+
 const STORE_KEY = "paypay-csv-optimizer:local-exclusion-state:v1";
 
 export type LocalExclusionState = {
@@ -85,6 +87,27 @@ export const countExclusions = (
   }
 
   return total;
+};
+
+export const createStatsFromTransactionCounts = (
+  counts: ReadonlyMap<string, number>,
+): FileStats => {
+  let count = 0;
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+
+  for (const [key, entryCount] of counts) {
+    count += entryCount;
+    const separatorIndex = key.indexOf("_");
+    const date = parseDate(
+      separatorIndex >= 0 ? key.slice(0, separatorIndex) : undefined,
+    );
+    if (date) {
+      [startDate, endDate] = updateDateRange(date, startDate, endDate);
+    }
+  }
+
+  return { count, startDate, endDate };
 };
 
 export const loadLocalExclusionState = (): LocalExclusionState => {

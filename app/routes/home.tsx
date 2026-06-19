@@ -1,12 +1,6 @@
-import {
-  AlertCircle,
-  ArrowLeft,
-  LockKeyhole,
-  Search,
-  UploadCloud,
-  X,
-} from "lucide-react";
+import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import AuditPanel from "~/components/AuditPanel";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
 import Step1PayPayUpload, {
   type PayPayParsedData,
@@ -15,10 +9,7 @@ import Step2MfmeFilter, {
   type MfmeParsedData,
 } from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
-import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
-import WorkspaceEmptyState, {
-  type AppMode,
-} from "~/components/WorkspaceEmptyState";
+import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
 import { useInputFilesStore } from "~/hooks/useInputFilesStore";
 import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
 import { findMfmeDeletionCandidates } from "~/services/deletion-candidates";
@@ -32,17 +23,16 @@ import type { Route } from "./+types/home";
 
 export function meta(_args: Route.MetaArgs) {
   return [
-    { title: "PayPay CSV Optimizer for マネーフォワード ME" },
+    { title: "PP2MF - PayPay CSV Optimizer for MoneyForward ME" },
     {
       name: "description",
       content:
-        "PayPayの取引履歴CSVをマネーフォワード ME用に変換し、重複・誤口座取り込みも照合します。",
+        "PayPayから書き出した取引履歴を整理し、MoneyForward MEに取り込めるファイルを作成します。",
     },
   ];
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<AppMode>("convert");
   const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
   const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
   const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
@@ -55,7 +45,7 @@ export default function Home() {
   } | null>(null);
   const {
     conversionCounts,
-    recordCount,
+    recordStats,
     addImportedRecords,
     resetImportedRecords,
     refreshConversionCounts,
@@ -70,7 +60,7 @@ export default function Home() {
   } = useInputFilesStore(resetImportedRecords);
 
   const conversionResult = useMemo(() => {
-    if (mode !== "convert" || !payPayData) {
+    if (!payPayData) {
       return { chunks: {} satisfies ProcessedResult, duplicates: 0 };
     }
 
@@ -88,15 +78,15 @@ export default function Home() {
       mfmeDuplicates: filteredResult.mfmeDuplicates,
       importedDuplicates: filteredResult.importedDuplicates,
     };
-  }, [mode, payPayData, mfmeData, conversionCounts]);
+  }, [payPayData, mfmeData, conversionCounts]);
 
   const deletionCandidates = useMemo(() => {
-    if (mode !== "audit" || !payPayData || !mfmeData) return [];
+    if (!payPayData || !mfmeData) return [];
     return findMfmeDeletionCandidates(
       payPayData.transactions,
       mfmeData.records,
     );
-  }, [mode, payPayData, mfmeData]);
+  }, [payPayData, mfmeData]);
 
   const processedChunks = useMemo<ProcessedResult>(
     () =>
@@ -152,7 +142,6 @@ export default function Home() {
   const hasMfmeRecords = Boolean(mfmeData?.records.length);
   const hasOutput = Object.keys(processedChunks).length > 0;
   const canShowConversion = Boolean(payPayData && hasOutput);
-  const canShowAudit = Boolean(payPayData && hasMfmeRecords);
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
@@ -167,10 +156,10 @@ export default function Home() {
             />
             <div className="min-w-0">
               <h1 className="truncate text-sm font-bold text-zinc-950 sm:text-base">
-                PayPay CSV Optimizer
+                PP2MF
               </h1>
-              <p className="hidden text-xs text-zinc-500 sm:block">
-                for MoneyForward ME
+              <p className="truncate text-[10px] leading-4 text-zinc-500 sm:text-xs">
+                PayPay CSV Optimizer for MoneyForward ME
               </p>
             </div>
           </div>
@@ -214,39 +203,15 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mb-5">
           <div>
             <h2 className="text-2xl font-bold text-zinc-950">
-              {mode === "convert"
-                ? "PayPay CSVをMoneyForward ME用に変換"
-                : "重複登録・口座間違いを確認"}
+              MoneyForward MEに取り込むファイルを作る
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-              {mode === "convert"
-                ? "PayPay明細を支払い方法ごとに整理し、MoneyForward MEへ取り込めるCSVを作成します。"
-                : "取り込み済み明細から、重複や別口座への登録候補を洗い出します。"}
+              PayPayから書き出した取引履歴を、支払い方法ごと・100件ごとに整理します。
             </p>
           </div>
-
-          {mode === "convert" ? (
-            <button
-              type="button"
-              onClick={() => setMode("audit")}
-              className="inline-flex items-center gap-1.5 self-start text-xs font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900 lg:self-auto"
-            >
-              <Search className="size-3.5" aria-hidden="true" />
-              重複登録・口座間違いを確認
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setMode("convert")}
-              className="inline-flex h-9 items-center justify-center gap-2 self-start border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 lg:self-auto"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              CSV変換に戻る
-            </button>
-          )}
         </div>
 
         <div className="grid items-start gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -265,15 +230,15 @@ export default function Home() {
                   files={mfmeFiles}
                   onFilesSelected={replaceMfmeFiles}
                   onDataParsed={handleMfmeDataParsed}
-                  localImportedRecordCount={recordCount}
+                  localImportedStats={recordStats}
                 />
               </div>
             </div>
           </aside>
 
-          <div className="min-w-0 border border-zinc-200 bg-white">
-            {mode === "convert" ? (
-              canShowConversion ? (
+          <div className="min-w-0 space-y-5">
+            <div className="border border-zinc-200 bg-white">
+              {canShowConversion ? (
                 <Step3FileList
                   processedChunks={processedChunks}
                   hasMfmeData={hasMfmeRecords}
@@ -295,22 +260,16 @@ export default function Home() {
                 />
               ) : (
                 <WorkspaceEmptyState
-                  mode={mode}
                   hasPayPay={Boolean(payPayData)}
-                  hasMfme={hasMfmeRecords}
                   hasOutput={hasOutput}
                 />
-              )
-            ) : canShowAudit ? (
-              <Step4DeletionCandidates candidates={deletionCandidates} />
-            ) : (
-              <WorkspaceEmptyState
-                mode={mode}
-                hasPayPay={Boolean(payPayData)}
-                hasMfme={hasMfmeRecords}
-                hasOutput={false}
-              />
-            )}
+              )}
+            </div>
+            <AuditPanel
+              hasPayPay={Boolean(payPayData)}
+              hasMfme={hasMfmeRecords}
+              candidates={deletionCandidates}
+            />
           </div>
         </div>
       </main>

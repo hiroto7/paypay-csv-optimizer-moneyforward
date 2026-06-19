@@ -241,7 +241,7 @@ export default function Step3FileList({
       <div className="flex flex-col gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 id="output-title" className="text-base font-bold text-zinc-950">
-            変換結果
+            作成したファイル
           </h2>
           <p className="mt-0.5 text-xs text-zinc-500">
             {totalRecords}件を{totalFiles}ファイルに分割しました
@@ -261,7 +261,8 @@ export default function Step3FileList({
 
       {!hasMfmeData && (
         <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-950">
-          MoneyForward ME CSVが未選択のため、PayPayの全明細を出力しています。
+          MoneyForward
+          MEの入出金履歴を読み込んでいないため、PayPayの取引をすべて出力しています。
         </div>
       )}
 
@@ -272,10 +273,12 @@ export default function Step3FileList({
           </p>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
             {excludedByMfme > 0 && (
-              <span>MoneyForward ME CSV: {excludedByMfme}件</span>
+              <span>入出金履歴との一致: {excludedByMfme}件</span>
             )}
             {excludedByImportedRecords > 0 && (
-              <span>前回の取り込み記録: {excludedByImportedRecords}件</span>
+              <span>
+                このアプリの取り込み記録との一致: {excludedByImportedRecords}件
+              </span>
             )}
           </div>
         </div>

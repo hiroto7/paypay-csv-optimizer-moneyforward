@@ -4,6 +4,7 @@ import {
   clearLocalExclusionState,
   createCountsFromKeys,
   createEmptyLocalExclusionState,
+  createStatsFromTransactionCounts,
   type LocalExclusionState,
   loadLocalExclusionState,
   saveLocalExclusionState,
@@ -56,10 +57,14 @@ export function useLocalImportRecords() {
     (total, count) => total + count,
     0,
   );
+  const recordStats = createStatsFromTransactionCounts(
+    state.localImportedCounts,
+  );
 
   return {
     conversionCounts,
     recordCount,
+    recordStats,
     addImportedRecords,
     resetImportedRecords,
     refreshConversionCounts,

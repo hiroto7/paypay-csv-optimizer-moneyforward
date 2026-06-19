@@ -4,6 +4,7 @@ import {
   countExclusions,
   createCountsFromKeys,
   createEmptyLocalExclusionState,
+  createStatsFromTransactionCounts,
   loadLocalExclusionState,
   saveLocalExclusionState,
 } from "./local-exclusion-store";
@@ -91,6 +92,27 @@ describe("countExclusions", () => {
         ]),
       ),
     ).toBe(3);
+  });
+});
+
+describe("createStatsFromTransactionCounts", () => {
+  it("重複件数を維持しながら取引キーの日付範囲を集計する", () => {
+    const stats = createStatsFromTransactionCounts(
+      new Map([
+        ["2026/06/16_-100_PayPay残高_ダミーストアA", 2],
+        ["2026/06/13_-200_PayPay残高_ダミーストアB", 1],
+      ]),
+    );
+
+    expect(stats.count).toBe(3);
+    expect(stats.startDate?.getDate()).toBe(13);
+    expect(stats.endDate?.getDate()).toBe(16);
+  });
+
+  it("日付を取得できない記録も件数には含める", () => {
+    const stats = createStatsFromTransactionCounts(new Map([["invalid", 2]]));
+
+    expect(stats).toEqual({ count: 2, startDate: null, endDate: null });
   });
 });
 
