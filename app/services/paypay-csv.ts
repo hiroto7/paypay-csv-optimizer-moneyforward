@@ -126,12 +126,10 @@ export function filterTransactions(
   transactions: PayPayTransaction[],
   exclusionCounts: ReadonlyMap<string, number>,
 ): {
-  groupedRecords: { [paymentMethod: string]: CsvRecord[] };
   groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] };
   duplicates: number;
 } {
   let duplicates = 0;
-  const groupedRecords: { [paymentMethod: string]: CsvRecord[] } = {};
   const groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] } =
     {};
   const remainingExclusionCounts = new Map(exclusionCounts);
@@ -148,13 +146,6 @@ export function filterTransactions(
       continue;
     }
 
-    const existingRecords = groupedRecords[transaction.paymentMethod];
-    if (existingRecords) {
-      existingRecords.push(transaction.record);
-    } else {
-      groupedRecords[transaction.paymentMethod] = [transaction.record];
-    }
-
     const existingTransactions = groupedTransactions[transaction.paymentMethod];
     if (existingTransactions) {
       existingTransactions.push(transaction);
@@ -163,7 +154,7 @@ export function filterTransactions(
     }
   }
 
-  return { groupedRecords, groupedTransactions, duplicates };
+  return { groupedTransactions, duplicates };
 }
 
 export function filterTransactionsBySources(
@@ -241,27 +232,4 @@ export function createChunksFromGroupedTransactions(
   }
 
   return chunks;
-}
-
-export function createChunksFromGroupedRecords(
-  groupedRecords: { [paymentMethod: string]: CsvRecord[] },
-  headers: string[],
-): ProcessedResult {
-  const groupedTransactions = Object.fromEntries(
-    Object.entries(groupedRecords).map(([name, records]) => [
-      name,
-      records.map(
-        (record): PayPayTransaction => ({
-          key: "",
-          record,
-          paymentMethod: name,
-          dateKey: "",
-          amountKey: "",
-          contentKey: "",
-        }),
-      ),
-    ]),
-  );
-
-  return createChunksFromGroupedTransactions(groupedTransactions, headers);
 }

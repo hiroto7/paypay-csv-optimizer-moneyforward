@@ -8,15 +8,16 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import CsvDropzone from "~/components/CsvDropzone";
 import PeriodDisplay from "~/components/PeriodDisplay";
+import type { FileStats } from "~/services/csv-date";
 import type { CsvRecord } from "~/services/csv-schema";
 import { countExclusions } from "~/services/local-exclusion-store";
-import { createMfmeExclusionSet, type MfFileStats } from "~/services/mfme-csv";
+import { createMfmeExclusionSet } from "~/services/mfme-csv";
 import { readFilesAsTextAuto } from "~/utils/file-reader";
 
 export type MfmeParsedData = {
   exclusionCounts: Map<string, number>;
-  exclusionStats: MfFileStats;
-  stats: MfFileStats;
+  exclusionStats: FileStats;
+  stats: FileStats;
   records: CsvRecord[];
 };
 
@@ -34,7 +35,7 @@ export default function Step2MfmeFilter({
   localImportedRecordCount,
 }: Step2MfmeFilterProps) {
   const [fileInputVersion, setFileInputVersion] = useState(0);
-  const [stats, setStats] = useState<MfFileStats | null>(null);
+  const [stats, setStats] = useState<FileStats | null>(null);
   const [error, setError] = useState("");
   const fileSelectionVersion = useRef(0);
   const lastProcessedFiles = useRef<File[] | null>(null);

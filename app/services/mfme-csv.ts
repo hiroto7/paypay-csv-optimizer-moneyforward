@@ -6,12 +6,10 @@ import {
   MFME_COLUMNS,
 } from "./csv-schema";
 
-export type MfFileStats = FileStats;
-
 export type MfmeParsedResult = {
   exclusionCounts: Map<string, number>;
   exclusionStats: FileStats;
-  stats: MfFileStats;
+  stats: FileStats;
   records: CsvRecord[];
 };
 

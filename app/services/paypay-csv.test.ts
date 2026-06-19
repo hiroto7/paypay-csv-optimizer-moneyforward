@@ -8,7 +8,6 @@ import {
   VISA_PAYMENT_ROW,
 } from "./csv-test-fixtures";
 import {
-  createChunksFromGroupedRecords,
   createChunksFromGroupedTransactions,
   extractTransactionsFromPayPayCsv,
   filterTransactions,
@@ -87,14 +86,14 @@ describe("filterTransactions", () => {
       ["2025/10/24_-190_PayPay残高_ダミーストアA", 1],
     ]);
 
-    const { groupedRecords, duplicates } = filterTransactions(
+    const { groupedTransactions, duplicates } = filterTransactions(
       transactions,
       exclusionCounts,
     );
 
     expect(duplicates).toBe(1);
-    expect(groupedRecords["PayPay残高"]).toBeUndefined();
-    expect(groupedRecords["VISA 1234"]).toHaveLength(1);
+    expect(groupedTransactions["PayPay残高"]).toBeUndefined();
+    expect(groupedTransactions["VISA 1234"]).toHaveLength(1);
   });
 
   it("併用払いの片方のみを除外できること", () => {
@@ -104,38 +103,38 @@ describe("filterTransactions", () => {
       ["2025/09/29_-317_PayPay残高_ダミーストアB", 1],
     ]);
 
-    const { groupedRecords, duplicates } = filterTransactions(
+    const { groupedTransactions, duplicates } = filterTransactions(
       transactions,
       exclusionCounts,
     );
 
     expect(duplicates).toBe(1);
-    expect(groupedRecords["PayPayポイント"]).toHaveLength(1);
-    expect(groupedRecords["PayPay残高"]).toBeUndefined();
+    expect(groupedTransactions["PayPayポイント"]).toHaveLength(1);
+    expect(groupedTransactions["PayPay残高"]).toBeUndefined();
   });
 
   it("除外キーが空の場合にすべてのトランザクションを通過させること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
 
-    const { groupedRecords, duplicates } = filterTransactions(
+    const { groupedTransactions, duplicates } = filterTransactions(
       transactions,
       new Map(),
     );
 
     expect(duplicates).toBe(0);
-    expect(groupedRecords["PayPay残高"]).toHaveLength(1);
-    expect(groupedRecords["VISA 1234"]).toHaveLength(1);
+    expect(groupedTransactions["PayPay残高"]).toHaveLength(1);
+    expect(groupedTransactions["VISA 1234"]).toHaveLength(1);
   });
 
   it("支払い方法ごとにグループ化できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
 
-    const { groupedRecords } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
 
-    expect(groupedRecords["PayPay残高"]).toHaveLength(2);
-    expect(groupedRecords["PayPayポイント"]).toHaveLength(1);
+    expect(groupedTransactions["PayPay残高"]).toHaveLength(2);
+    expect(groupedTransactions["PayPayポイント"]).toHaveLength(1);
   });
 
   it("同じキーのPayPay取引をMoneyForward MEの件数分だけ除外すること", () => {
@@ -145,13 +144,13 @@ describe("filterTransactions", () => {
       ["2025/10/24_-190_PayPay残高_ダミーストアA", 1],
     ]);
 
-    const { groupedRecords, duplicates } = filterTransactions(
+    const { groupedTransactions, duplicates } = filterTransactions(
       transactions,
       exclusionCounts,
     );
 
     expect(duplicates).toBe(1);
-    expect(groupedRecords["PayPay残高"]).toHaveLength(1);
+    expect(groupedTransactions["PayPay残高"]).toHaveLength(1);
   });
 });
 
@@ -172,7 +171,7 @@ describe("filterTransactionsBySources", () => {
   });
 });
 
-describe("createChunksFromGroupedRecords", () => {
+describe("createChunksFromGroupedTransactions", () => {
   it("100件ごとにレコードをチャンキングできること", () => {
     const rows = Array.from({ length: 105 }, (_, index) => {
       const uniqueId = `00000000000000000${String(index).padStart(4, "0")}`;
@@ -181,9 +180,12 @@ describe("createChunksFromGroupedRecords", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${rows.join("\n")}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedRecords } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
 
-    const chunks = createChunksFromGroupedRecords(groupedRecords, headers);
+    const chunks = createChunksFromGroupedTransactions(
+      groupedTransactions,
+      headers,
+    );
 
     expect(chunks["PayPay残高"]).toHaveLength(2);
     expect(chunks["PayPay残高"]?.[0]?.count).toBe(100);
@@ -194,9 +196,12 @@ describe("createChunksFromGroupedRecords", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedRecords } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
 
-    const chunks = createChunksFromGroupedRecords(groupedRecords, headers);
+    const chunks = createChunksFromGroupedTransactions(
+      groupedTransactions,
+      headers,
+    );
 
     const balanceChunk = chunks["PayPay残高"]?.[0];
     expect(balanceChunk?.startDate?.toISOString()).toBe(
@@ -217,9 +222,12 @@ describe("createChunksFromGroupedRecords", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedRecords } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
 
-    const chunks = createChunksFromGroupedRecords(groupedRecords, headers);
+    const chunks = createChunksFromGroupedTransactions(
+      groupedTransactions,
+      headers,
+    );
     const data = chunks["PayPay残高"]?.[0]?.data;
 
     expect(data).toContain("PayPay残高");
@@ -246,15 +254,18 @@ describe("createChunksFromGroupedRecords", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedRecords } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
 
-    const chunks = createChunksFromGroupedRecords(groupedRecords, headers);
+    const chunks = createChunksFromGroupedTransactions(
+      groupedTransactions,
+      headers,
+    );
 
     expect(chunks["PayPay残高"]?.[0]?.imported).toBe(false);
   });
 
-  it("空のgroupedRecordsの場合に空のオブジェクトを返すこと", () => {
-    const chunks = createChunksFromGroupedRecords({}, []);
+  it("空のgroupedTransactionsの場合に空のオブジェクトを返すこと", () => {
+    const chunks = createChunksFromGroupedTransactions({}, []);
     expect(Object.keys(chunks)).toHaveLength(0);
   });
 });
