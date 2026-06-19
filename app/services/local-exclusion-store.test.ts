@@ -6,7 +6,6 @@ import {
   createEmptyLocalExclusionState,
   loadLocalExclusionState,
   saveLocalExclusionState,
-  subtractCounts,
 } from "./local-exclusion-store";
 
 type MockStorage = {
@@ -107,28 +106,6 @@ describe("addCounts", () => {
 
     expect(nextCounts.get("2025/10/24_-190_PayPay残高_ダミーストアA")).toBe(2);
     expect(nextCounts.get("2025/10/25_-100_PayPay残高_ダミーストアB")).toBe(1);
-  });
-});
-
-describe("subtractCounts", () => {
-  it("MFME CSVで確認できた件数だけ取り込み記録から消し込むこと", () => {
-    const remaining = subtractCounts(
-      new Map([
-        ["partially-confirmed", 3],
-        ["not-confirmed", 1],
-      ]),
-      new Map([
-        ["partially-confirmed", 2],
-        ["mfme-only", 1],
-      ]),
-    );
-
-    expect(remaining).toEqual(
-      new Map([
-        ["partially-confirmed", 1],
-        ["not-confirmed", 1],
-      ]),
-    );
   });
 });
 

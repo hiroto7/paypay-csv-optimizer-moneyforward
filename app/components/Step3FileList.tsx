@@ -17,6 +17,7 @@ import { sum } from "~/utils/array";
 
 interface Step3FileListProps {
   processedChunks: ProcessedResult;
+  hasMfmeData: boolean;
   excludedByMfme: number;
   excludedByImportedRecords: number;
   onShare: (filename: string, data: string) => Promise<boolean>;
@@ -181,6 +182,7 @@ function FileGroupList({
 
 export default function Step3FileList({
   processedChunks,
+  hasMfmeData,
   excludedByMfme,
   excludedByImportedRecords,
   onShare,
@@ -256,6 +258,12 @@ export default function Step3FileList({
           </span>
         </div>
       </div>
+
+      {!hasMfmeData && (
+        <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-950">
+          MoneyForward ME CSVが未選択のため、PayPayの全明細を出力しています。
+        </div>
+      )}
 
       {totalExcluded > 0 && (
         <div className="border-b border-zinc-200 bg-zinc-50 px-5 py-3">

@@ -75,24 +75,6 @@ export const addCounts = (
   return combinedCounts;
 };
 
-export const subtractCounts = (
-  currentCounts: ReadonlyMap<string, number>,
-  countsToSubtract: ReadonlyMap<string, number>,
-): Map<string, number> => {
-  const remainingCounts = new Map(currentCounts);
-
-  for (const [key, count] of countsToSubtract) {
-    const remaining = (remainingCounts.get(key) ?? 0) - count;
-    if (remaining > 0) {
-      remainingCounts.set(key, remaining);
-    } else {
-      remainingCounts.delete(key);
-    }
-  }
-
-  return remainingCounts;
-};
-
 export const countExclusions = (
   counts: ReadonlyMap<string, number>,
 ): number => {

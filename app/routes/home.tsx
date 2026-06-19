@@ -1,13 +1,11 @@
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowRight,
   Check,
   FileCheck2,
   FileSearch,
   LoaderCircle,
   LockKeyhole,
-  Search,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -30,19 +28,13 @@ import {
   type LocalExclusionState,
   loadLocalExclusionState,
   saveLocalExclusionState,
-  subtractCounts,
 } from "~/services/local-exclusion-store";
-import { createMfmeExclusionSet } from "~/services/mfme-csv";
 import {
   createChunksFromGroupedTransactions,
   filterTransactionsBySources,
   type ProcessedResult,
 } from "~/services/paypay-csv";
-import {
-  createFileIdentity,
-  readFileAsTextAuto,
-  readFilesAsTextAuto,
-} from "~/utils/file-reader";
+import { createFileIdentity, readFileAsTextAuto } from "~/utils/file-reader";
 import {
   clearInputFiles,
   consumeSharedFiles,
@@ -54,12 +46,6 @@ import {
 import type { Route } from "./+types/home";
 
 type AppMode = "convert" | "audit";
-type MfmeImportMode = "restore" | "replace" | "append";
-
-type ConversionExclusionSources = {
-  mfme: Map<string, number>;
-  imported: Map<string, number>;
-};
 
 type SharedFileNotice = {
   tone: "success" | "error";
@@ -317,22 +303,17 @@ function WorkspaceEmptyState({
   hasOutput: boolean;
 }) {
   const isAudit = mode === "audit";
-  const hasRequiredInputs = hasPayPay && hasMfme;
-  const conversionIsEmpty = !isAudit && hasRequiredInputs && !hasOutput;
+  const conversionIsEmpty = !isAudit && hasPayPay && !hasOutput;
 
   const title = (() => {
     if (!hasPayPay) {
-      return isAudit
-        ? "2種類のCSVを選択してください"
-        : "PayPay CSVを選択してください";
-    }
-    if (!hasMfme) {
-      return isAudit
-        ? "MoneyForward ME CSVを選択してください"
-        : "既存明細を除外するか選択してください";
+      return "PayPay CSVを選択してください";
     }
     if (conversionIsEmpty) {
       return "変換対象の取引はありません";
+    }
+    if (!hasMfme) {
+      return "MoneyForward ME CSVを選択してください";
     }
     return "明細を照合できます";
   })();
@@ -341,15 +322,15 @@ function WorkspaceEmptyState({
     if (!hasPayPay) {
       return isAudit
         ? "照合するPayPay取引履歴とMoneyForward ME明細のCSVを選択してください。"
-        : "PayPayの併用払いを分割し、MoneyForward MEへ取り込める100件単位のCSVを作成します。";
+        : "PayPayの併用払いを分割し、MoneyForward MEへ取り込める100件単位のCSVを作成します。MoneyForward ME CSVは任意です。";
+    }
+    if (conversionIsEmpty) {
+      return "すべての取引がMoneyForward ME明細または「保存した」の記録に含まれている可能性があります。";
     }
     if (!hasMfme) {
       return isAudit
         ? "PayPay取引履歴と比較するMoneyForward ME明細のCSVを選択してください。"
-        : "MoneyForward ME明細を選択するか、既存明細を除外せずにCSVを作成してください。";
-    }
-    if (conversionIsEmpty) {
-      return "選択したMoneyForward ME明細に、PayPayの全取引が取り込み済みとして含まれています。";
+        : "MoneyForward ME CSVは任意です。未選択の場合はPayPayの全明細を出力します。";
     }
     return "PayPayの取引履歴とMoneyForward MEの明細を比較し、重複や別口座への取り込み候補を表示します。";
   })();
@@ -394,7 +375,7 @@ function WorkspaceEmptyState({
           ) : (
             <span className="size-1.5 bg-zinc-300" />
           )}
-          {isAudit ? "MoneyForward ME CSV" : "既存明細の除外"}
+          MoneyForward ME CSV
           {!isAudit && <span className="font-normal text-zinc-400">任意</span>}
         </span>
       </div>
@@ -406,16 +387,8 @@ export default function Home() {
   const [mode, setMode] = useState<AppMode>("convert");
   const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
   const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
-  const [auditMfmeData, setAuditMfmeData] = useState<MfmeParsedData | null>(
-    null,
-  );
   const [localExclusionState, setLocalExclusionState] =
     useState<LocalExclusionState>(() => createEmptyLocalExclusionState());
-  const [conversionExclusionSources, setConversionExclusionSources] =
-    useState<ConversionExclusionSources>(() => ({
-      mfme: new Map(),
-      imported: new Map(),
-    }));
   const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -426,17 +399,13 @@ export default function Home() {
   } | null>(null);
   const [payPayFile, setPayPayFile] = useState<File | null>(null);
   const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
-  const [auditMfmeFiles, setAuditMfmeFiles] = useState<File[]>([]);
   const [sharedFileNotice, setSharedFileNotice] =
     useState<SharedFileNotice | null>(null);
   const inputFilesRef = useRef<InputFiles>({
     payPayFile: null,
     mfmeFiles: [],
-    auditMfmeFiles: [],
   });
   const localExclusionStateRef = useRef(localExclusionState);
-  const mfmeImportModeRef = useRef<MfmeImportMode>("restore");
-  const pendingMfmeAppendCountsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     localExclusionStateRef.current = localExclusionState;
@@ -446,7 +415,6 @@ export default function Home() {
     inputFilesRef.current = inputFiles;
     setPayPayFile(inputFiles.payPayFile);
     setMfmeFiles(inputFiles.mfmeFiles);
-    setAuditMfmeFiles(inputFiles.auditMfmeFiles);
   }, []);
 
   const persistInputFiles = useCallback(
@@ -454,11 +422,7 @@ export default function Home() {
       applyInputFiles(inputFiles);
 
       try {
-        if (
-          !inputFiles.payPayFile &&
-          inputFiles.mfmeFiles.length === 0 &&
-          inputFiles.auditMfmeFiles.length === 0
-        ) {
+        if (!inputFiles.payPayFile && inputFiles.mfmeFiles.length === 0) {
           await clearInputFiles();
         } else {
           await saveInputFiles(inputFiles);
@@ -486,22 +450,46 @@ export default function Home() {
     [persistInputFiles],
   );
 
+  const resetLocalImportedRecords = useCallback((showNotice: boolean) => {
+    const hadRecords =
+      localExclusionStateRef.current.localImportedCounts.size > 0;
+    const nextState = createEmptyLocalExclusionState();
+    setLocalExclusionState(nextState);
+    localExclusionStateRef.current = nextState;
+    clearLocalExclusionState();
+    setImportedChunkKeys(new Set());
+
+    if (showNotice && hadRecords) {
+      setSharedFileNotice({
+        tone: "success",
+        message:
+          "MoneyForward ME CSVを更新したため、以前の「保存した」記録をリセットしました。",
+      });
+    }
+  }, []);
+
   const handleMfmeFilesSelected = useCallback(
     (files: File[]) => {
-      if (mode === "audit") {
-        void persistInputFiles({
+      void (async () => {
+        const [currentIds, nextIds] = await Promise.all([
+          Promise.all(inputFilesRef.current.mfmeFiles.map(createFileIdentity)),
+          Promise.all(files.map(createFileIdentity)),
+        ]);
+        const currentSet = new Set(currentIds);
+        const changed =
+          currentSet.size !== new Set(nextIds).size ||
+          nextIds.some((id) => !currentSet.has(id));
+
+        if (changed) {
+          resetLocalImportedRecords(true);
+        }
+        await persistInputFiles({
           ...inputFilesRef.current,
-          auditMfmeFiles: files,
+          mfmeFiles: files,
         });
-        return;
-      }
-      mfmeImportModeRef.current = "replace";
-      void persistInputFiles({
-        ...inputFilesRef.current,
-        mfmeFiles: files,
-      });
+      })();
     },
-    [mode, persistInputFiles],
+    [persistInputFiles, resetLocalImportedRecords],
   );
 
   useEffect(() => {
@@ -580,27 +568,19 @@ export default function Home() {
         const newMfmeFiles = mfmeFilesWithIds
           .filter(({ sourceId }) => !knownMfmeSourceIds.has(sourceId))
           .map(({ file }) => file);
+        const didResetImportedRecords =
+          newMfmeFiles.length > 0 &&
+          localExclusionStateRef.current.localImportedCounts.size > 0;
         if (newMfmeFiles.length > 0) {
-          mfmeImportModeRef.current = "append";
-          pendingMfmeAppendCountsRef.current = createMfmeExclusionSet(
-            await readFilesAsTextAuto(newMfmeFiles),
-          ).exclusionCounts;
+          resetLocalImportedRecords(false);
         }
         if (receivedMfmeFiles.length > 0) {
           nextInputFiles.mfmeFiles = await mergeUniqueFiles(
             savedInputFiles.mfmeFiles,
             receivedMfmeFiles,
           );
-          nextInputFiles.auditMfmeFiles = await mergeUniqueFiles(
-            savedInputFiles.auditMfmeFiles,
-            receivedMfmeFiles,
-          );
         }
-        if (
-          nextInputFiles.payPayFile ||
-          nextInputFiles.mfmeFiles.length > 0 ||
-          nextInputFiles.auditMfmeFiles.length > 0
-        ) {
+        if (nextInputFiles.payPayFile || nextInputFiles.mfmeFiles.length > 0) {
           await saveInputFiles(nextInputFiles);
         } else {
           await clearInputFiles();
@@ -627,7 +607,7 @@ export default function Home() {
                 ? loadedTypes.length > 0
                   ? `${loadedTypes.join("と")}を読み込みました。形式を判定できないCSV ${unknownFiles.length}件は読み込みませんでした。`
                   : "PayPayまたはMoneyForward MEの必要な列を確認できないため、共有されたCSVを読み込めませんでした。"
-                : `${loadedTypes.join("と")}を読み込みました。`,
+                : `${loadedTypes.join("と")}を読み込みました。${didResetImportedRecords ? "以前の「保存した」記録はリセットしました。" : ""}`,
           });
         }
       } catch (error) {
@@ -646,20 +626,16 @@ export default function Home() {
     return () => {
       isCancelled = true;
     };
-  }, [applyInputFiles]);
+  }, [applyInputFiles, resetLocalImportedRecords]);
 
   useEffect(() => {
     const savedLocalExclusionState = loadLocalExclusionState();
     localExclusionStateRef.current = savedLocalExclusionState;
     setLocalExclusionState(savedLocalExclusionState);
-    setConversionExclusionSources((currentSources) => ({
-      ...currentSources,
-      imported: savedLocalExclusionState.localImportedCounts,
-    }));
   }, []);
 
   const conversionResult = useMemo(() => {
-    if (mode !== "convert" || !payPayData || !mfmeData) {
+    if (mode !== "convert" || !payPayData) {
       return {
         chunks: {} satisfies ProcessedResult,
         duplicates: 0,
@@ -668,8 +644,8 @@ export default function Home() {
 
     const filteredResult = filterTransactionsBySources(
       payPayData.transactions,
-      conversionExclusionSources.mfme,
-      conversionExclusionSources.imported,
+      mfmeData?.exclusionCounts ?? new Map(),
+      localExclusionStateRef.current.localImportedCounts,
     );
 
     return {
@@ -681,18 +657,18 @@ export default function Home() {
       mfmeDuplicates: filteredResult.mfmeDuplicates,
       importedDuplicates: filteredResult.importedDuplicates,
     };
-  }, [mode, payPayData, mfmeData, conversionExclusionSources]);
+  }, [mode, payPayData, mfmeData]);
 
   const deletionCandidates = useMemo(() => {
-    if (mode !== "audit" || !payPayData || !auditMfmeData) {
+    if (mode !== "audit" || !payPayData || !mfmeData) {
       return [];
     }
 
     return findMfmeDeletionCandidates(
       payPayData.transactions,
-      auditMfmeData.records,
+      mfmeData.records,
     );
-  }, [mode, payPayData, auditMfmeData]);
+  }, [mode, payPayData, mfmeData]);
 
   const processedChunks = useMemo<ProcessedResult>(
     () =>
@@ -750,103 +726,17 @@ export default function Home() {
 
   const handlePayPayDataParsed = (data: PayPayParsedData | null) => {
     setPayPayData(data);
-    if (data) {
-      setConversionExclusionSources((currentSources) => ({
-        ...currentSources,
-        imported: localExclusionStateRef.current.localImportedCounts,
-      }));
-    }
     resetImportState();
   };
 
   const handleMfmeDataParsed = (data: MfmeParsedData | null) => {
-    if (mode === "audit") {
-      setAuditMfmeData(data);
-      resetImportState();
-      return;
-    }
-
-    if (!data) {
-      setMfmeData(null);
-      setConversionExclusionSources({
-        mfme: new Map(),
-        imported: localExclusionStateRef.current.localImportedCounts,
-      });
-      resetImportState();
-      return;
-    }
-
     setMfmeData(data);
-    setAuditMfmeData(data);
     resetImportState();
-
-    if (data.stats.count <= 0) {
-      setConversionExclusionSources({ mfme: new Map(), imported: new Map() });
-      return;
-    }
-
-    const importMode = mfmeImportModeRef.current;
-    mfmeImportModeRef.current = "restore";
-    const currentState = localExclusionStateRef.current;
-    const nextState: LocalExclusionState = {
-      localImportedCounts:
-        importMode === "append"
-          ? subtractCounts(
-              currentState.localImportedCounts,
-              pendingMfmeAppendCountsRef.current,
-            )
-          : importMode === "replace"
-            ? new Map()
-            : currentState.localImportedCounts,
-      updatedAt: importMode === "restore" ? currentState.updatedAt : Date.now(),
-    };
-    pendingMfmeAppendCountsRef.current = new Map();
-    if (importMode !== "restore") {
-      setLocalExclusionState(nextState);
-      localExclusionStateRef.current = nextState;
-      saveLocalExclusionState(nextState);
-    }
-    setConversionExclusionSources({
-      mfme: data.exclusionCounts,
-      imported: nextState.localImportedCounts,
-    });
   };
 
-  const handleResetLocalImportedRecords = () => {
-    const nextState = {
-      ...localExclusionState,
-      localImportedCounts: new Map<string, number>(),
-      updatedAt: Date.now(),
-    };
-    setLocalExclusionState(nextState);
-    localExclusionStateRef.current = nextState;
-    saveLocalExclusionState(nextState);
-    setConversionExclusionSources({
-      mfme: mfmeData?.exclusionCounts ?? new Map(),
-      imported: nextState.localImportedCounts,
-    });
-    setImportedChunkKeys(new Set());
-  };
-
-  const handleClearAllLocalExclusionData = () => {
-    const nextState = createEmptyLocalExclusionState();
-    setLocalExclusionState(nextState);
-    localExclusionStateRef.current = nextState;
-    clearLocalExclusionState();
-    setConversionExclusionSources({ mfme: new Map(), imported: new Map() });
-    setImportedChunkKeys(new Set());
-    setMfmeData(null);
-    mfmeImportModeRef.current = "restore";
-    void persistInputFiles({
-      ...inputFilesRef.current,
-      mfmeFiles: [],
-    });
-  };
-
-  const hasSavedMfmeBaseline = Boolean(mfmeData?.exclusionStats.count);
-  const hasMfmeRecords = Boolean(auditMfmeData?.records.length);
+  const hasMfmeRecords = Boolean(mfmeData?.records.length);
   const hasOutput = Object.keys(processedChunks).length > 0;
-  const canShowConversion = Boolean(payPayData && mfmeData && hasOutput);
+  const canShowConversion = Boolean(payPayData && hasOutput);
   const canShowAudit = Boolean(payPayData && hasMfmeRecords);
   const localImportedRecordCount = Array.from(
     localExclusionState.localImportedCounts.values(),
@@ -912,39 +802,48 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mb-5">
           <div>
             <h2 className="text-2xl font-bold text-zinc-950">
-              {mode === "convert"
-                ? "取り込み用CSVを作成"
-                : "重複登録・口座間違いを確認"}
+              PayPay明細の変換と確認
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-              {mode === "convert"
-                ? "PayPay明細を口座ごとに整理し、MoneyForward ME用のCSVを作成します。"
-                : "取り込み済み明細から、重複や別口座への登録候補を洗い出します。"}
+              同じ入力ファイルから、取り込み用CSVの作成と登録済み明細の確認ができます。
             </p>
           </div>
 
-          {mode === "convert" ? (
+          <div
+            className="mt-4 inline-flex border border-zinc-300 bg-white p-1"
+            role="tablist"
+            aria-label="表示する結果"
+          >
             <button
               type="button"
-              onClick={() => setMode("audit")}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900"
-            >
-              <Search className="size-3.5" aria-hidden="true" />
-              重複登録・口座間違いを確認
-            </button>
-          ) : (
-            <button
-              type="button"
+              role="tab"
+              aria-selected={mode === "convert"}
               onClick={() => setMode("convert")}
-              className="inline-flex h-9 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+              className={`px-4 py-2 text-sm font-semibold ${
+                mode === "convert"
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
             >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              取り込み用CSVの作成に戻る
+              取り込み用CSV
             </button>
-          )}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "audit"}
+              onClick={() => setMode("audit")}
+              className={`px-4 py-2 text-sm font-semibold ${
+                mode === "audit"
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              重複・口座間違いの確認
+            </button>
+          </div>
         </div>
 
         <div className="grid items-start gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -960,20 +859,10 @@ export default function Home() {
               />
               <div className="border-t border-zinc-200 pt-5">
                 <Step2MfmeFilter
-                  allowSkip={mode === "convert"}
-                  files={mode === "audit" ? auditMfmeFiles : mfmeFiles}
+                  files={mfmeFiles}
                   onFilesSelected={handleMfmeFilesSelected}
                   onDataParsed={handleMfmeDataParsed}
-                  duplicates={conversionResult.duplicates}
-                  totalTransactions={payPayData?.transactions.length}
-                  storedBaseStats={
-                    mfmeData && mfmeData.exclusionStats.count > 0
-                      ? mfmeData.exclusionStats
-                      : null
-                  }
                   localImportedRecordCount={localImportedRecordCount}
-                  onResetLocalImportedRecords={handleResetLocalImportedRecords}
-                  onClearAllLocalData={handleClearAllLocalExclusionData}
                 />
               </div>
             </div>
@@ -984,6 +873,7 @@ export default function Home() {
               canShowConversion ? (
                 <Step3FileList
                   processedChunks={processedChunks}
+                  hasMfmeData={hasMfmeRecords}
                   excludedByMfme={conversionResult.mfmeDuplicates ?? 0}
                   excludedByImportedRecords={
                     conversionResult.importedDuplicates ?? 0
@@ -1004,7 +894,7 @@ export default function Home() {
                 <WorkspaceEmptyState
                   mode={mode}
                   hasPayPay={Boolean(payPayData)}
-                  hasMfme={hasSavedMfmeBaseline}
+                  hasMfme={hasMfmeRecords}
                   hasOutput={hasOutput}
                 />
               )

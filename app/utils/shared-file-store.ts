@@ -16,7 +16,6 @@ type SharedFileRecord = {
 export type InputFiles = {
   payPayFile: File | null;
   mfmeFiles: File[];
-  auditMfmeFiles: File[];
 };
 
 type InputFilesRecord = InputFiles & {
@@ -128,13 +127,14 @@ export const loadInputFiles = async (): Promise<InputFiles> => {
 
   try {
     const record = await readInputFiles(database);
-    return record
-      ? {
-          payPayFile: record.payPayFile,
-          mfmeFiles: record.mfmeFiles,
-          auditMfmeFiles: record.auditMfmeFiles,
-        }
-      : { payPayFile: null, mfmeFiles: [], auditMfmeFiles: [] };
+    if (!record) {
+      return { payPayFile: null, mfmeFiles: [] };
+    }
+
+    return {
+      payPayFile: record.payPayFile,
+      mfmeFiles: record.mfmeFiles,
+    };
   } finally {
     database.close();
   }
