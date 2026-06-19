@@ -1,6 +1,5 @@
 import {
   AlertTriangle,
-  CalendarDays,
   Check,
   ChevronDown,
   ChevronUp,
@@ -11,7 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { flushSync } from "react-dom";
-import PeriodDisplay from "~/components/PeriodDisplay";
+import FileStatsSummary from "~/components/FileStatsSummary";
 import type { ProcessedCsvChunk, ProcessedResult } from "~/services/paypay-csv";
 import { sum } from "~/utils/array";
 
@@ -122,20 +121,8 @@ function FileGroupList({
                     <p className="break-all text-sm font-semibold text-zinc-800">
                       {filename}
                     </p>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
-                      <span>{chunk.count}件</span>
-                      {chunk.startDate && chunk.endDate && (
-                        <span className="inline-flex items-center gap-1.5">
-                          <CalendarDays
-                            className="size-3.5"
-                            aria-hidden="true"
-                          />
-                          <PeriodDisplay
-                            startDate={chunk.startDate}
-                            endDate={chunk.endDate}
-                          />
-                        </span>
-                      )}
+                    <div className="mt-1 text-xs text-zinc-500">
+                      <FileStatsSummary stats={chunk} />
                     </div>
                   </div>
                   <button

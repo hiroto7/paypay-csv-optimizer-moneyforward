@@ -1,12 +1,7 @@
-import {
-  AlertCircle,
-  CalendarDays,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import CsvFilePicker from "~/components/CsvFilePicker";
-import PeriodDisplay from "~/components/PeriodDisplay";
+import FileStatsSummary from "~/components/FileStatsSummary";
 import type { FileStats } from "~/services/csv-date";
 import type { CsvRecord } from "~/services/csv-schema";
 import { countExclusions } from "~/services/local-exclusion-store";
@@ -40,20 +35,6 @@ const combineStats = (first: FileStats, second: FileStats): FileStats => ({
       ? second.endDate
       : first.endDate,
 });
-
-function StatsValue({ stats }: { stats: FileStats }) {
-  return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="font-semibold text-zinc-900">{stats.count}件</span>
-      {stats.startDate && stats.endDate && (
-        <span className="inline-flex items-center gap-1 text-zinc-600">
-          <CalendarDays className="size-3.5" aria-hidden="true" />
-          <PeriodDisplay startDate={stats.startDate} endDate={stats.endDate} />
-        </span>
-      )}
-    </span>
-  );
-}
 
 export default function Step2MfmeFilter({
   files,
@@ -159,7 +140,9 @@ export default function Step2MfmeFilter({
         multiple
         emptyLabel="入出金履歴を選ぶ"
         selectedLabel={selectedLabel}
-        selectedMeta={fileStats ? <StatsValue stats={fileStats} /> : undefined}
+        selectedMeta={
+          fileStats ? <FileStatsSummary stats={fileStats} /> : undefined
+        }
         tone={error ? "error" : "success"}
         onFilesSelected={(selectedFiles) => {
           const nextFiles = Array.from(selectedFiles ?? []);
@@ -185,7 +168,7 @@ export default function Step2MfmeFilter({
               登録済みとして扱う明細
             </p>
             <div className="mt-1">
-              <StatsValue stats={combinedStats} />
+              <FileStatsSummary stats={combinedStats} />
             </div>
             <button
               type="button"
@@ -215,7 +198,7 @@ export default function Step2MfmeFilter({
                   </p>
                   <p className="mt-0.5 text-zinc-500">{files.length}ファイル</p>
                   <div className="mt-1.5">
-                    <StatsValue stats={fileStats} />
+                    <FileStatsSummary stats={fileStats} />
                   </div>
                 </div>
               )}
@@ -228,7 +211,7 @@ export default function Step2MfmeFilter({
                     「MoneyForward MEで保存した」を押した明細
                   </p>
                   <div className="mt-1.5">
-                    <StatsValue stats={localImportedStats} />
+                    <FileStatsSummary stats={localImportedStats} />
                   </div>
                 </div>
               )}

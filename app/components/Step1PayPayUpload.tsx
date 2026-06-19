@@ -1,7 +1,7 @@
-import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import CsvFilePicker from "~/components/CsvFilePicker";
-import PeriodDisplay from "~/components/PeriodDisplay";
+import FileStatsSummary from "~/components/FileStatsSummary";
 import type { FileStats } from "~/services/csv-date";
 import {
   extractTransactionsFromPayPayCsv,
@@ -122,23 +122,7 @@ export default function Step1PayPayUpload({
         id="paypay-csv-input"
         selectedLabel={file?.name}
         selectedMeta={
-          paypayStats ? (
-            <span className="flex flex-wrap gap-x-3 gap-y-1">
-              <span className="inline-flex items-center gap-1">
-                <ReceiptText className="size-3.5" aria-hidden="true" />
-                {paypayStats.count}件
-              </span>
-              {paypayStats.startDate && paypayStats.endDate && (
-                <span className="inline-flex items-center gap-1">
-                  <CalendarDays className="size-3.5" aria-hidden="true" />
-                  <PeriodDisplay
-                    startDate={paypayStats.startDate}
-                    endDate={paypayStats.endDate}
-                  />
-                </span>
-              )}
-            </span>
-          ) : undefined
+          paypayStats ? <FileStatsSummary stats={paypayStats} /> : undefined
         }
         tone={error ? "error" : "success"}
         emptyLabel="取引履歴を選ぶ"
