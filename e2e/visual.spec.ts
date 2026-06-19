@@ -174,6 +174,12 @@ test("作成結果と保存確認モーダルを表示できる", async ({ page 
     fullPage: true,
   });
 
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveScreenshot("import-guide-modal-mobile.png", {
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
   await expect(
     page.getByRole("button", { name: "取り込みました" }),

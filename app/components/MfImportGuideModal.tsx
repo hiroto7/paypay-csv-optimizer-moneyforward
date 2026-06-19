@@ -58,14 +58,14 @@ export default function MfImportGuideModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4">
       <div
         ref={dialogRef}
-        className="w-full max-w-lg border border-zinc-200 bg-white shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col border border-zinc-200 bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-guide-title"
         aria-describedby="import-guide-description"
         onKeyDown={handleKeyDown}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
           <div>
             <h2
               id="import-guide-title"
@@ -92,7 +92,7 @@ export default function MfImportGuideModal({
           </button>
         </div>
 
-        <ol className="divide-y divide-zinc-200 px-5">
+        <ol className="min-h-0 overflow-y-auto divide-y divide-zinc-200 px-5">
           {[
             { instruction: "共有シートでMoneyForward MEを選ぶ" },
             { instruction: "「CSVを読み込む」を押す" },
@@ -160,11 +160,11 @@ export default function MfImportGuideModal({
           })}
         </ol>
 
-        <div className="flex justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4">
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="h-9 border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+            className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
           >
             後で確認
           </button>
@@ -172,7 +172,7 @@ export default function MfImportGuideModal({
             type="button"
             onClick={onImported}
             disabled={isSharing}
-            className={`inline-flex h-9 items-center gap-2 px-4 text-sm font-semibold ${
+            className={`inline-flex min-h-10 w-full items-center justify-center gap-2 px-4 text-sm font-semibold sm:w-auto ${
               isSharing
                 ? "cursor-wait bg-zinc-200 text-zinc-500"
                 : "bg-zinc-900 text-white hover:bg-zinc-700"
