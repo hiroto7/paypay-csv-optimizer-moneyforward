@@ -41,7 +41,9 @@ const createChunkedPayPayCsv = (count: number) =>
 const openCleanPage = async (page: Page) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "PayPay明細の変換と確認" }),
+    page.getByRole("heading", {
+      name: "PayPay CSVをMoneyForward ME用に変換",
+    }),
   ).toBeVisible();
   await page.waitForTimeout(500);
 };
@@ -169,6 +171,22 @@ test("変換結果と保存確認モーダルを表示できる", async ({ page 
   await expect(
     page.getByRole("button", { name: "取り込みました" }),
   ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "重複登録・口座間違いを確認" })
+    .click();
+  await page.getByRole("button", { name: "CSV変換に戻る" }).click();
+  await expect(
+    page.getByRole("button", { name: "取り込みました" }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByText("前回の取り込み記録: 2件", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "取り込みました" }),
+  ).toHaveCount(0);
 });
 
 test("分割チャンクの一部を取り込んでも残りのチャンクを維持する", async ({
@@ -305,12 +323,39 @@ test("Share TargetからMFME CSVを年ごとに追加できる", async ({ page }
   );
   await expect(page.getByText("2件", { exact: true })).toBeVisible();
 
-  await page.getByRole("tab", { name: "重複・口座間違いの確認" }).click();
-  await page.getByRole("tab", { name: "取り込み用CSV" }).click();
+  await page
+    .getByRole("button", { name: "重複登録・口座間違いを確認" })
+    .click();
+  await page.getByRole("button", { name: "CSV変換に戻る" }).click();
   await expect(page.getByText("2件", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.getByText("2件", { exact: true })).toBeVisible();
+});
+
+test("Share Target復元中のPayPay選択を上書きしない", async ({ page }) => {
+  await shareCsvThroughTarget(
+    page,
+    "shared-mfme-concurrent-input",
+    "収入・支出詳細.csv",
+    auditMfmeCsv,
+  );
+
+  await page.locator("#paypay-csv-input").setInputFiles({
+    name: "paypay-selected-during-restore.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(payPayCsv),
+  });
+
+  await expect(page.getByText("1ファイルを読み込み済み")).toBeVisible();
+  await expect(
+    page.getByText("paypay-selected-during-restore.csv"),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("1ファイルを読み込み済み")).toBeVisible();
+  await expect(
+    page.getByText("paypay-selected-during-restore.csv"),
+  ).toBeVisible();
 });
 
 test("MFME CSVの入れ替えで保存済み記録をリセットする", async ({ page }) => {
@@ -387,7 +432,9 @@ test("Share Targetから渡したMFME CSVを監査に利用できる", async ({ 
     auditMfmeCsv,
   );
 
-  await page.getByRole("tab", { name: "重複・口座間違いの確認" }).click();
+  await page
+    .getByRole("button", { name: "重複登録・口座間違いを確認" })
+    .click();
 
   await expect(
     page.getByRole("heading", { name: "要確認明細 2件" }),
@@ -424,16 +471,20 @@ test("モードを切り替えても同じMoneyForward ME CSVを使用する", a
     mimeType: "text/csv",
     buffer: Buffer.from(auditMfmeCsv),
   });
-  await page.getByRole("tab", { name: "重複・口座間違いの確認" }).click();
+  await page
+    .getByRole("button", { name: "重複登録・口座間違いを確認" })
+    .click();
   await expect(page.getByText("1ファイルを読み込み済み")).toBeVisible();
-  await page.getByRole("tab", { name: "取り込み用CSV" }).click();
+  await page.getByRole("button", { name: "CSV変換に戻る" }).click();
 
   await expect(page.getByText("明細", { exact: true })).toBeVisible();
   await expect(page.getByText("4件", { exact: true })).toBeVisible();
 });
 
 test("重複登録と口座間違いの候補を表示できる", async ({ page }) => {
-  await page.getByRole("tab", { name: "重複・口座間違いの確認" }).click();
+  await page
+    .getByRole("button", { name: "重複登録・口座間違いを確認" })
+    .click();
   await selectPayPayCsv(page);
   await page.locator("#mfme-csv-input").setInputFiles({
     name: "moneyforward-history.csv",
