@@ -29,7 +29,7 @@ export default function Step4DeletionCandidates({
           id="audit-result-title"
           className="mt-4 text-lg font-bold text-zinc-950"
         >
-          読み込んだCSVの範囲では要確認明細は見つかりませんでした
+          読み込んだ入出金履歴の範囲では修正候補は見つかりませんでした
         </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
           PayPay明細と一致する重複登録や口座間違いの候補は検出されていません。

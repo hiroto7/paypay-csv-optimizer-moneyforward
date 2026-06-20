@@ -9,7 +9,8 @@ export function loader() {
     id: "/",
     name: `${isPreviewDeployment ? "[PREVIEW] " : ""}PP2MF - PayPay CSV Optimizer for MoneyForward ME`,
     short_name: isPreviewDeployment ? "[PRV] PP2MF" : "PP2MF",
-    description: "PayPayの取引履歴CSVをMoneyForward ME用に変換します。",
+    description:
+      "PayPayから書き出した取引履歴を整理し、MoneyForward MEに取り込めるファイルを作成します。",
     start_url: "/",
     scope: "/",
     display: "standalone",

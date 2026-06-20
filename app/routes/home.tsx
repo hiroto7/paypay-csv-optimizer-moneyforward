@@ -1,17 +1,7 @@
-import {
-  AlertCircle,
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  FileCheck2,
-  FileSearch,
-  LoaderCircle,
-  LockKeyhole,
-  Search,
-  UploadCloud,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import AuditPanel from "~/components/AuditPanel";
+import MfImportGuideModal from "~/components/MfImportGuideModal";
 import Step1PayPayUpload, {
   type PayPayParsedData,
 } from "~/components/Step1PayPayUpload";
@@ -19,378 +9,32 @@ import Step2MfmeFilter, {
   type MfmeParsedData,
 } from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
-import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
-import { detectCsvFileType } from "~/services/csv-file-type";
+import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
+import { useInputFilesStore } from "~/hooks/useInputFilesStore";
+import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
 import { findMfmeDeletionCandidates } from "~/services/deletion-candidates";
-import {
-  addCounts,
-  clearLocalExclusionState,
-  createCountsFromKeys,
-  createEmptyLocalExclusionState,
-  type LocalExclusionState,
-  loadLocalExclusionState,
-  saveLocalExclusionState,
-  subtractCounts,
-} from "~/services/local-exclusion-store";
-import { createMfmeExclusionSet } from "~/services/mfme-csv";
 import {
   createChunksFromGroupedTransactions,
   filterTransactionsBySources,
   type ProcessedResult,
 } from "~/services/paypay-csv";
-import {
-  createFileIdentity,
-  readFileAsTextAuto,
-  readFilesAsTextAuto,
-} from "~/utils/file-reader";
-import {
-  clearInputFiles,
-  consumeSharedFiles,
-  type InputFiles,
-  loadInputFiles,
-  mergeUniqueFiles,
-  saveInputFiles,
-} from "~/utils/shared-file-store";
+import { shareCsv } from "~/utils/csv-share";
 import type { Route } from "./+types/home";
-
-type AppMode = "convert" | "audit";
-type MfmeImportMode = "restore" | "replace" | "append";
-
-type ConversionExclusionSources = {
-  mfme: Map<string, number>;
-  imported: Map<string, number>;
-};
-
-type SharedFileNotice = {
-  tone: "success" | "error";
-  message: string;
-};
 
 export function meta(_args: Route.MetaArgs) {
   return [
-    { title: "PayPay CSV Optimizer for マネーフォワード ME" },
+    { title: "PP2MF - PayPay CSV Optimizer for MoneyForward ME" },
     {
       name: "description",
       content:
-        "PayPayの取引履歴CSVをマネーフォワード ME用に変換し、重複・誤口座取り込みも照合します。",
+        "PayPayから書き出した取引履歴を整理し、MoneyForward MEに取り込めるファイルを作成します。",
     },
   ];
 }
 
-const downloadCsv = (filename: string, blob: Blob) => {
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
-  link.style.visibility = "hidden";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
-const shareCsv = async (filename: string, data: string): Promise<boolean> => {
-  const blob = new Blob([`\uFEFF${data}`], { type: "text/csv" });
-  const file = new File([blob], filename, { type: "text/csv" });
-
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file] });
-      return true;
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        return false;
-      }
-      console.error("Share failed, falling back to download:", error);
-    }
-  }
-
-  downloadCsv(filename, blob);
-  return true;
-};
-
-const MfImportGuideModal = ({
-  accountName,
-  isSharing,
-  onClose,
-  onImported,
-}: {
-  accountName: string;
-  isSharing: boolean;
-  onClose: () => void;
-  onImported: () => void;
-}) => {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const previouslyFocusedElement =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    closeButtonRef.current?.focus();
-
-    return () => previouslyFocusedElement?.focus();
-  }, []);
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-
-    if (event.key !== "Tab") {
-      return;
-    }
-
-    const focusableElements = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusableElements || focusableElements.length === 0) {
-      event.preventDefault();
-      return;
-    }
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault();
-      lastElement?.focus();
-    } else if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault();
-      firstElement?.focus();
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4">
-      <div
-        ref={dialogRef}
-        className="w-full max-w-lg border border-zinc-200 bg-white shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="import-guide-title"
-        aria-describedby="import-guide-description"
-        onKeyDown={handleKeyDown}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
-          <div>
-            <h2
-              id="import-guide-title"
-              className="text-base font-bold text-zinc-950"
-            >
-              MoneyForward MEに取り込む
-            </h2>
-            <p
-              id="import-guide-description"
-              className="mt-1 text-xs text-zinc-500"
-            >
-              共有後、MoneyForward MEで口座を指定して保存してください
-            </p>
-          </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            className="inline-flex size-8 shrink-0 items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-            aria-label="閉じる"
-            title="閉じる"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <ol className="divide-y divide-zinc-200 px-5">
-          {[
-            "共有シートでMoneyForward MEを選ぶ",
-            "MoneyForward MEの「読み込んだ明細」を開く",
-            `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
-            "内容を確認して右上の「保存」を押す",
-          ].map((instruction, index) => {
-            const isShareStep = index === 0;
-
-            return (
-              <li
-                key={instruction}
-                className={`grid grid-cols-[28px_1fr] gap-3 py-4 text-sm ${
-                  isShareStep && isSharing
-                    ? "font-semibold text-zinc-950"
-                    : "text-zinc-700"
-                }`}
-              >
-                <span
-                  className={`flex size-7 items-center justify-center text-xs font-bold ${
-                    isShareStep && !isSharing
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-zinc-100 text-zinc-700"
-                  }`}
-                >
-                  {isShareStep ? (
-                    isSharing ? (
-                      <LoaderCircle
-                        className="size-4 animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <Check className="size-4" aria-hidden="true" />
-                    )
-                  ) : (
-                    index + 1
-                  )}
-                </span>
-                <span className="pt-1">{instruction}</span>
-              </li>
-            );
-          })}
-        </ol>
-
-        <div className="flex justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-9 border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-          >
-            後で確認
-          </button>
-          <button
-            type="button"
-            onClick={onImported}
-            disabled={isSharing}
-            className={`inline-flex h-9 items-center gap-2 px-4 text-sm font-semibold ${
-              isSharing
-                ? "cursor-wait bg-zinc-200 text-zinc-500"
-                : "bg-zinc-900 text-white hover:bg-zinc-700"
-            }`}
-          >
-            {isSharing ? (
-              <LoaderCircle
-                className="size-4 animate-spin"
-                aria-hidden="true"
-              />
-            ) : (
-              <Check className="size-4" aria-hidden="true" />
-            )}
-            {isSharing ? "共有先を選択中" : "MoneyForward MEで保存した"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-function WorkspaceEmptyState({
-  mode,
-  hasPayPay,
-  hasMfme,
-  hasOutput,
-}: {
-  mode: AppMode;
-  hasPayPay: boolean;
-  hasMfme: boolean;
-  hasOutput: boolean;
-}) {
-  const isAudit = mode === "audit";
-  const hasRequiredInputs = hasPayPay && hasMfme;
-  const conversionIsEmpty = !isAudit && hasRequiredInputs && !hasOutput;
-
-  const title = (() => {
-    if (!hasPayPay) {
-      return isAudit
-        ? "2種類のCSVを選択してください"
-        : "PayPay CSVを選択してください";
-    }
-    if (!hasMfme) {
-      return isAudit
-        ? "MoneyForward ME CSVを選択してください"
-        : "既存明細を除外するか選択してください";
-    }
-    if (conversionIsEmpty) {
-      return "変換対象の取引はありません";
-    }
-    return "明細を照合できます";
-  })();
-
-  const description = (() => {
-    if (!hasPayPay) {
-      return isAudit
-        ? "照合するPayPay取引履歴とMoneyForward ME明細のCSVを選択してください。"
-        : "PayPayの併用払いを分割し、MoneyForward MEへ取り込める100件単位のCSVを作成します。";
-    }
-    if (!hasMfme) {
-      return isAudit
-        ? "PayPay取引履歴と比較するMoneyForward ME明細のCSVを選択してください。"
-        : "MoneyForward ME明細を選択するか、既存明細を除外せずにCSVを作成してください。";
-    }
-    if (conversionIsEmpty) {
-      return "選択したMoneyForward ME明細に、PayPayの全取引が取り込み済みとして含まれています。";
-    }
-    return "PayPayの取引履歴とMoneyForward MEの明細を比較し、重複や別口座への取り込み候補を表示します。";
-  })();
-
-  return (
-    <div className="flex min-h-80 flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[520px] sm:py-12">
-      <div className="flex size-12 items-center justify-center bg-zinc-100 text-zinc-600">
-        {isAudit ? (
-          <FileSearch className="size-6" aria-hidden="true" />
-        ) : (
-          <FileCheck2 className="size-6" aria-hidden="true" />
-        )}
-      </div>
-      <h2 className="mt-4 text-lg font-bold text-zinc-950">{title}</h2>
-      <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
-        {description}
-      </p>
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs font-semibold">
-        <span
-          className={`inline-flex items-center gap-1.5 ${
-            hasPayPay ? "text-emerald-700" : "text-zinc-400"
-          }`}
-        >
-          {hasPayPay ? (
-            <Check className="size-3.5" aria-hidden="true" />
-          ) : (
-            <span className="size-1.5 bg-zinc-300" />
-          )}
-          PayPay CSV
-          {!isAudit && <span className="font-normal text-zinc-400">必須</span>}
-        </span>
-        {isAudit && (
-          <ArrowRight className="size-3.5 text-zinc-300" aria-hidden="true" />
-        )}
-        <span
-          className={`inline-flex items-center gap-1.5 ${
-            hasMfme ? "text-emerald-700" : "text-zinc-400"
-          }`}
-        >
-          {hasMfme ? (
-            <Check className="size-3.5" aria-hidden="true" />
-          ) : (
-            <span className="size-1.5 bg-zinc-300" />
-          )}
-          {isAudit ? "MoneyForward ME CSV" : "既存明細の除外"}
-          {!isAudit && <span className="font-normal text-zinc-400">任意</span>}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 export default function Home() {
-  const [mode, setMode] = useState<AppMode>("convert");
   const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
   const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
-  const [auditMfmeData, setAuditMfmeData] = useState<MfmeParsedData | null>(
-    null,
-  );
-  const [localExclusionState, setLocalExclusionState] =
-    useState<LocalExclusionState>(() => createEmptyLocalExclusionState());
-  const [conversionExclusionSources, setConversionExclusionSources] =
-    useState<ConversionExclusionSources>(() => ({
-      mfme: new Map(),
-      imported: new Map(),
-    }));
   const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -399,254 +43,32 @@ export default function Home() {
     index: number;
     isSharing: boolean;
   } | null>(null);
-  const [payPayFile, setPayPayFile] = useState<File | null>(null);
-  const [mfmeFiles, setMfmeFiles] = useState<File[]>([]);
-  const [auditMfmeFiles, setAuditMfmeFiles] = useState<File[]>([]);
-  const [sharedFileNotice, setSharedFileNotice] =
-    useState<SharedFileNotice | null>(null);
-  const inputFilesRef = useRef<InputFiles>({
-    payPayFile: null,
-    mfmeFiles: [],
-    auditMfmeFiles: [],
-  });
-  const localExclusionStateRef = useRef(localExclusionState);
-  const mfmeImportModeRef = useRef<MfmeImportMode>("restore");
-  const pendingMfmeAppendCountsRef = useRef<Map<string, number>>(new Map());
-
-  useEffect(() => {
-    localExclusionStateRef.current = localExclusionState;
-  }, [localExclusionState]);
-
-  const applyInputFiles = useCallback((inputFiles: InputFiles) => {
-    inputFilesRef.current = inputFiles;
-    setPayPayFile(inputFiles.payPayFile);
-    setMfmeFiles(inputFiles.mfmeFiles);
-    setAuditMfmeFiles(inputFiles.auditMfmeFiles);
-  }, []);
-
-  const persistInputFiles = useCallback(
-    async (inputFiles: InputFiles): Promise<boolean> => {
-      applyInputFiles(inputFiles);
-
-      try {
-        if (
-          !inputFiles.payPayFile &&
-          inputFiles.mfmeFiles.length === 0 &&
-          inputFiles.auditMfmeFiles.length === 0
-        ) {
-          await clearInputFiles();
-        } else {
-          await saveInputFiles(inputFiles);
-        }
-        return true;
-      } catch (error) {
-        console.error("Failed to save input files:", error);
-        setSharedFileNotice({
-          tone: "error",
-          message: "選択したCSVの保存に失敗しました。",
-        });
-        return false;
-      }
-    },
-    [applyInputFiles],
-  );
-
-  const handlePayPayFileSelected = useCallback(
-    (file: File | null) => {
-      void persistInputFiles({
-        ...inputFilesRef.current,
-        payPayFile: file,
-      });
-    },
-    [persistInputFiles],
-  );
-
-  const handleMfmeFilesSelected = useCallback(
-    (files: File[]) => {
-      if (mode === "audit") {
-        void persistInputFiles({
-          ...inputFilesRef.current,
-          auditMfmeFiles: files,
-        });
-        return;
-      }
-      mfmeImportModeRef.current = "replace";
-      void persistInputFiles({
-        ...inputFilesRef.current,
-        mfmeFiles: files,
-      });
-    },
-    [mode, persistInputFiles],
-  );
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sharedFilesId = params.get("shared-files");
-    const shareError = params.get("share-error");
-
-    if (sharedFilesId || shareError || params.has("share-debug")) {
-      params.delete("shared-files");
-      params.delete("share-error");
-      params.delete("share-debug");
-      const cleanUrl = `${window.location.pathname}${
-        params.size > 0 ? `?${params.toString()}` : ""
-      }${window.location.hash}`;
-      window.history.replaceState(null, "", cleanUrl);
-    }
-
-    let isCancelled = false;
-
-    void (async () => {
-      try {
-        const savedInputFiles = await loadInputFiles();
-        if (isCancelled) {
-          return;
-        }
-        applyInputFiles(savedInputFiles);
-
-        if (shareError) {
-          setSharedFileNotice({
-            tone: "error",
-            message:
-              "共有されたCSVを受け取れませんでした。通常のファイル選択をお試しください。",
-          });
-          return;
-        }
-
-        if (!sharedFilesId) {
-          return;
-        }
-
-        const files = await consumeSharedFiles(sharedFilesId);
-        const classifiedFiles = await Promise.all(
-          files.map(async (file) => ({
-            file,
-            type: detectCsvFileType(await readFileAsTextAuto(file)),
-          })),
-        );
-
-        if (isCancelled) {
-          return;
-        }
-
-        const payPayFiles = classifiedFiles.filter(
-          ({ type }) => type === "paypay",
-        );
-        const receivedMfmeFiles = classifiedFiles
-          .filter(({ type }) => type === "mfme")
-          .map(({ file }) => file);
-        const unknownFiles = classifiedFiles
-          .filter(({ type }) => type === "unknown")
-          .map(({ file }) => file);
-
-        const nextInputFiles = { ...savedInputFiles };
-        if (payPayFiles[0]) {
-          nextInputFiles.payPayFile = payPayFiles[0].file;
-        }
-        const knownMfmeSourceIds = new Set(
-          await Promise.all(savedInputFiles.mfmeFiles.map(createFileIdentity)),
-        );
-        const mfmeFilesWithIds = await Promise.all(
-          receivedMfmeFiles.map(async (file) => ({
-            file,
-            sourceId: await createFileIdentity(file),
-          })),
-        );
-        const newMfmeFiles = mfmeFilesWithIds
-          .filter(({ sourceId }) => !knownMfmeSourceIds.has(sourceId))
-          .map(({ file }) => file);
-        if (newMfmeFiles.length > 0) {
-          mfmeImportModeRef.current = "append";
-          pendingMfmeAppendCountsRef.current = createMfmeExclusionSet(
-            await readFilesAsTextAuto(newMfmeFiles),
-          ).exclusionCounts;
-        }
-        if (receivedMfmeFiles.length > 0) {
-          nextInputFiles.mfmeFiles = await mergeUniqueFiles(
-            savedInputFiles.mfmeFiles,
-            receivedMfmeFiles,
-          );
-          nextInputFiles.auditMfmeFiles = await mergeUniqueFiles(
-            savedInputFiles.auditMfmeFiles,
-            receivedMfmeFiles,
-          );
-        }
-        if (
-          nextInputFiles.payPayFile ||
-          nextInputFiles.mfmeFiles.length > 0 ||
-          nextInputFiles.auditMfmeFiles.length > 0
-        ) {
-          await saveInputFiles(nextInputFiles);
-        } else {
-          await clearInputFiles();
-        }
-        applyInputFiles(nextInputFiles);
-
-        if (files.length === 0) {
-          setSharedFileNotice({
-            tone: "error",
-            message:
-              "共有ファイルの一時データが見つかりませんでした。もう一度共有してください。",
-          });
-        } else {
-          const loadedTypes = [
-            payPayFiles.length > 0 ? "PayPay CSV" : null,
-            receivedMfmeFiles.length > 0
-              ? `MoneyForward ME CSV ${receivedMfmeFiles.length}件`
-              : null,
-          ].filter((value): value is string => value !== null);
-          setSharedFileNotice({
-            tone: unknownFiles.length > 0 ? "error" : "success",
-            message:
-              unknownFiles.length > 0
-                ? loadedTypes.length > 0
-                  ? `${loadedTypes.join("と")}を読み込みました。形式を判定できないCSV ${unknownFiles.length}件は読み込みませんでした。`
-                  : "PayPayまたはMoneyForward MEの必要な列を確認できないため、共有されたCSVを読み込めませんでした。"
-                : `${loadedTypes.join("と")}を読み込みました。`,
-          });
-        }
-      } catch (error) {
-        if (isCancelled) {
-          return;
-        }
-        console.error("Failed to load shared files:", error);
-        setSharedFileNotice({
-          tone: "error",
-          message:
-            "共有されたCSVの読み込みに失敗しました。通常のファイル選択をお試しください。",
-        });
-      }
-    })();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [applyInputFiles]);
-
-  useEffect(() => {
-    const savedLocalExclusionState = loadLocalExclusionState();
-    localExclusionStateRef.current = savedLocalExclusionState;
-    setLocalExclusionState(savedLocalExclusionState);
-    setConversionExclusionSources((currentSources) => ({
-      ...currentSources,
-      imported: savedLocalExclusionState.localImportedCounts,
-    }));
-  }, []);
+  const {
+    conversionCounts,
+    recordStats,
+    addImportedRecords,
+    resetImportedRecords,
+    refreshConversionCounts,
+  } = useLocalImportRecords();
+  const {
+    payPayFile,
+    mfmeFiles,
+    notice,
+    dismissNotice,
+    selectPayPayFile,
+    replaceMfmeFiles,
+  } = useInputFilesStore(resetImportedRecords);
 
   const conversionResult = useMemo(() => {
-    if (mode !== "convert" || !payPayData || !mfmeData) {
-      return {
-        chunks: {} satisfies ProcessedResult,
-        duplicates: 0,
-      };
+    if (!payPayData) {
+      return { chunks: {} satisfies ProcessedResult, duplicates: 0 };
     }
 
     const filteredResult = filterTransactionsBySources(
       payPayData.transactions,
-      conversionExclusionSources.mfme,
-      conversionExclusionSources.imported,
+      mfmeData?.exclusionCounts ?? new Map(),
+      conversionCounts,
     );
-
     return {
       chunks: createChunksFromGroupedTransactions(
         filteredResult.groupedTransactions,
@@ -656,18 +78,15 @@ export default function Home() {
       mfmeDuplicates: filteredResult.mfmeDuplicates,
       importedDuplicates: filteredResult.importedDuplicates,
     };
-  }, [mode, payPayData, mfmeData, conversionExclusionSources]);
+  }, [payPayData, mfmeData, conversionCounts]);
 
   const deletionCandidates = useMemo(() => {
-    if (mode !== "audit" || !payPayData || !auditMfmeData) {
-      return [];
-    }
-
+    if (!payPayData || !mfmeData) return [];
     return findMfmeDeletionCandidates(
       payPayData.transactions,
-      auditMfmeData.records,
+      mfmeData.records,
     );
-  }, [mode, payPayData, auditMfmeData]);
+  }, [payPayData, mfmeData]);
 
   const processedChunks = useMemo<ProcessedResult>(
     () =>
@@ -683,149 +102,46 @@ export default function Home() {
     [conversionResult.chunks, importedChunkKeys],
   );
 
-  const handleCloseModal = useCallback(() => {
-    setModalContext(null);
-  }, []);
+  const closeModal = useCallback(() => setModalContext(null), []);
+  const resetCurrentImportState = useCallback(() => {
+    setImportedChunkKeys(new Set());
+    closeModal();
+  }, [closeModal]);
+
+  const handlePayPayDataParsed = useCallback(
+    (data: PayPayParsedData | null) => {
+      setPayPayData(data);
+      refreshConversionCounts();
+      resetCurrentImportState();
+    },
+    [refreshConversionCounts, resetCurrentImportState],
+  );
+
+  const handleMfmeDataParsed = useCallback(
+    (data: MfmeParsedData | null) => {
+      setMfmeData(data);
+      resetCurrentImportState();
+    },
+    [resetCurrentImportState],
+  );
 
   const handleMarkAsImported = () => {
     if (!modalContext) return;
     const importedChunk =
       processedChunks[modalContext.name]?.[modalContext.index] ?? null;
-
-    if (importedChunk) {
-      const countsToAdd = createCountsFromKeys(importedChunk.transactionKeys);
-      setLocalExclusionState((currentState) => {
-        const nextImportedCounts = addCounts(
-          currentState.localImportedCounts,
-          countsToAdd,
-        );
-        const nextState = {
-          ...currentState,
-          localImportedCounts: nextImportedCounts,
-          updatedAt: Date.now(),
-        };
-        localExclusionStateRef.current = nextState;
-        saveLocalExclusionState(nextState);
-        return nextState;
-      });
-    }
+    if (importedChunk) addImportedRecords(importedChunk.transactionKeys);
 
     setImportedChunkKeys((currentKeys) => {
       const nextKeys = new Set(currentKeys);
       nextKeys.add(`${modalContext.name}:${modalContext.index}`);
       return nextKeys;
     });
-    handleCloseModal();
+    closeModal();
   };
 
-  const resetImportState = () => {
-    setImportedChunkKeys(new Set());
-    handleCloseModal();
-  };
-
-  const handlePayPayDataParsed = (data: PayPayParsedData | null) => {
-    setPayPayData(data);
-    if (data) {
-      setConversionExclusionSources((currentSources) => ({
-        ...currentSources,
-        imported: localExclusionStateRef.current.localImportedCounts,
-      }));
-    }
-    resetImportState();
-  };
-
-  const handleMfmeDataParsed = (data: MfmeParsedData | null) => {
-    if (mode === "audit") {
-      setAuditMfmeData(data);
-      resetImportState();
-      return;
-    }
-
-    if (!data) {
-      setMfmeData(null);
-      setConversionExclusionSources({
-        mfme: new Map(),
-        imported: localExclusionStateRef.current.localImportedCounts,
-      });
-      resetImportState();
-      return;
-    }
-
-    setMfmeData(data);
-    setAuditMfmeData(data);
-    resetImportState();
-
-    if (data.stats.count <= 0) {
-      setConversionExclusionSources({ mfme: new Map(), imported: new Map() });
-      return;
-    }
-
-    const importMode = mfmeImportModeRef.current;
-    mfmeImportModeRef.current = "restore";
-    const currentState = localExclusionStateRef.current;
-    const nextState: LocalExclusionState = {
-      localImportedCounts:
-        importMode === "append"
-          ? subtractCounts(
-              currentState.localImportedCounts,
-              pendingMfmeAppendCountsRef.current,
-            )
-          : importMode === "replace"
-            ? new Map()
-            : currentState.localImportedCounts,
-      updatedAt: importMode === "restore" ? currentState.updatedAt : Date.now(),
-    };
-    pendingMfmeAppendCountsRef.current = new Map();
-    if (importMode !== "restore") {
-      setLocalExclusionState(nextState);
-      localExclusionStateRef.current = nextState;
-      saveLocalExclusionState(nextState);
-    }
-    setConversionExclusionSources({
-      mfme: data.exclusionCounts,
-      imported: nextState.localImportedCounts,
-    });
-  };
-
-  const handleResetLocalImportedRecords = () => {
-    const nextState = {
-      ...localExclusionState,
-      localImportedCounts: new Map<string, number>(),
-      updatedAt: Date.now(),
-    };
-    setLocalExclusionState(nextState);
-    localExclusionStateRef.current = nextState;
-    saveLocalExclusionState(nextState);
-    setConversionExclusionSources({
-      mfme: mfmeData?.exclusionCounts ?? new Map(),
-      imported: nextState.localImportedCounts,
-    });
-    setImportedChunkKeys(new Set());
-  };
-
-  const handleClearAllLocalExclusionData = () => {
-    const nextState = createEmptyLocalExclusionState();
-    setLocalExclusionState(nextState);
-    localExclusionStateRef.current = nextState;
-    clearLocalExclusionState();
-    setConversionExclusionSources({ mfme: new Map(), imported: new Map() });
-    setImportedChunkKeys(new Set());
-    setMfmeData(null);
-    mfmeImportModeRef.current = "restore";
-    void persistInputFiles({
-      ...inputFilesRef.current,
-      mfmeFiles: [],
-    });
-  };
-
-  const hasSavedMfmeBaseline = Boolean(mfmeData?.exclusionStats.count);
-  const hasMfmeRecords = Boolean(auditMfmeData?.records.length);
+  const hasMfmeRecords = Boolean(mfmeData?.records.length);
   const hasOutput = Object.keys(processedChunks).length > 0;
-  const canShowConversion = Boolean(payPayData && mfmeData && hasOutput);
-  const canShowAudit = Boolean(payPayData && hasMfmeRecords);
-  const localImportedRecordCount = Array.from(
-    localExclusionState.localImportedCounts.values(),
-  ).reduce((total, count) => total + count, 0);
+  const canShowConversion = Boolean(payPayData && hasOutput);
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
@@ -840,10 +156,10 @@ export default function Home() {
             />
             <div className="min-w-0">
               <h1 className="truncate text-sm font-bold text-zinc-950 sm:text-base">
-                PayPay CSV Optimizer
+                PP2MF
               </h1>
-              <p className="hidden text-xs text-zinc-500 sm:block">
-                for MoneyForward ME
+              <p className="truncate text-[10px] leading-4 text-zinc-500 sm:text-xs">
+                PayPay CSV Optimizer for MoneyForward ME
               </p>
             </div>
           </div>
@@ -859,26 +175,26 @@ export default function Home() {
       </header>
 
       <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7">
-        {sharedFileNotice && (
+        {notice && (
           <div
             className={`mb-5 flex items-center justify-between gap-3 border px-4 py-2.5 text-sm ${
-              sharedFileNotice.tone === "success"
+              notice.tone === "success"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                 : "border-red-200 bg-red-50 text-red-800"
             }`}
-            role={sharedFileNotice.tone === "error" ? "alert" : "status"}
+            role={notice.tone === "error" ? "alert" : "status"}
           >
             <div className="flex min-w-0 items-center gap-2">
-              {sharedFileNotice.tone === "success" ? (
+              {notice.tone === "success" ? (
                 <UploadCloud className="size-4 shrink-0" aria-hidden="true" />
               ) : (
                 <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
               )}
-              <p className="leading-5">{sharedFileNotice.message}</p>
+              <p className="leading-5">{notice.message}</p>
             </div>
             <button
               type="button"
-              onClick={() => setSharedFileNotice(null)}
+              onClick={dismissNotice}
               className="inline-flex size-7 shrink-0 items-center justify-center hover:bg-black/5"
               aria-label="通知を閉じる"
             >
@@ -887,39 +203,15 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mb-5">
           <div>
             <h2 className="text-2xl font-bold text-zinc-950">
-              {mode === "convert"
-                ? "取り込み用CSVを作成"
-                : "重複登録・口座間違いを確認"}
+              MoneyForward MEに取り込むファイルを作る
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-              {mode === "convert"
-                ? "PayPay明細を口座ごとに整理し、MoneyForward ME用のCSVを作成します。"
-                : "取り込み済み明細から、重複や別口座への登録候補を洗い出します。"}
+              PayPayから書き出した取引履歴を、支払い方法ごと・100件ごとに整理します。
             </p>
           </div>
-
-          {mode === "convert" ? (
-            <button
-              type="button"
-              onClick={() => setMode("audit")}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900"
-            >
-              <Search className="size-3.5" aria-hidden="true" />
-              重複登録・口座間違いを確認
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setMode("convert")}
-              className="inline-flex h-9 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              取り込み用CSVの作成に戻る
-            </button>
-          )}
         </div>
 
         <div className="grid items-start gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -930,35 +222,26 @@ export default function Home() {
             <div className="space-y-6 p-5">
               <Step1PayPayUpload
                 file={payPayFile}
-                onFileSelected={handlePayPayFileSelected}
+                onFileSelected={selectPayPayFile}
                 onDataParsed={handlePayPayDataParsed}
               />
               <div className="border-t border-zinc-200 pt-5">
                 <Step2MfmeFilter
-                  allowSkip={mode === "convert"}
-                  files={mode === "audit" ? auditMfmeFiles : mfmeFiles}
-                  onFilesSelected={handleMfmeFilesSelected}
+                  files={mfmeFiles}
+                  onFilesSelected={replaceMfmeFiles}
                   onDataParsed={handleMfmeDataParsed}
-                  duplicates={conversionResult.duplicates}
-                  totalTransactions={payPayData?.transactions.length}
-                  storedBaseStats={
-                    mfmeData && mfmeData.exclusionStats.count > 0
-                      ? mfmeData.exclusionStats
-                      : null
-                  }
-                  localImportedRecordCount={localImportedRecordCount}
-                  onResetLocalImportedRecords={handleResetLocalImportedRecords}
-                  onClearAllLocalData={handleClearAllLocalExclusionData}
+                  localImportedStats={recordStats}
                 />
               </div>
             </div>
           </aside>
 
-          <div className="min-w-0 border border-zinc-200 bg-white">
-            {mode === "convert" ? (
-              canShowConversion ? (
+          <div className="min-w-0 space-y-5">
+            <div className="border border-zinc-200 bg-white">
+              {canShowConversion ? (
                 <Step3FileList
                   processedChunks={processedChunks}
+                  hasMfmeData={hasMfmeRecords}
                   excludedByMfme={conversionResult.mfmeDuplicates ?? 0}
                   excludedByImportedRecords={
                     conversionResult.importedDuplicates ?? 0
@@ -977,22 +260,16 @@ export default function Home() {
                 />
               ) : (
                 <WorkspaceEmptyState
-                  mode={mode}
                   hasPayPay={Boolean(payPayData)}
-                  hasMfme={hasSavedMfmeBaseline}
                   hasOutput={hasOutput}
                 />
-              )
-            ) : canShowAudit ? (
-              <Step4DeletionCandidates candidates={deletionCandidates} />
-            ) : (
-              <WorkspaceEmptyState
-                mode={mode}
-                hasPayPay={Boolean(payPayData)}
-                hasMfme={hasMfmeRecords}
-                hasOutput={false}
-              />
-            )}
+              )}
+            </div>
+            <AuditPanel
+              hasPayPay={Boolean(payPayData)}
+              hasMfme={hasMfmeRecords}
+              candidates={deletionCandidates}
+            />
           </div>
         </div>
       </main>
@@ -1001,7 +278,7 @@ export default function Home() {
         <MfImportGuideModal
           accountName={modalContext.name}
           isSharing={modalContext.isSharing}
-          onClose={handleCloseModal}
+          onClose={closeModal}
           onImported={handleMarkAsImported}
         />
       )}

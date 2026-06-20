@@ -1,3 +1,5 @@
+import { type FileStats, parseDate, updateDateRange } from "./csv-date";
+
 const STORE_KEY = "paypay-csv-optimizer:local-exclusion-state:v1";
 
 export type LocalExclusionState = {
@@ -75,24 +77,6 @@ export const addCounts = (
   return combinedCounts;
 };
 
-export const subtractCounts = (
-  currentCounts: ReadonlyMap<string, number>,
-  countsToSubtract: ReadonlyMap<string, number>,
-): Map<string, number> => {
-  const remainingCounts = new Map(currentCounts);
-
-  for (const [key, count] of countsToSubtract) {
-    const remaining = (remainingCounts.get(key) ?? 0) - count;
-    if (remaining > 0) {
-      remainingCounts.set(key, remaining);
-    } else {
-      remainingCounts.delete(key);
-    }
-  }
-
-  return remainingCounts;
-};
-
 export const countExclusions = (
   counts: ReadonlyMap<string, number>,
 ): number => {
@@ -103,6 +87,27 @@ export const countExclusions = (
   }
 
   return total;
+};
+
+export const createStatsFromTransactionCounts = (
+  counts: ReadonlyMap<string, number>,
+): FileStats => {
+  let count = 0;
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+
+  for (const [key, entryCount] of counts) {
+    count += entryCount;
+    const separatorIndex = key.indexOf("_");
+    const date = parseDate(
+      separatorIndex >= 0 ? key.slice(0, separatorIndex) : undefined,
+    );
+    if (date) {
+      [startDate, endDate] = updateDateRange(date, startDate, endDate);
+    }
+  }
+
+  return { count, startDate, endDate };
 };
 
 export const loadLocalExclusionState = (): LocalExclusionState => {

@@ -6,6 +6,7 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: isCI,
+  failOnFlakyTests: isCI,
   retries: isCI ? 2 : 0,
   ...(isCI ? { workers: 1 } : {}),
   reporter: isCI

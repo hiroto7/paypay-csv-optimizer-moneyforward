@@ -4,9 +4,9 @@ import {
   countExclusions,
   createCountsFromKeys,
   createEmptyLocalExclusionState,
+  createStatsFromTransactionCounts,
   loadLocalExclusionState,
   saveLocalExclusionState,
-  subtractCounts,
 } from "./local-exclusion-store";
 
 type MockStorage = {
@@ -95,6 +95,27 @@ describe("countExclusions", () => {
   });
 });
 
+describe("createStatsFromTransactionCounts", () => {
+  it("重複件数を維持しながら取引キーの日付範囲を集計する", () => {
+    const stats = createStatsFromTransactionCounts(
+      new Map([
+        ["2026/06/16_-100_PayPay残高_ダミーストアA", 2],
+        ["2026/06/13_-200_PayPay残高_ダミーストアB", 1],
+      ]),
+    );
+
+    expect(stats.count).toBe(3);
+    expect(stats.startDate?.toISOString()).toBe("2026-06-12T15:00:00.000Z");
+    expect(stats.endDate?.toISOString()).toBe("2026-06-15T15:00:00.000Z");
+  });
+
+  it("日付を取得できない記録も件数には含める", () => {
+    const stats = createStatsFromTransactionCounts(new Map([["invalid", 2]]));
+
+    expect(stats).toEqual({ count: 2, startDate: null, endDate: null });
+  });
+});
+
 describe("addCounts", () => {
   it("既存のローカル取り込み記録へ保存済みチャンクの件数を追加できること", () => {
     const nextCounts = addCounts(
@@ -107,28 +128,6 @@ describe("addCounts", () => {
 
     expect(nextCounts.get("2025/10/24_-190_PayPay残高_ダミーストアA")).toBe(2);
     expect(nextCounts.get("2025/10/25_-100_PayPay残高_ダミーストアB")).toBe(1);
-  });
-});
-
-describe("subtractCounts", () => {
-  it("MFME CSVで確認できた件数だけ取り込み記録から消し込むこと", () => {
-    const remaining = subtractCounts(
-      new Map([
-        ["partially-confirmed", 3],
-        ["not-confirmed", 1],
-      ]),
-      new Map([
-        ["partially-confirmed", 2],
-        ["mfme-only", 1],
-      ]),
-    );
-
-    expect(remaining).toEqual(
-      new Map([
-        ["partially-confirmed", 1],
-        ["not-confirmed", 1],
-      ]),
-    );
   });
 });
 

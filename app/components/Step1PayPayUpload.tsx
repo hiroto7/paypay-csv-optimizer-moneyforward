@@ -1,8 +1,7 @@
-import { AlertCircle, CalendarDays, ReceiptText } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import ClearFileSelectionButton from "~/components/ClearFileSelectionButton";
-import CsvDropzone from "~/components/CsvDropzone";
-import PeriodDisplay from "~/components/PeriodDisplay";
+import CsvFilePicker from "~/components/CsvFilePicker";
+import FileStatsSummary from "~/components/FileStatsSummary";
 import type { FileStats } from "~/services/csv-date";
 import {
   extractTransactionsFromPayPayCsv,
@@ -70,7 +69,7 @@ export default function Step1PayPayUpload({
         setError(
           err instanceof Error
             ? err.message
-            : "PayPay CSVの読み込みに失敗しました。",
+            : "PayPayから書き出した取引履歴を読み込めませんでした。",
         );
         setPaypayStats(null);
         onDataParsed(null);
@@ -100,47 +99,36 @@ export default function Step1PayPayUpload({
   return (
     <section aria-labelledby="paypay-upload-title">
       <div className="mb-3 flex items-start gap-3">
-        <div className="flex size-8 shrink-0 items-center justify-center bg-red-50 text-red-600">
-          <ReceiptText className="size-4" aria-hidden="true" />
+        <div className="flex size-7 shrink-0 items-center justify-center bg-red-600 text-xs font-bold text-white">
+          1
         </div>
-        <div>
-          <h2
-            id="paypay-upload-title"
-            className="text-sm font-bold text-zinc-950"
-          >
-            PayPay取引履歴
-          </h2>
-          <p className="mt-0.5 text-xs text-zinc-500">変換・照合する明細</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h2
+              id="paypay-upload-title"
+              className="text-sm font-bold text-zinc-950"
+            >
+              PayPayから書き出した取引履歴
+            </h2>
+            <span className="shrink-0 text-xs font-medium text-red-700">
+              必須
+            </span>
+          </div>
         </div>
       </div>
 
-      <CsvDropzone
+      <CsvFilePicker
         key={fileInputVersion}
         id="paypay-csv-input"
-        fileLabel={file?.name}
-        prompt="PayPay CSVを選択"
+        selectedLabel={file?.name}
+        selectedMeta={
+          paypayStats ? <FileStatsSummary stats={paypayStats} /> : undefined
+        }
+        tone={error ? "error" : "success"}
+        emptyLabel="取引履歴を選ぶ"
         onFilesSelected={handleFileChange}
+        onClear={handleClearFile}
       />
-
-      {file && <ClearFileSelectionButton onClick={handleClearFile} />}
-
-      {paypayStats && (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
-          <span className="inline-flex items-center gap-1.5">
-            <ReceiptText className="size-3.5" aria-hidden="true" />
-            {paypayStats.count}件
-          </span>
-          {paypayStats.startDate && paypayStats.endDate && (
-            <span className="inline-flex items-center gap-1.5">
-              <CalendarDays className="size-3.5" aria-hidden="true" />
-              <PeriodDisplay
-                startDate={paypayStats.startDate}
-                endDate={paypayStats.endDate}
-              />
-            </span>
-          )}
-        </div>
-      )}
 
       {error && (
         <div
