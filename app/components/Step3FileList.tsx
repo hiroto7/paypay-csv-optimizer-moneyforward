@@ -13,6 +13,7 @@ import { flushSync } from "react-dom";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import type { ProcessedCsvChunk, ProcessedResult } from "~/services/paypay-csv";
 import { sum } from "~/utils/array";
+import { createPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
 
 interface Step3FileListProps {
   processedChunks: ProcessedResult;
@@ -29,12 +30,6 @@ type FileGroup = {
   chunks: ProcessedCsvChunk[];
   filenameBase: string;
 };
-
-const createFilename = (
-  filenameBase: string,
-  index: number,
-  totalParts: number,
-) => `paypay-${filenameBase}${totalParts > 1 ? `_part${index + 1}` : ""}.csv`;
 
 const createUniqueFilenameBases = (names: string[]) => {
   const usedBases = new Set<string>();
@@ -107,7 +102,7 @@ function FileGroupList({
 
           <div className="divide-y divide-zinc-200 border-y border-zinc-200">
             {chunks.map((chunk, index) => {
-              const filename = createFilename(
+              const filename = createPp2mfOutputFilename(
                 filenameBase,
                 index,
                 chunks.length,

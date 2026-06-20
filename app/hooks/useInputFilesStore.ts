@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { detectCsvFileType } from "~/services/csv-file-type";
 import { createFileIdentity, readFileAsTextAuto } from "~/utils/file-reader";
+import { isPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
 import {
   clearInputFiles,
   consumeSharedFiles,
@@ -149,6 +150,16 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
       void enqueue(async (currentFiles) => {
         try {
           const files = await consumeSharedFiles(sharedFilesId);
+          if (files.some((file) => isPp2mfOutputFilename(file.name))) {
+            if (mountedRef.current) {
+              setNotice({
+                tone: "error",
+                message:
+                  "PP2MFで作成したCSVは読み込みませんでした。共有先にはPP2MFではなくMoneyForward MEを選択してください。",
+              });
+            }
+            return;
+          }
           const classifiedFiles = await Promise.all(
             files.map(async (file) => ({
               file,
