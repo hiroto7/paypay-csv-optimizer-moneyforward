@@ -97,6 +97,7 @@ const shareCsvThroughTarget = async (
   );
 
   await page.goto(`/?shared-files=${encodeURIComponent(id)}`);
+  await page.waitForURL((url) => !url.searchParams.has("shared-files"));
 };
 
 test.beforeEach(async ({ page }) => {

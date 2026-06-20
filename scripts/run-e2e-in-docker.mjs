@@ -4,8 +4,8 @@ import process from "node:process";
 const playwrightImage = "mcr.microsoft.com/playwright:v1.60.0-noble";
 const updateSnapshots = process.argv.includes("--update-snapshots");
 const testCommand = updateSnapshots
-  ? "npm run test:vrt:container -- --update-snapshots"
-  : "npm run test:vrt:container";
+  ? "npm run test:e2e:container -- --update-snapshots"
+  : "npm run test:e2e:container";
 
 const result = spawnSync(
   "docker",
@@ -33,7 +33,7 @@ const result = spawnSync(
 );
 
 if (result.error) {
-  console.error(`DockerでVRTを実行できませんでした: ${result.error.message}`);
+  console.error(`DockerでE2Eを実行できませんでした: ${result.error.message}`);
   process.exit(1);
 }
 

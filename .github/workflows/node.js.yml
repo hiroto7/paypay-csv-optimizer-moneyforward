@@ -23,7 +23,7 @@ jobs:
       - run: npm run lint:ci
       - run: npm test
 
-  visual-regression:
+  e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
@@ -39,7 +39,7 @@ jobs:
           node-version: 24.x
           cache: "npm"
       - run: npm ci
-      - run: npm run test:vrt:container
+      - run: npm run test:e2e:container
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
