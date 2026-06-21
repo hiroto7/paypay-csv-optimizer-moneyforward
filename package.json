@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@react-router/node": "^7.17.0",
-    "@react-router/serve": "^7.17.0",
+    "@react-router/serve": "^8.0.1",
     "csv-parse": "^7.0.0",
     "csv-stringify": "^6.8.0",
     "isbot": "^5.1.43",
