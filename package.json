@@ -20,16 +20,16 @@
     "@react-router/node": "^7.17.0",
     "@react-router/serve": "^7.17.0",
     "csv-parse": "^7.0.0",
-    "csv-stringify": "^6.7.0",
-    "isbot": "^5.1.42",
-    "lucide-react": "^1.18.0",
+    "csv-stringify": "^6.8.0",
+    "isbot": "^5.1.43",
+    "lucide-react": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router": "^7.17.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
-    "@playwright/test": "1.60.0",
+    "@playwright/test": "1.61.0",
     "@react-router/dev": "^7.17.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.1",
@@ -42,6 +42,6 @@
     "typescript": "^6.0.3",
     "vite": "^7.3.2",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }
