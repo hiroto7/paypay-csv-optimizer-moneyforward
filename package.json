@@ -40,7 +40,7 @@
     "@types/web-app-manifest": "^1.0.9",
     "tailwindcss": "^4.1.13",
     "typescript": "^6.0.3",
-    "vite": "^7.3.6",
+    "vite": "^8.1.4",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.9"
   }
