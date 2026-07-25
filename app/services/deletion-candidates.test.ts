@@ -37,6 +37,49 @@ describe("findMfmeDeletionCandidates", () => {
     expect(candidates[0]?.id).toBe("id02");
   });
 
+  it("引用符の表記ゆれがある重複明細を抽出できること", () => {
+    const payPayRow = SINGLE_PAYMENT_ROW.replace(
+      "ダミーストアA",
+      "ダミー＇店舗 - ダミー'店舗",
+    );
+    const payPayCsv = `${PAYPAY_CSV_HEADER}\n${payPayRow}`;
+    const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
+    const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id02`;
+    const { records } = createMfmeExclusionSet([mfmeCsv]);
+
+    const candidates = findMfmeDeletionCandidates(transactions, records);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.reason).toBe("duplicate");
+    expect(candidates[0]?.id).toBe("id02");
+  });
+
+  it("計算対象が0の重複明細も抽出できること", () => {
+    const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
+    const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
+    const mfmeCsv = `${MFME_CSV_HEADER}\n0,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n0,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id02`;
+    const { records } = createMfmeExclusionSet([mfmeCsv]);
+
+    const candidates = findMfmeDeletionCandidates(transactions, records);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.reason).toBe("duplicate");
+    expect(candidates[0]?.id).toBe("id02");
+  });
+
+  it("計算対象が0の口座間違い明細も抽出できること", () => {
+    const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
+    const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
+    const mfmeCsv = `${MFME_CSV_HEADER}\n0,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,id01`;
+    const { records } = createMfmeExclusionSet([mfmeCsv]);
+
+    const candidates = findMfmeDeletionCandidates(transactions, records);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.reason).toBe("wrong-account");
+    expect(candidates[0]?.id).toBe("id01");
+  });
+
   it("PayPay側とMoneyForward ME側に同じ取引が2件ずつある場合は候補にしないこと", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);

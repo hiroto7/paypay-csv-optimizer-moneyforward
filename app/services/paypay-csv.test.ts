@@ -3,10 +3,12 @@ import {
   COMBINED_PAYMENT_ROW,
   COMBINED_WITH_COMMA_AMOUNT_ROW,
   createSecondSinglePaymentRow,
+  MFME_CSV_HEADER,
   PAYPAY_CSV_HEADER,
   SINGLE_PAYMENT_ROW,
   VISA_PAYMENT_ROW,
 } from "./csv-test-fixtures";
+import { createMfmeExclusionSet } from "./mfme-csv";
 import {
   createChunksFromGroupedTransactions,
   extractTransactionsFromPayPayCsv,
@@ -59,6 +61,24 @@ describe("extractTransactionsFromPayPayCsv", () => {
       (transaction) => transaction.paymentMethod === "PayPay残高",
     );
     expect(balanceTransaction?.record["出金金額（円）"]).toBe("2599");
+  });
+
+  it("照合用の引用符を正規化しても元の店舗名を維持すること", () => {
+    const merchant = "ダミー＇店舗 - ダミー'店舗";
+    const row = `2025/10/24 10:59:25,190,-,-,-,-,-,支払い,${merchant},PayPay残高,-,-,00000000000000000005`;
+    const { transactions, headers } = extractTransactionsFromPayPayCsv(
+      `${PAYPAY_CSV_HEADER}\n${row}`,
+    );
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const chunks = createChunksFromGroupedTransactions(
+      groupedTransactions,
+      headers,
+    );
+
+    expect(transactions[0]?.key).toBe(
+      "2025/10/24_-190_PayPay残高_ダミー'店舗 - ダミー'店舗",
+    );
+    expect(chunks["PayPay残高"]?.[0]?.data).toContain(merchant);
   });
 
   it("統計情報を正しく計算できること", () => {
@@ -168,6 +188,28 @@ describe("filterTransactionsBySources", () => {
     expect(result.mfmeDuplicates).toBe(1);
     expect(result.importedDuplicates).toBe(1);
     expect(result.groupedTransactions["VISA 1234"]).toHaveLength(1);
+  });
+
+  it("引用符の表記ゆれがあるMFME明細を除外すること", () => {
+    const payPayRow = SINGLE_PAYMENT_ROW.replace(
+      "ダミーストアA",
+      "ダミー＇店舗 - ダミー'店舗",
+    );
+    const { transactions } = extractTransactionsFromPayPayCsv(
+      `${PAYPAY_CSV_HEADER}\n${payPayRow}`,
+    );
+    const { exclusionCounts } = createMfmeExclusionSet([
+      `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id01`,
+    ]);
+
+    const result = filterTransactionsBySources(
+      transactions,
+      exclusionCounts,
+      new Map(),
+    );
+
+    expect(result.mfmeDuplicates).toBe(1);
+    expect(result.groupedTransactions["PayPay残高"]).toBeUndefined();
   });
 });
 

@@ -23,16 +23,20 @@ export const MFME_COLUMNS = {
 export const normalizeAmount = (amount: string | undefined): string =>
   amount?.replace(/,/g, "") ?? "";
 
+export const normalizeContent = (content: string | undefined): string =>
+  content?.replace(/['＇‘’]/g, "'") ?? "";
+
 export const createTransactionKey = (
   date: string | undefined,
   amount: string | undefined,
   institution: string | undefined,
   content: string | undefined,
 ): string =>
-  `${date ?? ""}_${amount ?? ""}_${institution ?? ""}_${content ?? ""}`;
+  `${date ?? ""}_${amount ?? ""}_${institution ?? ""}_${normalizeContent(content)}`;
 
 export const createBaseMatchKey = (
   date: string | undefined,
   amount: string | undefined,
   content: string | undefined,
-): string => `${date ?? ""}_${normalizeAmount(amount)}_${content ?? ""}`;
+): string =>
+  `${date ?? ""}_${normalizeAmount(amount)}_${normalizeContent(content)}`;

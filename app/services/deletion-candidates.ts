@@ -51,10 +51,6 @@ export function findMfmeDeletionCandidates(
   }
 
   for (const record of mfmeRecords) {
-    if (record[MFME_COLUMNS.included] === "0") {
-      continue;
-    }
-
     const key = createBaseMatchKey(
       record[MFME_COLUMNS.date],
       record[MFME_COLUMNS.amount],
