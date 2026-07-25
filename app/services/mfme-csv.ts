@@ -46,9 +46,6 @@ export const createMfmeExclusionSet = (
       }
 
       if (dateStr && amount && institution && content) {
-        if (record[MFME_COLUMNS.included] === "0") {
-          continue;
-        }
         exclusionCount++;
         if (date) {
           [exclusionMinDate, exclusionMaxDate] = updateDateRange(

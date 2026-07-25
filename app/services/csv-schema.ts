@@ -23,16 +23,23 @@ export const MFME_COLUMNS = {
 export const normalizeAmount = (amount: string | undefined): string =>
   amount?.replace(/,/g, "") ?? "";
 
+// PayPay CSVをMoneyForward MEへ取り込んで再エクスポートしただけでも、
+// 店舗名の引用符が別のUnicode文字へ変換されることがある。
+// ユーザーによる手編集ではない表記差を照合時だけ吸収し、CSVの原文は維持する。
+export const normalizeContent = (content: string | undefined): string =>
+  content?.replace(/['＇‘’]/g, "'") ?? "";
+
 export const createTransactionKey = (
   date: string | undefined,
   amount: string | undefined,
   institution: string | undefined,
   content: string | undefined,
 ): string =>
-  `${date ?? ""}_${amount ?? ""}_${institution ?? ""}_${content ?? ""}`;
+  `${date ?? ""}_${amount ?? ""}_${institution ?? ""}_${normalizeContent(content)}`;
 
 export const createBaseMatchKey = (
   date: string | undefined,
   amount: string | undefined,
   content: string | undefined,
-): string => `${date ?? ""}_${normalizeAmount(amount)}_${content ?? ""}`;
+): string =>
+  `${date ?? ""}_${normalizeAmount(amount)}_${normalizeContent(content)}`;
