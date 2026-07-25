@@ -45,6 +45,9 @@ describe("local exclusion store", () => {
       localImportedCounts: new Map([
         ["2025/10/25_-100_PayPay残高_ダミーストアB", 1],
       ]),
+      accountBalances: new Map([
+        ["PayPay残高", { amount: 12345, updatedAt: 1234567890 }],
+      ]),
       updatedAt: 1234567890,
     };
 
@@ -56,7 +59,24 @@ describe("local exclusion store", () => {
         "2025/10/25_-100_PayPay残高_ダミーストアB",
       ),
     ).toBe(1);
+    expect(restoredState.accountBalances.get("PayPay残高")).toEqual({
+      amount: 12345,
+      updatedAt: 1234567890,
+    });
     expect(restoredState.updatedAt).toBe(1234567890);
+  });
+
+  it("残高のない既存形式を空の残高として復元できる", () => {
+    const storage = createMockStorage();
+    storage.setItem(
+      "paypay-csv-optimizer:local-exclusion-state:v1",
+      '{"localImportedCounts":[["valid",1]],"updatedAt":1}',
+    );
+    vi.stubGlobal("window", { localStorage: storage });
+
+    const state = loadLocalExclusionState();
+    expect(state.localImportedCounts).toEqual(new Map([["valid", 1]]));
+    expect(state.accountBalances).toEqual(new Map());
   });
 
   it("破損した保存値から非有限カウントを復元しない", () => {
@@ -69,6 +89,19 @@ describe("local exclusion store", () => {
 
     expect(loadLocalExclusionState().localImportedCounts).toEqual(
       new Map([["valid", 2]]),
+    );
+  });
+
+  it("破損した口座残高を復元しない", () => {
+    const storage = createMockStorage();
+    storage.setItem(
+      "paypay-csv-optimizer:local-exclusion-state:v1",
+      '{"localImportedCounts":[],"accountBalances":[["PayPay残高",{"amount":1000,"updatedAt":1}],["小数",{"amount":1.5,"updatedAt":1}],["無限",{"amount":1e400,"updatedAt":1}]],"updatedAt":1}',
+    );
+    vi.stubGlobal("window", { localStorage: storage });
+
+    expect(loadLocalExclusionState().accountBalances).toEqual(
+      new Map([["PayPay残高", { amount: 1000, updatedAt: 1 }]]),
     );
   });
 });
@@ -136,6 +169,7 @@ describe("createEmptyLocalExclusionState", () => {
     const state = createEmptyLocalExclusionState();
 
     expect(state.localImportedCounts.size).toBe(0);
+    expect(state.accountBalances.size).toBe(0);
     expect(state.updatedAt).toBeNull();
   });
 });

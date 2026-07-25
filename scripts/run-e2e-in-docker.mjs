@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 
-const playwrightImage = "mcr.microsoft.com/playwright:v1.60.0-noble";
+const playwrightImage = "mcr.microsoft.com/playwright:v1.61.1-noble";
 const updateSnapshots = process.argv.includes("--update-snapshots");
 const testCommand = updateSnapshots
   ? "npm run test:e2e:container -- --update-snapshots"

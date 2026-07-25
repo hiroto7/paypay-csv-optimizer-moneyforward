@@ -215,6 +215,66 @@ test("作成結果と保存確認モーダルを表示できる", async ({ page 
   ).toHaveCount(0);
 });
 
+test("口座ごとに現在残高と取り込み後の見込みを管理できる", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-07-25T06:00:00.000Z"));
+  await selectPayPayCsv(page);
+
+  const balanceRegion = page.getByRole("region", { name: "口座残高" });
+  await expect(
+    balanceRegion.getByRole("heading", { name: "PayPay残高" }),
+  ).toBeVisible();
+  await expect(
+    balanceRegion.getByRole("heading", { name: "PayPayポイント" }),
+  ).toBeVisible();
+  await expect(
+    balanceRegion.getByRole("heading", { name: "VISA 1234" }),
+  ).toBeVisible();
+  await expect(balanceRegion.getByText("-￥507")).toBeVisible();
+
+  await balanceRegion
+    .getByRole("button", { name: "PayPay残高の現在残高を設定" })
+    .click();
+  const balanceInput = balanceRegion.getByLabel("MoneyForward MEの現在残高");
+  await balanceInput.fill("1.5");
+  await balanceRegion.getByRole("button", { name: "保存" }).click();
+  await expect(balanceRegion.getByRole("alert")).toHaveText(
+    "残高は整数で入力してください。",
+  );
+  await balanceInput.fill("5,000");
+  await balanceRegion.getByRole("button", { name: "保存" }).click();
+
+  await expect(balanceRegion.getByText("￥5,000")).toBeVisible();
+  await expect(balanceRegion.getByText("￥4,493")).toBeVisible();
+  await expect(page).toHaveScreenshot("account-balances.png", {
+    fullPage: true,
+  });
+
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+  await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
+
+  await expect(balanceRegion.getByText("￥4,493")).toHaveCount(2);
+  await expect(balanceRegion.getByText("+￥0")).toBeVisible();
+
+  await page.reload();
+  const restoredBalanceRegion = page.getByRole("region", { name: "口座残高" });
+  await expect(restoredBalanceRegion.getByText("￥4,493")).toHaveCount(2);
+  await expect(
+    restoredBalanceRegion.getByRole("button", {
+      name: "PayPay残高の現在残高を編集",
+    }),
+  ).toBeVisible();
+
+  await restoredBalanceRegion
+    .getByRole("button", { name: "PayPay残高の現在残高を編集" })
+    .click();
+  await restoredBalanceRegion.getByRole("button", { name: "設定解除" }).click();
+  await expect(
+    restoredBalanceRegion.getByRole("button", {
+      name: "PayPay残高の現在残高を設定",
+    }),
+  ).toBeVisible();
+});
+
 test("分割チャンクの一部を取り込んでも残りのチャンクを維持する", async ({
   page,
 }) => {
@@ -434,6 +494,12 @@ test("Share Target復元中のPayPay選択を上書きしない", async ({ page 
 
 test("MFME CSVの入れ替えで保存済み記録をリセットする", async ({ page }) => {
   await selectPayPayCsv(page);
+  await page
+    .getByRole("region", { name: "口座残高" })
+    .getByRole("button", { name: "PayPay残高の現在残高を設定" })
+    .click();
+  await page.getByLabel("MoneyForward MEの現在残高").fill("5,000");
+  await page.getByRole("button", { name: "保存" }).click();
   await page.getByRole("button", { name: "取り込む" }).first().click();
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
 
@@ -456,11 +522,21 @@ test("MFME CSVの入れ替えで保存済み記録をリセットする", async 
   );
   await expect
     .poll(() =>
-      page.evaluate(() =>
-        localStorage.getItem("paypay-csv-optimizer:local-exclusion-state:v1"),
-      ),
+      page.evaluate(() => {
+        const value = localStorage.getItem(
+          "paypay-csv-optimizer:local-exclusion-state:v1",
+        );
+        if (!value) return null;
+        return JSON.parse(value) as {
+          localImportedCounts: [string, number][];
+          accountBalances: [string, { amount: number; updatedAt: number }][];
+        };
+      }),
     )
-    .toBeNull();
+    .toMatchObject({
+      localImportedCounts: [],
+      accountBalances: [["PayPay残高", { amount: 4493 }]],
+    });
 });
 
 test("同じMFME CSVの再共有では保存済み記録を維持する", async ({ page }) => {

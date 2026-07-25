@@ -11,6 +11,7 @@ import {
 export type ProcessedCsvChunk = {
   data: string;
   count: number;
+  balanceDelta: number;
   startDate: Date | null;
   endDate: Date | null;
   imported: boolean;
@@ -221,6 +222,10 @@ export function createChunksFromGroupedTransactions(
       chunks[name].push({
         data: csvString,
         count: chunkOfRecords.length,
+        balanceDelta: chunkOfTransactions.reduce(
+          (total, transaction) => total + Number(transaction.amountKey),
+          0,
+        ),
         startDate: minDate,
         endDate: maxDate,
         imported: false,

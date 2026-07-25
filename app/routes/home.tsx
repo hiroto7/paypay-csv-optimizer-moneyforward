@@ -1,5 +1,6 @@
 import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import AccountBalancePanel from "~/components/AccountBalancePanel";
 import AuditPanel from "~/components/AuditPanel";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
 import Step1PayPayUpload, {
@@ -45,8 +46,11 @@ export default function Home() {
   } | null>(null);
   const {
     conversionCounts,
+    accountBalances,
     recordStats,
     addImportedRecords,
+    setAccountBalance,
+    clearAccountBalance,
     resetImportedRecords,
     refreshConversionCounts,
   } = useLocalImportRecords();
@@ -129,7 +133,13 @@ export default function Home() {
     if (!modalContext) return;
     const importedChunk =
       processedChunks[modalContext.name]?.[modalContext.index] ?? null;
-    if (importedChunk) addImportedRecords(importedChunk.transactionKeys);
+    if (importedChunk) {
+      addImportedRecords(
+        importedChunk.transactionKeys,
+        modalContext.name,
+        importedChunk.balanceDelta,
+      );
+    }
 
     setImportedChunkKeys((currentKeys) => {
       const nextKeys = new Set(currentKeys);
@@ -237,6 +247,13 @@ export default function Home() {
           </aside>
 
           <div className="min-w-0 space-y-5">
+            <AccountBalancePanel
+              transactions={payPayData?.transactions ?? []}
+              processedChunks={processedChunks}
+              accountBalances={accountBalances}
+              onSetBalance={setAccountBalance}
+              onClearBalance={clearAccountBalance}
+            />
             <div className="border border-zinc-200 bg-white">
               {canShowConversion ? (
                 <Step3FileList

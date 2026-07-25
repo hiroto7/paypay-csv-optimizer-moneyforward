@@ -25,6 +25,8 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 
 - **取り込み状態の管理**: 共有・ダウンロード後のモーダルで「MoneyForward MEで保存した」ボタンを押すと、そのファイル内の明細キーと件数を端末内へ保存し、次回以降の除外に使う。これはMoneyForward ME側の状態を取得したものではなく、ユーザーの確認に基づく記録である。MoneyForward ME CSVを追加・置換・削除した場合は、この記録をリセットする。
 
+- **口座残高の管理**: PayPay CSVに現れる支払い方法を口座として扱う。MoneyForward MEの入出金履歴CSVには現在残高が含まれないため、残高はユーザーが手動で設定する。画面では未取り込み明細の増減額と全件反映後の見込み残高を表示し、「MoneyForward MEで保存した」を押したチャンクの増減額だけを現在残高へ反映する。MoneyForward ME CSVを変更して取り込み記録をリセットしても、手動設定した残高は維持する。
+
 - **MoneyForward ME CSVの追加と置換**: Share Targetから受け取ったMoneyForward ME CSVは、保存済みファイルへ追加する。同じファイルは内容ハッシュで重複排除する。画面から明示的に選択した場合は、保存済みファイルを新しいCSV一式で置き換える。CSVが未選択でもPayPayの全明細を変換できる。
 
 - **入力状態の共有**: MoneyForward ME CSVは単一の選択状態として保持し、取り込みファイル作成時の既存明細除外と、重複登録・口座間違い候補の抽出の両方に使用する。画面上のモード切替は設けず、候補抽出は主結果の下にある折りたたみセクションで提供する。
@@ -40,7 +42,7 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 ## データ取り扱い
 
 - CSVの解析・変換はブラウザ内で完結し、アプリケーションサーバーへ明細を送信しない設計を維持する。
-- 作業中のPayPay CSVとMoneyForward ME CSVはIndexedDBへ保存し、画面から明示的に削除するまで保持する。ユーザーが確認した取り込み記録だけを`localStorage`へ保存する。
+- 作業中のPayPay CSVとMoneyForward ME CSVはIndexedDBへ保存し、画面から明示的に削除するまで保持する。ユーザーが確認した取り込み記録と、手動設定した口座残高を`localStorage`へ保存する。
 - 実物のPayPay・MoneyForward ME明細には個人情報が含まれる。実物CSV、その内容のコピー、個人を推測できる値をリポジトリへコミットしない。
 - テストには架空の店舗名・口座名・取引番号を使う。実物明細をそのままfixtureやスナップショットへ転用しない。
 
@@ -62,12 +64,13 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 - `app/components/CsvFilePicker.tsx`: 選択前後で共通のファイル選択UIを提供する。
 - `app/components/FileStatsSummary.tsx`: ファイルや明細の件数・期間を共通の見た目で表示する。
 - `app/components/AuditPanel.tsx`: 重複登録・口座間違い候補を折りたたみ表示する。
+- `app/components/AccountBalancePanel.tsx`: 口座ごとの現在残高、未取り込み増減額、全件反映後の見込み残高を表示・編集する。
 - `app/services/paypay-csv.ts`: PayPay CSVの解析、既存明細の除外、支払い方法ごとの分割と出力を担う。
 - `app/services/mfme-csv.ts`: MoneyForward ME CSVの解析と除外対象の集計を担う。
 - `app/services/deletion-candidates.ts`: 重複登録・口座間違いの候補抽出を担う。
 - `app/services/csv-date.ts`: CSV内の日付解析と期間集計を担う。
 - `app/services/csv-schema.ts`: CSVの列名、レコード型、照合キー生成を定義する。
-- `app/services/local-exclusion-store.ts`: ユーザー確認済みの取り込み記録を`localStorage`へ保存・復元する。
+- `app/services/local-exclusion-store.ts`: ユーザー確認済みの取り込み記録と口座残高を`localStorage`へ保存・復元する。
 - `app/utils/shared-file-store.ts`: Share Targetの受信ファイルと、作業中のPayPay・MoneyForward ME CSVのIndexedDB保存を担う。
 - `app/services/*.test.ts`: 各サービスに対応する単体テスト。
 - `e2e/e2e.spec.ts`: Playwrightによる画面操作とVisual Regression Test。

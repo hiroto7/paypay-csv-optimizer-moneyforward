@@ -4,16 +4,24 @@ const STORE_KEY = "paypay-csv-optimizer:local-exclusion-state:v1";
 
 export type LocalExclusionState = {
   localImportedCounts: Map<string, number>;
+  accountBalances: Map<string, AccountBalance>;
   updatedAt: number | null;
+};
+
+export type AccountBalance = {
+  amount: number;
+  updatedAt: number;
 };
 
 type SerializedLocalExclusionState = {
   localImportedCounts: [string, number][];
+  accountBalances?: [string, AccountBalance][];
   updatedAt: number | null;
 };
 
 export const createEmptyLocalExclusionState = (): LocalExclusionState => ({
   localImportedCounts: new Map(),
+  accountBalances: new Map(),
   updatedAt: null,
 });
 
@@ -49,6 +57,42 @@ const normalizeCountEntries = (entries: unknown): [string, number][] => {
     }
 
     return [[key, count]];
+  });
+};
+
+const normalizeAccountBalanceEntries = (
+  entries: unknown,
+): [string, AccountBalance][] => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.flatMap((entry): [string, AccountBalance][] => {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      return [];
+    }
+
+    const [name, balance] = entry;
+    if (
+      typeof name !== "string" ||
+      name.length === 0 ||
+      typeof balance !== "object" ||
+      balance === null
+    ) {
+      return [];
+    }
+
+    const { amount, updatedAt } = balance as Partial<AccountBalance>;
+    if (
+      typeof amount !== "number" ||
+      !Number.isSafeInteger(amount) ||
+      typeof updatedAt !== "number" ||
+      !Number.isFinite(updatedAt)
+    ) {
+      return [];
+    }
+
+    return [[name, { amount, updatedAt }]];
   });
 };
 
@@ -133,6 +177,9 @@ export const loadLocalExclusionState = (): LocalExclusionState => {
       localImportedCounts: new Map(
         normalizeCountEntries(parsed.localImportedCounts),
       ),
+      accountBalances: new Map(
+        normalizeAccountBalanceEntries(parsed.accountBalances),
+      ),
       updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : null,
     };
   } catch {
@@ -147,6 +194,7 @@ export const saveLocalExclusionState = (state: LocalExclusionState): void => {
 
   const serializedState: SerializedLocalExclusionState = {
     localImportedCounts: [...state.localImportedCounts],
+    accountBalances: [...state.accountBalances],
     updatedAt: state.updatedAt,
   };
 
