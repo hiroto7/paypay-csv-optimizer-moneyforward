@@ -1,6 +1,5 @@
 import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import AccountBalancePanel from "~/components/AccountBalancePanel";
 import AuditPanel from "~/components/AuditPanel";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
 import Step1PayPayUpload, {
@@ -247,13 +246,6 @@ export default function Home() {
           </aside>
 
           <div className="min-w-0 space-y-5">
-            <AccountBalancePanel
-              transactions={payPayData?.transactions ?? []}
-              processedChunks={processedChunks}
-              accountBalances={accountBalances}
-              onSetBalance={setAccountBalance}
-              onClearBalance={clearAccountBalance}
-            />
             <div className="border border-zinc-200 bg-white">
               {canShowConversion ? (
                 <Step3FileList
@@ -274,6 +266,9 @@ export default function Home() {
                         : null,
                     )
                   }
+                  accountBalances={accountBalances}
+                  onSetBalance={setAccountBalance}
+                  onClearBalance={clearAccountBalance}
                 />
               ) : (
                 <WorkspaceEmptyState
