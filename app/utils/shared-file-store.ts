@@ -1,5 +1,3 @@
-import { createFileIdentity } from "./file-reader";
-
 export const SHARED_FILE_DATABASE_NAME = "paypay-csv-share-target";
 export const SHARED_FILE_DATABASE_VERSION = 4;
 
@@ -51,13 +49,13 @@ export const mergeUniqueFiles = async (
   currentFiles: readonly File[],
   newFiles: readonly File[],
 ): Promise<File[]> => {
-  const filesByIdentity = new Map<string, File>();
+  const filesByName = new Map<string, File>();
 
   for (const file of [...currentFiles, ...newFiles]) {
-    filesByIdentity.set(await createFileIdentity(file), file);
+    filesByName.set(file.name, file);
   }
 
-  return [...filesByIdentity.values()];
+  return [...filesByName.values()];
 };
 
 export const consumeSharedFiles = async (id: string): Promise<File[]> => {

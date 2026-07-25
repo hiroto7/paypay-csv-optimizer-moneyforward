@@ -176,20 +176,8 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
             ({ type }) => type === "unknown",
           );
 
-          const knownMfmeIds = new Set(
-            await Promise.all(currentFiles.mfmeFiles.map(createFileIdentity)),
-          );
-          const receivedMfmeFilesWithIds = await Promise.all(
-            receivedMfmeFiles.map(async (file) => ({
-              file,
-              identity: await createFileIdentity(file),
-            })),
-          );
-          const newMfmeFiles = receivedMfmeFilesWithIds
-            .filter(({ identity }) => !knownMfmeIds.has(identity))
-            .map(({ file }) => file);
           const didResetImportedRecords =
-            newMfmeFiles.length > 0 && onMfmeFilesChanged();
+            receivedMfmeFiles.length > 0 && onMfmeFilesChanged();
           const nextFiles = {
             payPayFile: payPayFiles[0]?.file ?? currentFiles.payPayFile,
             mfmeFiles:

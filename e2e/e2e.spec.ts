@@ -556,7 +556,9 @@ test("MFME CSVの入れ替えで保存済み記録をリセットする", async 
     });
 });
 
-test("同じMFME CSVの再共有では保存済み記録を維持する", async ({ page }) => {
+test("別名のMFME CSVは同じ内容でも追加して保存済み記録をリセットする", async ({
+  page,
+}) => {
   await shareCsvThroughTarget(
     page,
     "shared-mfme-before-import",
@@ -568,11 +570,6 @@ test("同じMFME CSVの再共有では保存済み記録を維持する", async 
   await page.getByRole("button", { name: "取り込む" }).first().click();
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
 
-  const savedState = await page.evaluate(() =>
-    localStorage.getItem("paypay-csv-optimizer:local-exclusion-state:v1"),
-  );
-  expect(savedState).not.toBeNull();
-
   await shareCsvThroughTarget(
     page,
     "shared-mfme-duplicate",
@@ -580,14 +577,20 @@ test("同じMFME CSVの再共有では保存済み記録を維持する", async 
     auditMfmeCsv,
   );
 
-  await expect(page.getByText("収入・支出詳細.csv")).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", {
+        name: "MoneyForward MEから書き出した入出金履歴",
+      })
+      .getByText("2ファイル", { exact: true }),
+  ).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() =>
         localStorage.getItem("paypay-csv-optimizer:local-exclusion-state:v1"),
       ),
     )
-    .toBe(savedState);
+    .toBeNull();
 });
 
 test("Share Targetから渡したMFME CSVを監査に利用できる", async ({ page }) => {
