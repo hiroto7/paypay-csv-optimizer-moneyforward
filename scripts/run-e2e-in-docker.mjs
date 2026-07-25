@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import process from "node:process";
 
-const playwrightImage = "mcr.microsoft.com/playwright:v1.61.1-noble";
+const require = createRequire(import.meta.url);
+const packageJson = require("../package.json");
+const playwrightVersion = packageJson.devDependencies["@playwright/test"];
+const playwrightImage = `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
 const updateSnapshots = process.argv.includes("--update-snapshots");
 const testCommand = updateSnapshots
   ? "npm run test:e2e:container -- --update-snapshots"
