@@ -45,8 +45,11 @@ export default function Home() {
   } | null>(null);
   const {
     conversionCounts,
+    accountBalances,
     recordStats,
     addImportedRecords,
+    setAccountBalance,
+    clearAccountBalance,
     resetImportedRecords,
     refreshConversionCounts,
   } = useLocalImportRecords();
@@ -129,7 +132,13 @@ export default function Home() {
     if (!modalContext) return;
     const importedChunk =
       processedChunks[modalContext.name]?.[modalContext.index] ?? null;
-    if (importedChunk) addImportedRecords(importedChunk.transactionKeys);
+    if (importedChunk) {
+      addImportedRecords(
+        importedChunk.transactionKeys,
+        modalContext.name,
+        importedChunk.balanceDelta,
+      );
+    }
 
     setImportedChunkKeys((currentKeys) => {
       const nextKeys = new Set(currentKeys);
@@ -257,6 +266,9 @@ export default function Home() {
                         : null,
                     )
                   }
+                  accountBalances={accountBalances}
+                  onSetBalance={setAccountBalance}
+                  onClearBalance={clearAccountBalance}
                 />
               ) : (
                 <WorkspaceEmptyState

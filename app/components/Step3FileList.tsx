@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { flushSync } from "react-dom";
+import AccountBalanceControl from "~/components/AccountBalanceControl";
 import FileStatsSummary from "~/components/FileStatsSummary";
+import type { AccountBalance } from "~/services/local-exclusion-store";
 import type { ProcessedCsvChunk, ProcessedResult } from "~/services/paypay-csv";
 import { sum } from "~/utils/array";
 import { createPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
@@ -23,6 +25,9 @@ interface Step3FileListProps {
   onShare: (filename: string, data: string) => Promise<boolean>;
   onShareStart: (name: string, index: number) => void;
   onShareEnd: (shared: boolean) => void;
+  accountBalances: ReadonlyMap<string, AccountBalance>;
+  onSetBalance: (accountName: string, amount: number) => void;
+  onClearBalance: (accountName: string) => void;
 }
 
 type FileGroup = {
@@ -63,6 +68,9 @@ function FileGroupList({
   manualImport,
   sharingFilename,
   onImport,
+  accountBalances,
+  onSetBalance,
+  onClearBalance,
 }: {
   groups: FileGroup[];
   manualImport: boolean;
@@ -73,6 +81,9 @@ function FileGroupList({
     name: string,
     index: number,
   ) => void;
+  accountBalances: ReadonlyMap<string, AccountBalance>;
+  onSetBalance: (accountName: string, amount: number) => void;
+  onClearBalance: (accountName: string) => void;
 }) {
   const isSharing = sharingFilename !== null;
 
@@ -80,11 +91,20 @@ function FileGroupList({
     <div className="divide-y divide-zinc-200">
       {groups.map(({ name, chunks, filenameBase }) => (
         <div key={name} className="px-5 py-5">
-          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h3 className="text-sm font-bold text-zinc-950">{name}</h3>
-            <span className="text-xs text-zinc-500">
-              {countRecords(chunks)}件
-            </span>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
+              <h3 className="text-sm font-bold text-zinc-950">{name}</h3>
+              <span className="text-xs text-zinc-500">
+                {countRecords(chunks)}件
+              </span>
+            </div>
+            <AccountBalanceControl
+              accountName={name}
+              chunks={chunks}
+              balance={accountBalances.get(name)}
+              onSetBalance={onSetBalance}
+              onClearBalance={onClearBalance}
+            />
           </div>
 
           {manualImport && (
@@ -170,6 +190,9 @@ export default function Step3FileList({
   onShare,
   onShareStart,
   onShareEnd,
+  accountBalances,
+  onSetBalance,
+  onClearBalance,
 }: Step3FileListProps) {
   const [showManualImports, setShowManualImports] = useState(false);
   const [sharingFilename, setSharingFilename] = useState<string | null>(null);
@@ -272,6 +295,9 @@ export default function Step3FileList({
           manualImport={false}
           sharingFilename={sharingFilename}
           onImport={handleImport}
+          accountBalances={accountBalances}
+          onSetBalance={onSetBalance}
+          onClearBalance={onClearBalance}
         />
       )}
 
@@ -325,6 +351,9 @@ export default function Step3FileList({
                 manualImport
                 sharingFilename={sharingFilename}
                 onImport={handleImport}
+                accountBalances={accountBalances}
+                onSetBalance={onSetBalance}
+                onClearBalance={onClearBalance}
               />
             </div>
           )}

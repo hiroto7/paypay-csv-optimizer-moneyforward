@@ -250,6 +250,23 @@ describe("createChunksFromGroupedTransactions", () => {
     ]);
   });
 
+  it("支出・入金・併用払いから口座別の残高増減を計算すること", () => {
+    const incomeRow =
+      "2025/10/25 10:00:00,-,500,-,-,-,-,受取,ダミー送金元,PayPay残高,-,-,00000000000000000005";
+    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}\n${incomeRow}`;
+    const { transactions, headers } =
+      extractTransactionsFromPayPayCsv(csvContent);
+    const { groupedTransactions } = filterTransactions(transactions, new Map());
+
+    const chunks = createChunksFromGroupedTransactions(
+      groupedTransactions,
+      headers,
+    );
+
+    expect(chunks["PayPay残高"]?.[0]?.balanceDelta).toBe(-7);
+    expect(chunks["PayPayポイント"]?.[0]?.balanceDelta).toBe(-93);
+  });
+
   it("imported フラグがfalseで初期化されること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions, headers } =
