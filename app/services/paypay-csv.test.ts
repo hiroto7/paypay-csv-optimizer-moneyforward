@@ -8,13 +8,22 @@ import {
   SINGLE_PAYMENT_ROW,
   VISA_PAYMENT_ROW,
 } from "./csv-test-fixtures";
-import { createMfmeExclusionSet } from "./mfme-csv";
+import { parseMfmeCsvs } from "./mfme-csv";
 import {
   createChunksFromGroupedTransactions,
   extractTransactionsFromPayPayCsv,
-  filterTransactions,
   filterTransactionsBySources,
 } from "./paypay-csv";
+
+const groupWithoutExclusions = (
+  transactions: ReturnType<
+    typeof extractTransactionsFromPayPayCsv
+  >["transactions"],
+) =>
+  filterTransactionsBySources(transactions, [], new Map()).groupedTransactions;
+
+const parseMfmeRecords = (rows: string) =>
+  parseMfmeCsvs([`${MFME_CSV_HEADER}\n${rows}`]).records;
 
 describe("extractTransactionsFromPayPayCsv", () => {
   it("単一支払いのレコードを正しく抽出できること", () => {
@@ -27,6 +36,16 @@ describe("extractTransactionsFromPayPayCsv", () => {
     expect(transactions[0]?.record["出金金額（円）"]).toBe("190");
     expect(stats.count).toBe(1);
     expect(headers).toContain("取引日");
+  });
+
+  it("PayPay以外の支払い方法を対象外にすること", () => {
+    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
+    const { transactions, stats } =
+      extractTransactionsFromPayPayCsv(csvContent);
+
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0]?.paymentMethod).toBe("PayPay残高");
+    expect(stats.count).toBe(2);
   });
 
   it("併用払いのレコードを2つのトランザクションに分割できること", () => {
@@ -69,7 +88,11 @@ describe("extractTransactionsFromPayPayCsv", () => {
     const { transactions, headers } = extractTransactionsFromPayPayCsv(
       `${PAYPAY_CSV_HEADER}\n${row}`,
     );
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactionsBySources(
+      transactions,
+      [],
+      new Map(),
+    );
     const chunks = createChunksFromGroupedTransactions(
       groupedTransactions,
       headers,
@@ -98,37 +121,39 @@ describe("extractTransactionsFromPayPayCsv", () => {
   });
 });
 
-describe("filterTransactions", () => {
+describe("filterTransactionsBySources", () => {
   it("除外キーに一致するトランザクションをフィルタリングできること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
-    const exclusionCounts = new Map([
-      ["2025/10/24_-190_PayPay残高_ダミーストアA", 1],
-    ]);
-
-    const { groupedTransactions, duplicates } = filterTransactions(
-      transactions,
-      exclusionCounts,
+    const records = parseMfmeRecords(
+      "1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01",
     );
 
-    expect(duplicates).toBe(1);
+    const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
+      transactions,
+      records,
+      new Map(),
+    );
+
+    expect(mfmeDuplicates).toBe(1);
     expect(groupedTransactions["PayPay残高"]).toBeUndefined();
-    expect(groupedTransactions["VISA 1234"]).toHaveLength(1);
+    expect(groupedTransactions["VISA 1234"]).toBeUndefined();
   });
 
   it("併用払いの片方のみを除外できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${COMBINED_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
-    const exclusionCounts = new Map([
-      ["2025/09/29_-317_PayPay残高_ダミーストアB", 1],
-    ]);
-
-    const { groupedTransactions, duplicates } = filterTransactions(
-      transactions,
-      exclusionCounts,
+    const records = parseMfmeRecords(
+      "1,2025/09/29,ダミーストアB,-317,PayPay残高,食費,食費,メモ,,id01",
     );
 
-    expect(duplicates).toBe(1);
+    const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
+      transactions,
+      records,
+      new Map(),
+    );
+
+    expect(mfmeDuplicates).toBe(1);
     expect(groupedTransactions["PayPayポイント"]).toHaveLength(1);
     expect(groupedTransactions["PayPay残高"]).toBeUndefined();
   });
@@ -137,21 +162,26 @@ describe("filterTransactions", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
 
-    const { groupedTransactions, duplicates } = filterTransactions(
+    const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
       transactions,
+      [],
       new Map(),
     );
 
-    expect(duplicates).toBe(0);
+    expect(mfmeDuplicates).toBe(0);
     expect(groupedTransactions["PayPay残高"]).toHaveLength(1);
-    expect(groupedTransactions["VISA 1234"]).toHaveLength(1);
+    expect(groupedTransactions["VISA 1234"]).toBeUndefined();
   });
 
   it("支払い方法ごとにグループ化できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
 
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactionsBySources(
+      transactions,
+      [],
+      new Map(),
+    );
 
     expect(groupedTransactions["PayPay残高"]).toHaveLength(2);
     expect(groupedTransactions["PayPayポイント"]).toHaveLength(1);
@@ -160,34 +190,37 @@ describe("filterTransactions", () => {
   it("同じキーのPayPay取引をMoneyForward MEの件数分だけ除外すること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
-    const exclusionCounts = new Map([
-      ["2025/10/24_-190_PayPay残高_ダミーストアA", 1],
-    ]);
-
-    const { groupedTransactions, duplicates } = filterTransactions(
-      transactions,
-      exclusionCounts,
+    const records = parseMfmeRecords(
+      "1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01",
     );
 
-    expect(duplicates).toBe(1);
+    const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
+      transactions,
+      records,
+      new Map(),
+    );
+
+    expect(mfmeDuplicates).toBe(1);
     expect(groupedTransactions["PayPay残高"]).toHaveLength(1);
   });
 });
 
-describe("filterTransactionsBySources", () => {
+describe("filterTransactionsBySources by sources", () => {
   it("MFME CSVと前回の取り込み記録ごとの除外件数を集計すること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}\n${VISA_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
+    const records = parseMfmeRecords(
+      "1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01",
+    );
     const result = filterTransactionsBySources(
       transactions,
-      new Map([["2025/10/24_-190_PayPay残高_ダミーストアA", 1]]),
+      records,
       new Map([["2025/10/24_-190_PayPay残高_ダミーストアA", 1]]),
     );
 
-    expect(result.duplicates).toBe(2);
     expect(result.mfmeDuplicates).toBe(1);
     expect(result.importedDuplicates).toBe(1);
-    expect(result.groupedTransactions["VISA 1234"]).toHaveLength(1);
+    expect(result.groupedTransactions["VISA 1234"]).toBeUndefined();
   });
 
   it("引用符の表記ゆれがあるMFME明細を除外すること", () => {
@@ -198,13 +231,13 @@ describe("filterTransactionsBySources", () => {
     const { transactions } = extractTransactionsFromPayPayCsv(
       `${PAYPAY_CSV_HEADER}\n${payPayRow}`,
     );
-    const { exclusionCounts } = createMfmeExclusionSet([
+    const { records } = parseMfmeCsvs([
       `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id01`,
     ]);
 
     const result = filterTransactionsBySources(
       transactions,
-      exclusionCounts,
+      records,
       new Map(),
     );
 
@@ -222,7 +255,11 @@ describe("createChunksFromGroupedTransactions", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${rows.join("\n")}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const { groupedTransactions } = filterTransactionsBySources(
+      transactions,
+      [],
+      new Map(),
+    );
 
     const chunks = createChunksFromGroupedTransactions(
       groupedTransactions,
@@ -238,7 +275,7 @@ describe("createChunksFromGroupedTransactions", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const groupedTransactions = groupWithoutExclusions(transactions);
 
     const chunks = createChunksFromGroupedTransactions(
       groupedTransactions,
@@ -264,7 +301,7 @@ describe("createChunksFromGroupedTransactions", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const groupedTransactions = groupWithoutExclusions(transactions);
 
     const chunks = createChunksFromGroupedTransactions(
       groupedTransactions,
@@ -280,7 +317,7 @@ describe("createChunksFromGroupedTransactions", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const groupedTransactions = groupWithoutExclusions(transactions);
 
     const chunks = createChunksFromGroupedTransactions(
       groupedTransactions,
@@ -298,7 +335,7 @@ describe("createChunksFromGroupedTransactions", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}\n${incomeRow}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
+    const groupedTransactions = groupWithoutExclusions(transactions);
 
     const chunks = createChunksFromGroupedTransactions(
       groupedTransactions,
@@ -307,20 +344,6 @@ describe("createChunksFromGroupedTransactions", () => {
 
     expect(chunks["PayPay残高"]?.[0]?.balanceDelta).toBe(-7);
     expect(chunks["PayPayポイント"]?.[0]?.balanceDelta).toBe(-93);
-  });
-
-  it("imported フラグがfalseで初期化されること", () => {
-    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
-    const { transactions, headers } =
-      extractTransactionsFromPayPayCsv(csvContent);
-    const { groupedTransactions } = filterTransactions(transactions, new Map());
-
-    const chunks = createChunksFromGroupedTransactions(
-      groupedTransactions,
-      headers,
-    );
-
-    expect(chunks["PayPay残高"]?.[0]?.imported).toBe(false);
   });
 
   it("空のgroupedTransactionsの場合に空のオブジェクトを返すこと", () => {

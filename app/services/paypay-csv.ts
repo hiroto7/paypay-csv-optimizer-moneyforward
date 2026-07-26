@@ -7,6 +7,10 @@ import {
   normalizeAmount,
   PAYPAY_COLUMNS,
 } from "./csv-schema";
+import {
+  type MfmeReviewCandidate,
+  reconcileMfmeTransactions,
+} from "./mfme-reconciliation";
 
 export type ProcessedCsvChunk = {
   data: string;
@@ -14,7 +18,6 @@ export type ProcessedCsvChunk = {
   balanceDelta: number;
   startDate: Date | null;
   endDate: Date | null;
-  imported: boolean;
   transactionKeys: string[];
 };
 
@@ -120,19 +123,24 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
     }
   }
 
-  return { transactions, stats, headers };
+  return {
+    transactions: transactions.filter(({ paymentMethod }) =>
+      paymentMethod.startsWith("PayPay"),
+    ),
+    stats,
+    headers,
+  };
 }
 
-export function filterTransactions(
-  transactions: PayPayTransaction[],
+const groupRemainingTransactions = (
+  transactions: readonly PayPayTransaction[],
   exclusionCounts: ReadonlyMap<string, number>,
 ): {
-  groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] };
+  groupedTransactions: Record<string, PayPayTransaction[]>;
   duplicates: number;
-} {
+} => {
   let duplicates = 0;
-  const groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] } =
-    {};
+  const groupedTransactions: Record<string, PayPayTransaction[]> = {};
   const remainingExclusionCounts = new Map(exclusionCounts);
 
   for (const transaction of transactions) {
@@ -147,41 +155,36 @@ export function filterTransactions(
       continue;
     }
 
-    const existingTransactions = groupedTransactions[transaction.paymentMethod];
-    if (existingTransactions) {
-      existingTransactions.push(transaction);
-    } else {
-      groupedTransactions[transaction.paymentMethod] = [transaction];
-    }
+    const matchingTransactions =
+      groupedTransactions[transaction.paymentMethod] ?? [];
+    matchingTransactions.push(transaction);
+    groupedTransactions[transaction.paymentMethod] = matchingTransactions;
   }
 
   return { groupedTransactions, duplicates };
-}
+};
 
 export function filterTransactionsBySources(
-  transactions: PayPayTransaction[],
-  mfmeCounts: ReadonlyMap<string, number>,
+  transactions: readonly PayPayTransaction[],
+  mfmeRecords: readonly CsvRecord[],
   importedCounts: ReadonlyMap<string, number>,
 ): {
-  groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] };
-  duplicates: number;
+  groupedTransactions: Record<string, PayPayTransaction[]>;
   mfmeDuplicates: number;
   importedDuplicates: number;
+  mfmeCandidates: MfmeReviewCandidate[];
 } {
-  const mfmeResult = filterTransactions(transactions, mfmeCounts);
-  const transactionsAfterMfme = Object.values(
-    mfmeResult.groupedTransactions,
-  ).flat();
-  const importedResult = filterTransactions(
-    transactionsAfterMfme,
+  const mfmeResult = reconcileMfmeTransactions(transactions, mfmeRecords);
+  const importedResult = groupRemainingTransactions(
+    mfmeResult.remainingTransactions,
     importedCounts,
   );
 
   return {
     groupedTransactions: importedResult.groupedTransactions,
-    duplicates: mfmeResult.duplicates + importedResult.duplicates,
-    mfmeDuplicates: mfmeResult.duplicates,
+    mfmeDuplicates: mfmeResult.matchedCount,
     importedDuplicates: importedResult.duplicates,
+    mfmeCandidates: mfmeResult.candidates,
   };
 }
 
@@ -228,7 +231,6 @@ export function createChunksFromGroupedTransactions(
         ),
         startDate: minDate,
         endDate: maxDate,
-        imported: false,
         transactionKeys: chunkOfTransactions.map(
           (transaction) => transaction.key,
         ),

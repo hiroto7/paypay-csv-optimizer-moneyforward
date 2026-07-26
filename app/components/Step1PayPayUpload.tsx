@@ -1,95 +1,27 @@
 import { AlertCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import type { FileStats } from "~/services/csv-date";
-import {
-  extractTransactionsFromPayPayCsv,
-  type PayPayTransaction,
-} from "~/services/paypay-csv";
-import { readFileAsTextAuto } from "~/utils/file-reader";
-
-export type PayPayParsedData = {
-  transactions: PayPayTransaction[];
-  stats: FileStats;
-  headers: string[];
-};
 
 interface Step1PayPayUploadProps {
   file: File | null;
+  stats: FileStats | null;
+  error: string;
   onFileSelected: (file: File | null) => void;
-  onDataParsed: (data: PayPayParsedData | null) => void;
 }
 
 export default function Step1PayPayUpload({
   file,
+  stats,
+  error,
   onFileSelected,
-  onDataParsed,
 }: Step1PayPayUploadProps) {
-  const [paypayStats, setPaypayStats] = useState<FileStats | null>(null);
-  const [error, setError] = useState<string>("");
   const [fileInputVersion, setFileInputVersion] = useState(0);
-  const fileSelectionVersion = useRef(0);
-  const lastProcessedFile = useRef<File | null>(null);
-
-  const processFile = useCallback(
-    async (file: File | null) => {
-      const selectionVersion = ++fileSelectionVersion.current;
-
-      if (!file) {
-        onDataParsed(null);
-        setPaypayStats(null);
-        setError("");
-        return;
-      }
-
-      setError("");
-
-      try {
-        const content = await readFileAsTextAuto(file);
-        const result = extractTransactionsFromPayPayCsv(content);
-
-        if (selectionVersion !== fileSelectionVersion.current) {
-          return;
-        }
-
-        if (result.transactions.length === 0) {
-          throw new Error(
-            "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
-          );
-        }
-
-        setPaypayStats(result.stats);
-        onDataParsed(result);
-      } catch (err) {
-        if (selectionVersion !== fileSelectionVersion.current) {
-          return;
-        }
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "PayPayから書き出した取引履歴を読み込めませんでした。",
-        );
-        setPaypayStats(null);
-        onDataParsed(null);
-      }
-    },
-    [onDataParsed],
-  );
 
   const handleFileChange = (files: FileList | null) => {
     onFileSelected(files?.[0] ?? null);
   };
-
-  useEffect(() => {
-    if (file === lastProcessedFile.current) {
-      return;
-    }
-
-    lastProcessedFile.current = file;
-    void processFile(file);
-  }, [file, processFile]);
 
   const handleClearFile = () => {
     setFileInputVersion((version) => version + 1);
@@ -121,9 +53,7 @@ export default function Step1PayPayUpload({
         key={fileInputVersion}
         id="paypay-csv-input"
         selectedLabel={file?.name}
-        selectedMeta={
-          paypayStats ? <FileStatsSummary stats={paypayStats} /> : undefined
-        }
+        selectedMeta={stats ? <FileStatsSummary stats={stats} /> : undefined}
         tone={error ? "error" : "success"}
         emptyLabel="取引履歴を選ぶ"
         onFilesSelected={handleFileChange}

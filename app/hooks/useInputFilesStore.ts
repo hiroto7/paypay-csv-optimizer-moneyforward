@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { detectCsvFileType } from "~/services/csv-file-type";
-import { createFileIdentity, readFileAsTextAuto } from "~/utils/file-reader";
+import { readFileAsTextAuto } from "~/utils/file-reader";
 import { isPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
 import {
   clearInputFiles,
@@ -31,23 +31,15 @@ const persistInputFiles = async (inputFiles: InputFiles): Promise<void> => {
   }
 };
 
-const haveSameFiles = async (
-  currentFiles: readonly File[],
-  nextFiles: readonly File[],
-): Promise<boolean> => {
-  const [currentIds, nextIds] = await Promise.all([
-    Promise.all(currentFiles.map(createFileIdentity)),
-    Promise.all(nextFiles.map(createFileIdentity)),
-  ]);
-  const currentSet = new Set(currentIds);
-  const nextSet = new Set(nextIds);
-  return (
-    currentSet.size === nextSet.size &&
-    nextIds.every((identity) => currentSet.has(identity))
-  );
+type InputFilesStoreCallbacks = {
+  onPayPayFileChanged: () => void;
+  onMfmeFilesChanged: () => boolean;
 };
 
-export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
+export function useInputFilesStore({
+  onPayPayFileChanged,
+  onMfmeFilesChanged,
+}: InputFilesStoreCallbacks) {
   const [inputFiles, setInputFiles] = useState<InputFiles>(emptyInputFiles);
   const [notice, setNotice] = useState<SharedFileNotice | null>(null);
   const inputFilesRef = useRef(inputFiles);
@@ -83,23 +75,26 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
         const nextFiles = { ...currentFiles, payPayFile: file };
         try {
           await persistInputFiles(nextFiles);
+          onPayPayFileChanged();
           applyInputFiles(nextFiles);
         } catch (error) {
           reportPersistenceError(error);
         }
       });
     },
-    [applyInputFiles, enqueue, reportPersistenceError],
+    [applyInputFiles, enqueue, onPayPayFileChanged, reportPersistenceError],
   );
 
-  const replaceMfmeFiles = useCallback(
-    (files: File[]) => {
+  const changeMfmeFiles = useCallback(
+    (update: (currentFiles: readonly File[]) => File[]) => {
       void enqueue(async (currentFiles) => {
         try {
-          const changed = !(await haveSameFiles(currentFiles.mfmeFiles, files));
-          const didResetImportedRecords = changed && onMfmeFilesChanged();
-          const nextFiles = { ...currentFiles, mfmeFiles: files };
+          const nextFiles = {
+            ...currentFiles,
+            mfmeFiles: update(currentFiles.mfmeFiles),
+          };
           await persistInputFiles(nextFiles);
+          const didResetImportedRecords = onMfmeFilesChanged();
           applyInputFiles(nextFiles);
           if (didResetImportedRecords && mountedRef.current) {
             setNotice({
@@ -115,6 +110,17 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
     },
     [applyInputFiles, enqueue, onMfmeFilesChanged, reportPersistenceError],
   );
+
+  const addMfmeFiles = useCallback(
+    (files: File[]) => {
+      changeMfmeFiles((currentFiles) => mergeUniqueFiles(currentFiles, files));
+    },
+    [changeMfmeFiles],
+  );
+
+  const clearMfmeFiles = useCallback(() => {
+    changeMfmeFiles(() => []);
+  }, [changeMfmeFiles]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -176,19 +182,19 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
             ({ type }) => type === "unknown",
           );
 
-          const didResetImportedRecords =
-            receivedMfmeFiles.length > 0 && onMfmeFilesChanged();
           const nextFiles = {
             payPayFile: payPayFiles[0]?.file ?? currentFiles.payPayFile,
             mfmeFiles:
               receivedMfmeFiles.length > 0
-                ? await mergeUniqueFiles(
-                    currentFiles.mfmeFiles,
-                    receivedMfmeFiles,
-                  )
+                ? mergeUniqueFiles(currentFiles.mfmeFiles, receivedMfmeFiles)
                 : currentFiles.mfmeFiles,
           };
           await persistInputFiles(nextFiles);
+          const didResetImportedRecords =
+            receivedMfmeFiles.length > 0 && onMfmeFilesChanged();
+          if (payPayFiles.length > 0) {
+            onPayPayFileChanged();
+          }
           applyInputFiles(nextFiles);
 
           if (!mountedRef.current) return;
@@ -232,7 +238,13 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
     return () => {
       mountedRef.current = false;
     };
-  }, [applyInputFiles, enqueue, onMfmeFilesChanged, reportPersistenceError]);
+  }, [
+    applyInputFiles,
+    enqueue,
+    onMfmeFilesChanged,
+    onPayPayFileChanged,
+    reportPersistenceError,
+  ]);
 
   return {
     payPayFile: inputFiles.payPayFile,
@@ -240,6 +252,7 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
     notice,
     dismissNotice: () => setNotice(null),
     selectPayPayFile,
-    replaceMfmeFiles,
+    addMfmeFiles,
+    clearMfmeFiles,
   };
 }

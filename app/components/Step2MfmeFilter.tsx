@@ -1,24 +1,15 @@
 import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import type { FileStats } from "~/services/csv-date";
-import type { CsvRecord } from "~/services/csv-schema";
-import { countExclusions } from "~/services/local-exclusion-store";
-import { createMfmeExclusionSet } from "~/services/mfme-csv";
-import { readFilesAsTextAuto } from "~/utils/file-reader";
-
-export type MfmeParsedData = {
-  exclusionCounts: Map<string, number>;
-  exclusionStats: FileStats;
-  stats: FileStats;
-  records: CsvRecord[];
-};
 
 interface Step2MfmeFilterProps {
   files: File[];
-  onFilesSelected: (files: File[]) => void;
-  onDataParsed: (data: MfmeParsedData | null) => void;
+  stats: FileStats | null;
+  error: string;
+  onFilesAdded: (files: File[]) => void;
+  onFilesCleared: () => void;
   localImportedStats: FileStats;
 }
 
@@ -38,77 +29,23 @@ const combineStats = (first: FileStats, second: FileStats): FileStats => ({
 
 export default function Step2MfmeFilter({
   files,
-  onFilesSelected,
-  onDataParsed,
+  stats,
+  error,
+  onFilesAdded,
+  onFilesCleared,
   localImportedStats,
 }: Step2MfmeFilterProps) {
   const [fileInputVersion, setFileInputVersion] = useState(0);
-  const [fileStats, setFileStats] = useState<FileStats | null>(null);
-  const [error, setError] = useState("");
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const fileSelectionVersion = useRef(0);
-  const lastProcessedFiles = useRef<File[] | null>(null);
-
-  const processFiles = useCallback(
-    async (selectedFiles: File[]) => {
-      const selectionVersion = ++fileSelectionVersion.current;
-
-      if (selectedFiles.length === 0) {
-        setFileStats(null);
-        setError("");
-        onDataParsed(null);
-        return;
-      }
-
-      setError("");
-
-      try {
-        const result = createMfmeExclusionSet(
-          await readFilesAsTextAuto(selectedFiles),
-        );
-
-        if (selectionVersion !== fileSelectionVersion.current) return;
-        if (countExclusions(result.exclusionCounts) === 0) {
-          throw new Error(
-            "MoneyForward MEから書き出した入出金履歴を読み込めませんでした。ファイルを確認してください。",
-          );
-        }
-
-        setFileStats(result.exclusionStats);
-        onDataParsed(result);
-      } catch (err) {
-        if (selectionVersion !== fileSelectionVersion.current) return;
-        setError(
-          err instanceof Error
-            ? err.message
-            : "MoneyForward MEから書き出した入出金履歴を読み込めませんでした。",
-        );
-        setFileStats(null);
-        onDataParsed(null);
-      }
-    },
-    [onDataParsed],
-  );
-
-  useEffect(() => {
-    if (files === lastProcessedFiles.current) return;
-    lastProcessedFiles.current = files;
-    void processFiles(files);
-  }, [files, processFiles]);
 
   const clearFiles = () => {
-    fileSelectionVersion.current++;
     setFileInputVersion((version) => version + 1);
-    onFilesSelected([]);
+    onFilesCleared();
   };
 
   const selectedLabel =
-    files.length === 1
-      ? files[0]?.name
-      : files.length > 1
-        ? `${files.length}ファイル`
-        : undefined;
-  const mfmeStats = fileStats ?? {
+    files.length > 0 ? `${files.length}ファイル` : undefined;
+  const mfmeStats = stats ?? {
     count: 0,
     startDate: null,
     endDate: null,
@@ -141,12 +78,31 @@ export default function Step2MfmeFilter({
         emptyLabel="入出金履歴を選ぶ"
         selectedLabel={selectedLabel}
         selectedMeta={
-          fileStats ? <FileStatsSummary stats={fileStats} /> : undefined
+          files.length > 0 ? (
+            <>
+              {stats && <FileStatsSummary stats={stats} />}
+              <div className={stats ? "mt-2" : undefined}>
+                <p className="font-semibold">読み込み済みファイル</p>
+                <ul className="mt-1 space-y-0.5">
+                  {files.map((file) => (
+                    <li key={file.name} className="break-words">
+                      {file.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          ) : undefined
         }
         tone={error ? "error" : "success"}
+        changeLabel="追加する"
+        clearLabel="すべて削除"
         onFilesSelected={(selectedFiles) => {
           const nextFiles = Array.from(selectedFiles ?? []);
-          if (nextFiles.length > 0) onFilesSelected(nextFiles);
+          if (nextFiles.length > 0) {
+            setFileInputVersion((version) => version + 1);
+            onFilesAdded(nextFiles);
+          }
         }}
         onClear={clearFiles}
       />
@@ -191,14 +147,14 @@ export default function Step2MfmeFilter({
               id="registered-record-breakdown"
               className="divide-y divide-zinc-200 border-t border-zinc-200 bg-white"
             >
-              {fileStats && fileStats.count > 0 && (
+              {stats && stats.count > 0 && (
                 <div className="px-3 py-3 text-xs">
                   <p className="font-semibold text-zinc-800">
                     入出金履歴から読み込んだ明細
                   </p>
                   <p className="mt-0.5 text-zinc-500">{files.length}ファイル</p>
                   <div className="mt-1.5">
-                    <FileStatsSummary stats={fileStats} />
+                    <FileStatsSummary stats={stats} />
                   </div>
                 </div>
               )}

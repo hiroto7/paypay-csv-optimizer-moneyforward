@@ -1,18 +1,14 @@
 import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import AuditPanel from "~/components/AuditPanel";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
-import Step1PayPayUpload, {
-  type PayPayParsedData,
-} from "~/components/Step1PayPayUpload";
-import Step2MfmeFilter, {
-  type MfmeParsedData,
-} from "~/components/Step2MfmeFilter";
+import Step1PayPayUpload from "~/components/Step1PayPayUpload";
+import Step2MfmeFilter from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
 import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
-import { useInputFilesStore } from "~/hooks/useInputFilesStore";
+import { useInputWorkspace } from "~/hooks/useInputWorkspace";
 import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
-import { findMfmeDeletionCandidates } from "~/services/deletion-candidates";
 import {
   createChunksFromGroupedTransactions,
   filterTransactionsBySources,
@@ -33,8 +29,6 @@ export function meta(_args: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
-  const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
   const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -53,85 +47,81 @@ export default function Home() {
     resetImportedRecords,
     refreshConversionCounts,
   } = useLocalImportRecords();
+  const closeModal = useCallback(() => setModalContext(null), []);
+  const resetCurrentImportState = useCallback(() => {
+    setImportedChunkKeys(new Set());
+    closeModal();
+  }, [closeModal]);
+  const handlePayPayFileChanged = useCallback(() => {
+    refreshConversionCounts();
+    resetCurrentImportState();
+  }, [refreshConversionCounts, resetCurrentImportState]);
+  const handleMfmeFilesChanged = useCallback(() => {
+    const didResetImportedRecords = resetImportedRecords();
+    resetCurrentImportState();
+    return didResetImportedRecords;
+  }, [resetImportedRecords, resetCurrentImportState]);
   const {
     payPayFile,
     mfmeFiles,
     notice,
     dismissNotice,
     selectPayPayFile,
-    replaceMfmeFiles,
-  } = useInputFilesStore(resetImportedRecords);
+    addMfmeFiles,
+    clearMfmeFiles,
+    payPayData,
+    payPayError,
+    mfmeData,
+    mfmeError,
+  } = useInputWorkspace({
+    onPayPayFileChanged: handlePayPayFileChanged,
+    onMfmeFilesChanged: handleMfmeFilesChanged,
+  });
 
   const conversionResult = useMemo(() => {
     if (!payPayData) {
-      return { chunks: {} satisfies ProcessedResult, duplicates: 0 };
+      return filterTransactionsBySources([], [], new Map());
     }
 
-    const filteredResult = filterTransactionsBySources(
+    return filterTransactionsBySources(
       payPayData.transactions,
-      mfmeData?.exclusionCounts ?? new Map(),
+      mfmeData?.records ?? [],
       conversionCounts,
     );
-    return {
-      chunks: createChunksFromGroupedTransactions(
-        filteredResult.groupedTransactions,
-        payPayData.headers,
-      ),
-      duplicates: filteredResult.duplicates,
-      mfmeDuplicates: filteredResult.mfmeDuplicates,
-      importedDuplicates: filteredResult.importedDuplicates,
-    };
   }, [payPayData, mfmeData, conversionCounts]);
 
-  const deletionCandidates = useMemo(() => {
-    if (!payPayData || !mfmeData) return [];
-    return findMfmeDeletionCandidates(
-      payPayData.transactions,
-      mfmeData.records,
+  const chunks = useMemo<ProcessedResult>(() => {
+    if (!payPayData) {
+      return {};
+    }
+
+    return createChunksFromGroupedTransactions(
+      conversionResult.groupedTransactions,
+      payPayData.headers,
     );
-  }, [payPayData, mfmeData]);
+  }, [payPayData, conversionResult]);
 
-  const processedChunks = useMemo<ProcessedResult>(
-    () =>
-      Object.fromEntries(
-        Object.entries(conversionResult.chunks).map(([name, chunks]) => [
-          name,
-          chunks.map((chunk, index) => ({
-            ...chunk,
-            imported: importedChunkKeys.has(`${name}:${index}`),
-          })),
-        ]),
-      ),
-    [conversionResult.chunks, importedChunkKeys],
-  );
-
-  const closeModal = useCallback(() => setModalContext(null), []);
-  const resetCurrentImportState = useCallback(() => {
-    setImportedChunkKeys(new Set());
-    closeModal();
-  }, [closeModal]);
-
-  const handlePayPayDataParsed = useCallback(
-    (data: PayPayParsedData | null) => {
-      setPayPayData(data);
-      refreshConversionCounts();
-      resetCurrentImportState();
+  const handleImport = useCallback(
+    async (filename: string, data: string, name: string, index: number) => {
+      flushSync(() => setModalContext({ name, index, isSharing: true }));
+      try {
+        const shared = await shareCsv(filename, data);
+        setModalContext((currentContext) =>
+          shared && currentContext
+            ? { ...currentContext, isSharing: false }
+            : null,
+        );
+      } catch {
+        setModalContext(null);
+      }
     },
-    [refreshConversionCounts, resetCurrentImportState],
-  );
-
-  const handleMfmeDataParsed = useCallback(
-    (data: MfmeParsedData | null) => {
-      setMfmeData(data);
-      resetCurrentImportState();
-    },
-    [resetCurrentImportState],
+    [],
   );
 
   const handleMarkAsImported = () => {
     if (!modalContext) return;
     const importedChunk =
-      processedChunks[modalContext.name]?.[modalContext.index] ?? null;
+      chunks[modalContext.name]?.[modalContext.index] ?? null;
     if (importedChunk) {
       addImportedRecords(
         importedChunk.transactionKeys,
@@ -149,7 +139,7 @@ export default function Home() {
   };
 
   const hasMfmeRecords = Boolean(mfmeData?.records.length);
-  const hasOutput = Object.keys(processedChunks).length > 0;
+  const hasOutput = Object.keys(chunks).length > 0;
   const canShowConversion = Boolean(payPayData && hasOutput);
 
   return (
@@ -231,14 +221,17 @@ export default function Home() {
             <div className="space-y-6 p-5">
               <Step1PayPayUpload
                 file={payPayFile}
+                stats={payPayData?.stats ?? null}
+                error={payPayError}
                 onFileSelected={selectPayPayFile}
-                onDataParsed={handlePayPayDataParsed}
               />
               <div className="border-t border-zinc-200 pt-5">
                 <Step2MfmeFilter
                   files={mfmeFiles}
-                  onFilesSelected={replaceMfmeFiles}
-                  onDataParsed={handleMfmeDataParsed}
+                  stats={mfmeData?.stats ?? null}
+                  error={mfmeError}
+                  onFilesAdded={addMfmeFiles}
+                  onFilesCleared={clearMfmeFiles}
                   localImportedStats={recordStats}
                 />
               </div>
@@ -249,23 +242,14 @@ export default function Home() {
             <div className="border border-zinc-200 bg-white">
               {canShowConversion ? (
                 <Step3FileList
-                  processedChunks={processedChunks}
+                  chunks={chunks}
+                  importedChunkKeys={importedChunkKeys}
                   hasMfmeData={hasMfmeRecords}
-                  excludedByMfme={conversionResult.mfmeDuplicates ?? 0}
+                  excludedByMfme={conversionResult.mfmeDuplicates}
                   excludedByImportedRecords={
-                    conversionResult.importedDuplicates ?? 0
+                    conversionResult.importedDuplicates
                   }
-                  onShare={shareCsv}
-                  onShareStart={(name, index) =>
-                    setModalContext({ name, index, isSharing: true })
-                  }
-                  onShareEnd={(shared) =>
-                    setModalContext((currentContext) =>
-                      shared && currentContext
-                        ? { ...currentContext, isSharing: false }
-                        : null,
-                    )
-                  }
+                  onImport={handleImport}
                   accountBalances={accountBalances}
                   onSetBalance={setAccountBalance}
                   onClearBalance={clearAccountBalance}
@@ -280,7 +264,7 @@ export default function Home() {
             <AuditPanel
               hasPayPay={Boolean(payPayData)}
               hasMfme={hasMfmeRecords}
-              candidates={deletionCandidates}
+              candidates={conversionResult.mfmeCandidates}
             />
           </div>
         </div>

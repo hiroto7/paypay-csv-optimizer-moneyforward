@@ -15,6 +15,8 @@ interface CsvFilePickerProps {
   selectedLabel?: string | undefined;
   selectedMeta?: React.ReactNode;
   tone?: "success" | "error";
+  changeLabel?: string;
+  clearLabel?: string;
   onFilesSelected: (files: FileList | null) => void;
   onClear: () => void;
 }
@@ -26,6 +28,8 @@ export default function CsvFilePicker({
   selectedLabel,
   selectedMeta,
   tone = "success",
+  changeLabel = "入れ替える",
+  clearLabel = "削除",
   onFilesSelected,
   onClear,
 }: CsvFilePickerProps) {
@@ -90,7 +94,7 @@ export default function CsvFilePicker({
             className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
           >
             <RefreshCw className="size-3.5" aria-hidden="true" />
-            入れ替える
+            {changeLabel}
           </label>
           <button
             type="button"
@@ -98,7 +102,7 @@ export default function CsvFilePicker({
             className="inline-flex min-h-9 items-center justify-center gap-1.5 px-3 text-xs font-semibold text-red-700 hover:bg-red-100/60"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
-            削除
+            {clearLabel}
           </button>
         </div>
       </div>
