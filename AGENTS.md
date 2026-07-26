@@ -68,9 +68,9 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 - `app/components/FileStatsSummary.tsx`: ファイルや明細の件数・期間を共通の見た目で表示する。
 - `app/components/AuditPanel.tsx`: 重複登録・口座間違い候補を折りたたみ表示する。
 - `app/components/AccountBalanceControl.tsx`: 「作成したファイル」の口座見出し内で、現在残高と全件反映後の見込み残高を控えめに表示・編集する。
-- `app/services/paypay-csv.ts`: PayPay CSVの解析、既存明細の除外、支払い方法ごとの分割と出力を担う。
+- `app/services/paypay-csv.ts`: PayPay CSVの解析、支払い方法ごとの分割と出力を担う。
 - `app/services/mfme-csv.ts`: MoneyForward ME CSVの解析と除外対象の集計を担う。
-- `app/services/deletion-candidates.ts`: 重複登録・口座間違いの候補抽出を担う。
+- `app/services/transaction-reconciliation.ts`: 既存明細の除外と、重複登録・口座間違いの候補抽出を担う。
 - `app/services/csv-date.ts`: CSV内の日付解析と期間集計を担う。
 - `app/services/csv-schema.ts`: CSVの列名、レコード型、照合キー生成を定義する。
 - `app/services/local-exclusion-store.ts`: ユーザー確認済みの取り込み記録と口座残高を`localStorage`へ保存・復元する。
