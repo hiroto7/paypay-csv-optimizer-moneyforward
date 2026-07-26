@@ -2,15 +2,11 @@ import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import AuditPanel from "~/components/AuditPanel";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
-import Step1PayPayUpload, {
-  type PayPayParsedData,
-} from "~/components/Step1PayPayUpload";
-import Step2MfmeFilter, {
-  type MfmeParsedData,
-} from "~/components/Step2MfmeFilter";
+import Step1PayPayUpload from "~/components/Step1PayPayUpload";
+import Step2MfmeFilter from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
 import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
-import { useInputFilesStore } from "~/hooks/useInputFilesStore";
+import { useInputWorkspace } from "~/hooks/useInputWorkspace";
 import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
 import {
   createChunksFromGroupedTransactions,
@@ -32,8 +28,6 @@ export function meta(_args: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const [payPayData, setPayPayData] = useState<PayPayParsedData | null>(null);
-  const [mfmeData, setMfmeData] = useState<MfmeParsedData | null>(null);
   const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -52,6 +46,18 @@ export default function Home() {
     resetImportedRecords,
     refreshConversionCounts,
   } = useLocalImportRecords();
+  const closeModal = useCallback(() => setModalContext(null), []);
+  const resetCurrentImportState = useCallback(() => {
+    setImportedChunkKeys(new Set());
+    closeModal();
+  }, [closeModal]);
+  const handlePayPayDataChanged = useCallback(() => {
+    refreshConversionCounts();
+    resetCurrentImportState();
+  }, [refreshConversionCounts, resetCurrentImportState]);
+  const handleMfmeDataChanged = useCallback(() => {
+    resetCurrentImportState();
+  }, [resetCurrentImportState]);
   const {
     payPayFile,
     mfmeFiles,
@@ -59,7 +65,15 @@ export default function Home() {
     dismissNotice,
     selectPayPayFile,
     replaceMfmeFiles,
-  } = useInputFilesStore(resetImportedRecords);
+    payPayData,
+    payPayError,
+    mfmeData,
+    mfmeError,
+  } = useInputWorkspace(
+    resetImportedRecords,
+    handlePayPayDataChanged,
+    handleMfmeDataChanged,
+  );
 
   const reconciliationResult = useMemo(() => {
     if (!payPayData) {
@@ -101,29 +115,6 @@ export default function Home() {
         ]),
       ),
     [conversionResult.chunks, importedChunkKeys],
-  );
-
-  const closeModal = useCallback(() => setModalContext(null), []);
-  const resetCurrentImportState = useCallback(() => {
-    setImportedChunkKeys(new Set());
-    closeModal();
-  }, [closeModal]);
-
-  const handlePayPayDataParsed = useCallback(
-    (data: PayPayParsedData | null) => {
-      setPayPayData(data);
-      refreshConversionCounts();
-      resetCurrentImportState();
-    },
-    [refreshConversionCounts, resetCurrentImportState],
-  );
-
-  const handleMfmeDataParsed = useCallback(
-    (data: MfmeParsedData | null) => {
-      setMfmeData(data);
-      resetCurrentImportState();
-    },
-    [resetCurrentImportState],
   );
 
   const handleMarkAsImported = () => {
@@ -229,14 +220,16 @@ export default function Home() {
             <div className="space-y-6 p-5">
               <Step1PayPayUpload
                 file={payPayFile}
+                stats={payPayData?.stats ?? null}
+                error={payPayError}
                 onFileSelected={selectPayPayFile}
-                onDataParsed={handlePayPayDataParsed}
               />
               <div className="border-t border-zinc-200 pt-5">
                 <Step2MfmeFilter
                   files={mfmeFiles}
+                  stats={mfmeData?.exclusionStats ?? null}
+                  error={mfmeError}
                   onFilesSelected={replaceMfmeFiles}
-                  onDataParsed={handleMfmeDataParsed}
                   localImportedStats={recordStats}
                 />
               </div>

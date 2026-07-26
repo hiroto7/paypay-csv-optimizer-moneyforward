@@ -61,6 +61,7 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 ## ファイル構成の概要
 
 - `app/routes/home.tsx`: 画面全体の状態管理と各サービスの呼び出しを行う。
+- `app/hooks/useInputWorkspace.ts`: 保存済み入力ファイルとPayPay・MoneyForward ME CSVの解析結果、統計、解析エラーを一括管理する。
 - `app/hooks/useInputFilesStore.ts`: 入力ファイルの復元・保存・Share Target処理と通知を一括管理する。
 - `app/hooks/useLocalImportRecords.ts`: ユーザー確認済みの取り込み記録と、現在の作成結果に使う除外スナップショットを管理する。
 - `app/components/CsvFilePicker.tsx`: 選択前後で共通のファイル選択UIを提供する。
