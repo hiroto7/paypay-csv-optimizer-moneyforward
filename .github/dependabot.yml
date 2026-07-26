@@ -5,12 +5,11 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      playwright:
-        patterns:
-          - "@playwright/test"
       dependencies:
         patterns:
           - "*"
+        exclude-patterns:
+          - "@playwright/test"
         update-types:
           - minor
           - patch
