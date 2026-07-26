@@ -9,11 +9,12 @@ import Step3FileList from "~/components/Step3FileList";
 import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
 import { useInputWorkspace } from "~/hooks/useInputWorkspace";
 import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
+import { findMfmeDeletionCandidates } from "~/services/deletion-candidates";
 import {
   createChunksFromGroupedTransactions,
+  filterTransactionsBySources,
   type ProcessedResult,
 } from "~/services/paypay-csv";
-import { reconcileTransactions } from "~/services/transaction-reconciliation";
 import { shareCsv } from "~/utils/csv-share";
 import type { Route } from "./+types/home";
 
@@ -77,18 +78,25 @@ export default function Home() {
     handleMfmeDataChanged,
   );
 
-  const reconciliationResult = useMemo(() => {
+  const conversionResult = useMemo(() => {
     if (!payPayData) {
-      return reconcileTransactions([], new Map(), [], new Map());
+      return filterTransactionsBySources([], new Map(), new Map());
     }
 
-    return reconcileTransactions(
+    return filterTransactionsBySources(
       payPayData.transactions,
       mfmeData?.exclusionCounts ?? new Map(),
-      mfmeData?.records ?? [],
       conversionCounts,
     );
   }, [payPayData, mfmeData, conversionCounts]);
+
+  const deletionCandidates = useMemo(() => {
+    if (!payPayData || !mfmeData) return [];
+    return findMfmeDeletionCandidates(
+      payPayData.transactions,
+      mfmeData.records,
+    );
+  }, [payPayData, mfmeData]);
 
   const chunks = useMemo<ProcessedResult>(() => {
     if (!payPayData) {
@@ -96,10 +104,10 @@ export default function Home() {
     }
 
     return createChunksFromGroupedTransactions(
-      reconciliationResult.groupedTransactions,
+      conversionResult.groupedTransactions,
       payPayData.headers,
     );
-  }, [payPayData, reconciliationResult]);
+  }, [payPayData, conversionResult]);
 
   const handleImport = useCallback(
     async (filename: string, data: string, name: string, index: number) => {
@@ -245,9 +253,9 @@ export default function Home() {
                   chunks={chunks}
                   importedChunkKeys={importedChunkKeys}
                   hasMfmeData={hasMfmeRecords}
-                  excludedByMfme={reconciliationResult.mfmeDuplicates}
+                  excludedByMfme={conversionResult.mfmeDuplicates}
                   excludedByImportedRecords={
-                    reconciliationResult.importedDuplicates
+                    conversionResult.importedDuplicates
                   }
                   onImport={handleImport}
                   accountBalances={accountBalances}
@@ -264,7 +272,7 @@ export default function Home() {
             <AuditPanel
               hasPayPay={Boolean(payPayData)}
               hasMfme={hasMfmeRecords}
-              candidates={reconciliationResult.candidates}
+              candidates={deletionCandidates}
             />
           </div>
         </div>

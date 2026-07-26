@@ -18,45 +18,6 @@ export type DeletionCandidate = {
   actualInstitution: string;
 };
 
-export type ReconciliationResult = {
-  groupedTransactions: Record<string, PayPayTransaction[]>;
-  mfmeDuplicates: number;
-  importedDuplicates: number;
-  candidates: DeletionCandidate[];
-};
-
-const groupRemainingTransactions = (
-  transactions: readonly PayPayTransaction[],
-  exclusionCounts: ReadonlyMap<string, number>,
-): {
-  groupedTransactions: Record<string, PayPayTransaction[]>;
-  duplicates: number;
-} => {
-  let duplicates = 0;
-  const groupedTransactions: Record<string, PayPayTransaction[]> = {};
-  const remainingExclusionCounts = new Map(exclusionCounts);
-
-  for (const transaction of transactions) {
-    const remainingCount = remainingExclusionCounts.get(transaction.key) ?? 0;
-    if (remainingCount > 0) {
-      duplicates++;
-      if (remainingCount === 1) {
-        remainingExclusionCounts.delete(transaction.key);
-      } else {
-        remainingExclusionCounts.set(transaction.key, remainingCount - 1);
-      }
-      continue;
-    }
-
-    const matchingTransactions =
-      groupedTransactions[transaction.paymentMethod] ?? [];
-    matchingTransactions.push(transaction);
-    groupedTransactions[transaction.paymentMethod] = matchingTransactions;
-  }
-
-  return { groupedTransactions, duplicates };
-};
-
 const createMfmeCandidateKey = (
   record: CsvRecord,
   fallbackIndex: number,
@@ -64,7 +25,7 @@ const createMfmeCandidateKey = (
   record[MFME_COLUMNS.id] ??
   `${record[MFME_COLUMNS.date] ?? ""}_${record[MFME_COLUMNS.amount] ?? ""}_${record[MFME_COLUMNS.institution] ?? ""}_${record[MFME_COLUMNS.content] ?? ""}_${fallbackIndex}`;
 
-const findMfmeDeletionCandidates = (
+export const findMfmeDeletionCandidates = (
   transactions: readonly PayPayTransaction[],
   mfmeRecords: readonly CsvRecord[],
 ): DeletionCandidate[] => {
@@ -150,26 +111,3 @@ const findMfmeDeletionCandidates = (
 
   return candidates;
 };
-
-export function reconcileTransactions(
-  transactions: readonly PayPayTransaction[],
-  mfmeCounts: ReadonlyMap<string, number>,
-  mfmeRecords: readonly CsvRecord[],
-  importedCounts: ReadonlyMap<string, number>,
-): ReconciliationResult {
-  const mfmeResult = groupRemainingTransactions(transactions, mfmeCounts);
-  const transactionsAfterMfme = Object.values(
-    mfmeResult.groupedTransactions,
-  ).flat();
-  const importedResult = groupRemainingTransactions(
-    transactionsAfterMfme,
-    importedCounts,
-  );
-
-  return {
-    groupedTransactions: importedResult.groupedTransactions,
-    mfmeDuplicates: mfmeResult.duplicates,
-    importedDuplicates: importedResult.duplicates,
-    candidates: findMfmeDeletionCandidates(transactions, mfmeRecords),
-  };
-}

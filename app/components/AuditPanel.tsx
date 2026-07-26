@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { useState } from "react";
 import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
-import type { DeletionCandidate } from "~/services/transaction-reconciliation";
+import type { DeletionCandidate } from "~/services/deletion-candidates";
 
 interface AuditPanelProps {
   hasPayPay: boolean;

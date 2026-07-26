@@ -5,31 +5,26 @@ import {
   PAYPAY_CSV_HEADER,
   SINGLE_PAYMENT_ROW,
 } from "./csv-test-fixtures";
+import { findMfmeDeletionCandidates } from "./deletion-candidates";
 import { createMfmeExclusionSet } from "./mfme-csv";
 import { extractTransactionsFromPayPayCsv } from "./paypay-csv";
-import { reconcileTransactions } from "./transaction-reconciliation";
 
-const findMfmeDeletionCandidates = (
+const findCandidatesFromCsv = (
   transactions: ReturnType<
     typeof extractTransactionsFromPayPayCsv
   >["transactions"],
   mfmeCsv: string,
 ) => {
-  const { exclusionCounts, records } = createMfmeExclusionSet([mfmeCsv]);
-  return reconcileTransactions(
-    transactions,
-    exclusionCounts,
-    records,
-    new Map(),
-  ).candidates;
+  const { records } = createMfmeExclusionSet([mfmeCsv]);
+  return findMfmeDeletionCandidates(transactions, records);
 };
 
-describe("reconcileTransactions audit candidates", () => {
+describe("findMfmeDeletionCandidates", () => {
   it("別口座に取り込まれたMFME明細を削除候補として抽出できること", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,id01`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.reason).toBe("wrong-account");
@@ -41,7 +36,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id02`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.reason).toBe("duplicate");
@@ -56,7 +51,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${payPayRow}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id02`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.reason).toBe("duplicate");
@@ -67,7 +62,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n0,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n0,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id02`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.reason).toBe("duplicate");
@@ -78,7 +73,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n0,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,id01`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.reason).toBe("wrong-account");
@@ -89,7 +84,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id02`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(0);
   });
@@ -102,7 +97,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${pointPaymentRow}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,PayPayポイント,食費,食費,メモ,,id02`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(0);
   });
@@ -111,7 +106,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id02\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id03`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.reason).toBe("duplicate");
@@ -122,7 +117,7 @@ describe("reconcileTransactions audit candidates", () => {
     const payPayCsv = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(payPayCsv);
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,id02`;
-    const candidates = findMfmeDeletionCandidates(transactions, mfmeCsv);
+    const candidates = findCandidatesFromCsv(transactions, mfmeCsv);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.reason).toBe("duplicate");
