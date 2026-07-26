@@ -80,12 +80,12 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
     (update: (currentFiles: readonly File[]) => File[]) => {
       void enqueue(async (currentFiles) => {
         try {
-          const didResetImportedRecords = onMfmeFilesChanged();
           const nextFiles = {
             ...currentFiles,
             mfmeFiles: update(currentFiles.mfmeFiles),
           };
           await persistInputFiles(nextFiles);
+          const didResetImportedRecords = onMfmeFilesChanged();
           applyInputFiles(nextFiles);
           if (didResetImportedRecords && mountedRef.current) {
             setNotice({
@@ -173,8 +173,6 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
             ({ type }) => type === "unknown",
           );
 
-          const didResetImportedRecords =
-            receivedMfmeFiles.length > 0 && onMfmeFilesChanged();
           const nextFiles = {
             payPayFile: payPayFiles[0]?.file ?? currentFiles.payPayFile,
             mfmeFiles:
@@ -183,6 +181,8 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
                 : currentFiles.mfmeFiles,
           };
           await persistInputFiles(nextFiles);
+          const didResetImportedRecords =
+            receivedMfmeFiles.length > 0 && onMfmeFilesChanged();
           applyInputFiles(nextFiles);
 
           if (!mountedRef.current) return;

@@ -27,7 +27,7 @@ const useParsedSource = <Source, Result>(
   source: Source,
   empty: boolean,
   parse: (source: Source) => Promise<Result>,
-  onChange: () => void,
+  onSettled?: () => void,
 ) => {
   const [state, setState] = useState<ParsedState<Result>>({
     data: null,
@@ -39,7 +39,7 @@ const useParsedSource = <Source, Result>(
 
     if (empty) {
       setState({ data: null, error: "" });
-      onChange();
+      onSettled?.();
       return;
     }
 
@@ -48,7 +48,7 @@ const useParsedSource = <Source, Result>(
       .then((data) => {
         if (active) {
           setState({ data, error: "" });
-          onChange();
+          onSettled?.();
         }
       })
       .catch((error: unknown) => {
@@ -60,13 +60,13 @@ const useParsedSource = <Source, Result>(
               ? error.message
               : "CSVファイルを読み込めませんでした。",
         });
-        onChange();
+        onSettled?.();
       });
 
     return () => {
       active = false;
     };
-  }, [empty, onChange, parse, source]);
+  }, [empty, onSettled, parse, source]);
 
   return state;
 };
@@ -96,23 +96,26 @@ const parseMfmeFiles = async (files: File[]): Promise<MfmeParsedResult> => {
   return result;
 };
 
-export function useInputWorkspace(
-  onMfmeFilesChanged: () => boolean,
-  onPayPayDataChanged: () => void,
-  onMfmeDataChanged: () => void,
-) {
+type InputWorkspaceCallbacks = {
+  onMfmeFilesChanged: () => boolean;
+  onPayPayParseSettled: () => void;
+};
+
+export function useInputWorkspace({
+  onMfmeFilesChanged,
+  onPayPayParseSettled,
+}: InputWorkspaceCallbacks) {
   const files = useInputFilesStore(onMfmeFilesChanged);
   const payPay = useParsedSource(
     files.payPayFile,
     files.payPayFile === null,
     parsePayPayFile,
-    onPayPayDataChanged,
+    onPayPayParseSettled,
   );
   const mfme = useParsedSource(
     files.mfmeFiles,
     files.mfmeFiles.length === 0,
     parseMfmeFiles,
-    onMfmeDataChanged,
   );
 
   return {

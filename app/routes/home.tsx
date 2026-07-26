@@ -53,13 +53,15 @@ export default function Home() {
     setImportedChunkKeys(new Set());
     closeModal();
   }, [closeModal]);
-  const handlePayPayDataChanged = useCallback(() => {
+  const handlePayPayParseSettled = useCallback(() => {
     refreshConversionCounts();
     resetCurrentImportState();
   }, [refreshConversionCounts, resetCurrentImportState]);
-  const handleMfmeDataChanged = useCallback(() => {
+  const handleMfmeFilesChanged = useCallback(() => {
+    const didResetImportedRecords = resetImportedRecords();
     resetCurrentImportState();
-  }, [resetCurrentImportState]);
+    return didResetImportedRecords;
+  }, [resetImportedRecords, resetCurrentImportState]);
   const {
     payPayFile,
     mfmeFiles,
@@ -72,11 +74,10 @@ export default function Home() {
     payPayError,
     mfmeData,
     mfmeError,
-  } = useInputWorkspace(
-    resetImportedRecords,
-    handlePayPayDataChanged,
-    handleMfmeDataChanged,
-  );
+  } = useInputWorkspace({
+    onMfmeFilesChanged: handleMfmeFilesChanged,
+    onPayPayParseSettled: handlePayPayParseSettled,
+  });
 
   const conversionResult = useMemo(() => {
     if (!payPayData) {
