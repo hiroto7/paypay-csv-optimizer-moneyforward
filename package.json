@@ -17,20 +17,20 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@react-router/node": "^8.2.0",
-    "@react-router/serve": "^8.2.0",
+    "@react-router/node": "^8.3.0",
+    "@react-router/serve": "^8.3.0",
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",
     "isbot": "^5.2.1",
-    "lucide-react": "^1.25.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "react-router": "^8.2.0"
+    "lucide-react": "^1.27.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.3.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.4",
-    "@playwright/test": "1.61.1",
-    "@react-router/dev": "^8.2.0",
+    "@biomejs/biome": "2.5.5",
+    "@playwright/test": "1.62.0",
+    "@react-router/dev": "^8.3.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tsconfig/strictest": "^2.0.8",
