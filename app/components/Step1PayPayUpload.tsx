@@ -55,7 +55,7 @@ export default function Step1PayPayUpload({
 
         if (result.transactions.length === 0) {
           throw new Error(
-            "PayPayの取引を読み込めませんでした。エクスポートしたCSVか確認してください。",
+            "PayPay残高・PayPayポイントなどの対象取引がありません。",
           );
         }
 

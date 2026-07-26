@@ -34,7 +34,7 @@ const createChunkedPayPayCsv = (count: number) =>
         .slice(0, 10)
         .replaceAll("-", "/");
       const transactionId = String(index + 1).padStart(20, "0");
-      return `${formattedDate} 12:00:00,100,-,-,-,-,-,支払い,ダミーストア${index + 1},VISA 1234,-,-,${transactionId}`;
+      return `${formattedDate} 12:00:00,100,-,-,-,-,-,支払い,ダミーストア${index + 1},PayPay残高,-,-,${transactionId}`;
     }),
   ].join("\n");
 
@@ -262,12 +262,11 @@ test("口座ごとに現在残高と取り込み後の見込みを管理でき�
   await balanceGroup.getByLabel("MoneyForward MEの現在残高").fill("5,000");
   await balanceGroup.getByRole("button", { name: "保存" }).click();
 
-  await outputRegion.getByRole("button", { name: "詳細を表示" }).click();
   await expect(
     outputRegion.getByRole("button", {
       name: "VISA 1234の現在残高を設定",
     }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   await page.getByRole("button", { name: "取り込む" }).first().click();
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
@@ -300,37 +299,28 @@ test("分割チャンクの一部を取り込んでも残りのチャンクを�
     mimeType: "text/csv",
     buffer: Buffer.from(createChunkedPayPayCsv(157)),
   });
-  await page.getByRole("button", { name: "詳細を表示" }).click();
-
   await expect(
-    page.getByText("pp2mf-visa-1234_part1.csv", { exact: true }),
+    page.getByText("pp2mf-paypay残高_part1.csv", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("pp2mf-visa-1234_part2.csv", { exact: true }),
+    page.getByText("pp2mf-paypay残高_part2.csv", { exact: true }),
   ).toBeVisible();
 
-  await page
-    .getByRole("button", { name: "手動登録が必要なので取り込む" })
-    .first()
-    .click();
+  await page.getByRole("button", { name: "取り込む" }).first().click();
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
 
   await expect(
-    page.getByText("pp2mf-visa-1234_part1.csv", { exact: true }),
+    page.getByText("pp2mf-paypay残高_part1.csv", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("pp2mf-visa-1234_part2.csv", { exact: true }),
+    page.getByText("pp2mf-paypay残高_part2.csv", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "取り込みました" }),
   ).toHaveCount(1);
-  await expect(
-    page.getByRole("button", { name: "手動登録が必要なので取り込む" }),
-  ).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "取り込む" })).toHaveCount(1);
 
-  await page
-    .getByRole("button", { name: "手動登録が必要なので取り込む" })
-    .click();
+  await page.getByRole("button", { name: "取り込む" }).click();
   await expect(
     page.getByRole("button", { name: "MoneyForward MEで保存した" }),
   ).toBeVisible();

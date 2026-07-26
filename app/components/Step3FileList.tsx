@@ -1,8 +1,5 @@
 import {
-  AlertTriangle,
   Check,
-  ChevronDown,
-  ChevronUp,
   Download,
   FileSpreadsheet,
   LoaderCircle,
@@ -58,14 +55,11 @@ const createUniqueFilenameBases = (names: string[]) => {
   });
 };
 
-const isPayPayMethod = (name: string) => name.startsWith("PayPay");
-
 const countRecords = (chunks: ProcessedCsvChunk[]) =>
   sum(chunks, (chunk) => chunk.count);
 
 function FileGroupList({
   groups,
-  manualImport,
   sharingFilename,
   onImport,
   accountBalances,
@@ -73,7 +67,6 @@ function FileGroupList({
   onClearBalance,
 }: {
   groups: FileGroup[];
-  manualImport: boolean;
   sharingFilename: string | null;
   onImport: (
     filename: string,
@@ -107,19 +100,6 @@ function FileGroupList({
             />
           </div>
 
-          {manualImport && (
-            <div className="mb-3 flex gap-2 border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              <AlertTriangle
-                className="mt-0.5 size-4 shrink-0"
-                aria-hidden="true"
-              />
-              <p>
-                MoneyForward MEで「{name}
-                」を直接連携している場合は、重複するため取り込まないでください。
-              </p>
-            </div>
-          )}
-
           <div className="divide-y divide-zinc-200 border-y border-zinc-200">
             {chunks.map((chunk, index) => {
               const filename = createPp2mfOutputFilename(
@@ -149,9 +129,7 @@ function FileGroupList({
                         ? "cursor-default bg-zinc-100 text-zinc-500"
                         : isSharing
                           ? "cursor-wait bg-zinc-200 text-zinc-500"
-                          : manualImport
-                            ? "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-                            : "bg-zinc-900 text-white hover:bg-zinc-700"
+                          : "bg-zinc-900 text-white hover:bg-zinc-700"
                     }`}
                   >
                     {chunk.imported ? (
@@ -168,9 +146,7 @@ function FileGroupList({
                       ? "取り込みました"
                       : sharingFilename === filename
                         ? "共有先を選択中"
-                        : manualImport
-                          ? "手動登録が必要なので取り込む"
-                          : "取り込む"}
+                        : "取り込む"}
                   </button>
                 </div>
               );
@@ -194,7 +170,6 @@ export default function Step3FileList({
   onSetBalance,
   onClearBalance,
 }: Step3FileListProps) {
-  const [showManualImports, setShowManualImports] = useState(false);
   const [sharingFilename, setSharingFilename] = useState<string | null>(null);
   const groupEntries = Object.entries(processedChunks).filter(
     ([, chunks]) => chunks.length > 0,
@@ -209,21 +184,9 @@ export default function Step3FileList({
       filenameBase: uniqueFilenameBases[index] ?? name,
     }),
   );
-  const payPayGroups = groups.filter(({ name }) => isPayPayMethod(name));
-  const manualImportGroups = groups.filter(({ name }) => !isPayPayMethod(name));
   const totalFiles = sum(groups, ({ chunks }) => chunks.length);
   const totalRecords = sum(groups, ({ chunks }) => countRecords(chunks));
   const totalExcluded = excludedByMfme + excludedByImportedRecords;
-  const manualImportFiles = sum(
-    manualImportGroups,
-    ({ chunks }) => chunks.length,
-  );
-  const manualImportRecords = sum(manualImportGroups, ({ chunks }) =>
-    countRecords(chunks),
-  );
-  const manualImportSummary = manualImportGroups
-    .map(({ name, chunks }) => `${name} ${countRecords(chunks)}件`)
-    .join("、");
 
   const handleImport = (
     filename: string,
@@ -289,76 +252,14 @@ export default function Step3FileList({
         </div>
       )}
 
-      {payPayGroups.length > 0 && (
-        <FileGroupList
-          groups={payPayGroups}
-          manualImport={false}
-          sharingFilename={sharingFilename}
-          onImport={handleImport}
-          accountBalances={accountBalances}
-          onSetBalance={onSetBalance}
-          onClearBalance={onClearBalance}
-        />
-      )}
-
-      {manualImportGroups.length > 0 && (
-        <div className="border-t border-zinc-200 bg-zinc-50">
-          <div className="px-5 py-5">
-            <div className="flex gap-3">
-              <AlertTriangle
-                className="mt-0.5 size-5 shrink-0 text-amber-600"
-                aria-hidden="true"
-              />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-zinc-950">
-                  通常は取り込まない支払い方法
-                </h3>
-                <p className="mt-1 text-xs font-semibold text-zinc-700">
-                  {manualImportRecords}件 / {manualImportFiles}ファイル
-                </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-600">
-                  {manualImportSummary}
-                </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-600">
-                  カード・銀行口座としてMoneyForward
-                  MEに直接連携済みの場合は、重複するため通常は取り込まないでください。直接連携していない場合や、未対応の決済手段を手動登録する場合のみ利用します。
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowManualImports((current) => !current)}
-                  className="mt-3 inline-flex h-9 items-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-                  aria-expanded={showManualImports}
-                  aria-controls="manual-import-groups"
-                >
-                  {showManualImports ? (
-                    <ChevronUp className="size-4" aria-hidden="true" />
-                  ) : (
-                    <ChevronDown className="size-4" aria-hidden="true" />
-                  )}
-                  {showManualImports ? "詳細を閉じる" : "詳細を表示"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {showManualImports && (
-            <div
-              id="manual-import-groups"
-              className="border-t border-zinc-200 bg-white"
-            >
-              <FileGroupList
-                groups={manualImportGroups}
-                manualImport
-                sharingFilename={sharingFilename}
-                onImport={handleImport}
-                accountBalances={accountBalances}
-                onSetBalance={onSetBalance}
-                onClearBalance={onClearBalance}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      <FileGroupList
+        groups={groups}
+        sharingFilename={sharingFilename}
+        onImport={handleImport}
+        accountBalances={accountBalances}
+        onSetBalance={onSetBalance}
+        onClearBalance={onClearBalance}
+      />
     </section>
   );
 }

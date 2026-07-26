@@ -36,6 +36,16 @@ describe("extractTransactionsFromPayPayCsv", () => {
     expect(headers).toContain("取引日");
   });
 
+  it("PayPay以外の支払い方法を対象外にすること", () => {
+    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
+    const { transactions, stats } =
+      extractTransactionsFromPayPayCsv(csvContent);
+
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0]?.paymentMethod).toBe("PayPay残高");
+    expect(stats.count).toBe(2);
+  });
+
   it("併用払いのレコードを2つのトランザクションに分割できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${COMBINED_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
@@ -127,7 +137,7 @@ describe("reconcileTransactions", () => {
 
     expect(mfmeDuplicates).toBe(1);
     expect(groupedTransactions["PayPay残高"]).toBeUndefined();
-    expect(groupedTransactions["VISA 1234"]).toHaveLength(1);
+    expect(groupedTransactions["VISA 1234"]).toBeUndefined();
   });
 
   it("併用払いの片方のみを除外できること", () => {
@@ -162,7 +172,7 @@ describe("reconcileTransactions", () => {
 
     expect(mfmeDuplicates).toBe(0);
     expect(groupedTransactions["PayPay残高"]).toHaveLength(1);
-    expect(groupedTransactions["VISA 1234"]).toHaveLength(1);
+    expect(groupedTransactions["VISA 1234"]).toBeUndefined();
   });
 
   it("支払い方法ごとにグループ化できること", () => {
@@ -212,7 +222,7 @@ describe("reconcileTransactions by sources", () => {
 
     expect(result.mfmeDuplicates).toBe(1);
     expect(result.importedDuplicates).toBe(1);
-    expect(result.groupedTransactions["VISA 1234"]).toHaveLength(1);
+    expect(result.groupedTransactions["VISA 1234"]).toBeUndefined();
   });
 
   it("引用符の表記ゆれがあるMFME明細を除外すること", () => {

@@ -120,7 +120,13 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
     }
   }
 
-  return { transactions, stats, headers };
+  return {
+    transactions: transactions.filter(({ paymentMethod }) =>
+      paymentMethod.startsWith("PayPay"),
+    ),
+    stats,
+    headers,
+  };
 }
 
 export function createChunksFromGroupedTransactions(
