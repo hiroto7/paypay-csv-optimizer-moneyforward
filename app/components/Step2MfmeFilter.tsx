@@ -8,7 +8,8 @@ interface Step2MfmeFilterProps {
   files: File[];
   stats: FileStats | null;
   error: string;
-  onFilesSelected: (files: File[]) => void;
+  onFilesAdded: (files: File[]) => void;
+  onFilesCleared: () => void;
   localImportedStats: FileStats;
 }
 
@@ -30,7 +31,8 @@ export default function Step2MfmeFilter({
   files,
   stats,
   error,
-  onFilesSelected,
+  onFilesAdded,
+  onFilesCleared,
   localImportedStats,
 }: Step2MfmeFilterProps) {
   const [fileInputVersion, setFileInputVersion] = useState(0);
@@ -38,15 +40,11 @@ export default function Step2MfmeFilter({
 
   const clearFiles = () => {
     setFileInputVersion((version) => version + 1);
-    onFilesSelected([]);
+    onFilesCleared();
   };
 
   const selectedLabel =
-    files.length === 1
-      ? files[0]?.name
-      : files.length > 1
-        ? `${files.length}ファイル`
-        : undefined;
+    files.length > 0 ? `${files.length}ファイル` : undefined;
   const mfmeStats = stats ?? {
     count: 0,
     startDate: null,
@@ -79,11 +77,32 @@ export default function Step2MfmeFilter({
         multiple
         emptyLabel="入出金履歴を選ぶ"
         selectedLabel={selectedLabel}
-        selectedMeta={stats ? <FileStatsSummary stats={stats} /> : undefined}
+        selectedMeta={
+          files.length > 0 ? (
+            <>
+              {stats && <FileStatsSummary stats={stats} />}
+              <div className={stats ? "mt-2" : undefined}>
+                <p className="font-semibold">読み込み済みファイル</p>
+                <ul className="mt-1 space-y-0.5">
+                  {files.map((file) => (
+                    <li key={file.name} className="break-words">
+                      {file.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          ) : undefined
+        }
         tone={error ? "error" : "success"}
+        changeLabel="追加する"
+        clearLabel="すべて削除"
         onFilesSelected={(selectedFiles) => {
           const nextFiles = Array.from(selectedFiles ?? []);
-          if (nextFiles.length > 0) onFilesSelected(nextFiles);
+          if (nextFiles.length > 0) {
+            setFileInputVersion((version) => version + 1);
+            onFilesAdded(nextFiles);
+          }
         }}
         onClear={clearFiles}
       />

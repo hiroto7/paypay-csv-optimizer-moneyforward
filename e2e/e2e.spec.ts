@@ -339,9 +339,7 @@ test("MoneyForward MEの入出金履歴を先に選んでもPayPayの取引履�
     buffer: Buffer.from(auditMfmeCsv),
   });
 
-  await expect(
-    page.getByText("moneyforward-history.csv", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("moneyforward-history.csv")).toBeVisible();
   await expect(
     page.getByRole("heading", {
       name: "PayPayから書き出した取引履歴を選んでください",
@@ -354,9 +352,7 @@ test("MoneyForward MEの入出金履歴を先に選んでもPayPayの取引履�
 
   await page.reload();
 
-  await expect(
-    page.getByText("moneyforward-history.csv", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("moneyforward-history.csv")).toBeVisible();
   await expect(
     page.getByRole("heading", {
       name: "PayPayから書き出した取引履歴を選んでください",
@@ -381,14 +377,16 @@ test("読み込めない任意のMFME CSVを解除して除外なしで進める
     .getByRole("region", {
       name: "MoneyForward MEから書き出した入出金履歴",
     })
-    .getByRole("button", { name: "削除", exact: true })
+    .getByRole("button", { name: "すべて削除", exact: true })
     .click();
 
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.locator("#mfme-csv-input")).toBeAttached();
 });
 
-test("Share TargetからMFME CSVを年ごとに追加できる", async ({ page }) => {
+test("画面選択とShare TargetからMFME CSVを年ごとに追加できる", async ({
+  page,
+}) => {
   const mfme2025Csv = [
     mfmeHeader,
     "1,2025/12/31,ダミーストア2025,-100,PayPay残高,食費,食費,架空データ,,dummy-2025",
@@ -410,13 +408,13 @@ test("Share TargetからMFME CSVを年ごとに追加できる", async ({ page }
       .locator("..")
       .getByText("1件", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("収入・支出詳細_2025.csv")).toBeVisible();
 
-  await shareCsvThroughTarget(
-    page,
-    "shared-mfme-2026",
-    "収入・支出詳細_2026.csv",
-    mfme2026Csv,
-  );
+  await page.locator("#mfme-csv-input").setInputFiles({
+    name: "収入・支出詳細_2026.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(mfme2026Csv),
+  });
   await expect(
     page
       .getByText("登録済みとして扱う明細")
@@ -429,6 +427,8 @@ test("Share TargetからMFME CSVを年ごとに追加できる", async ({ page }
       .locator("..")
       .getByText("2025/12/31～2026/01/01"),
   ).toBeVisible();
+  await expect(page.getByText("収入・支出詳細_2025.csv")).toBeVisible();
+  await expect(page.getByText("収入・支出詳細_2026.csv")).toBeVisible();
 
   await shareCsvThroughTarget(
     page,
@@ -499,8 +499,15 @@ test("Share Target復元中のPayPay選択を上書きしない", async ({ page 
   ).toBeVisible();
 });
 
-test("MFME CSVの入れ替えで保存済み記録をリセットする", async ({ page }) => {
+test("同名・同内容のMFME CSV追加でも保存済み記録をリセットする", async ({
+  page,
+}) => {
   await selectPayPayCsv(page);
+  await page.locator("#mfme-csv-input").setInputFiles({
+    name: "moneyforward-history.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(auditMfmeCsv),
+  });
   await page
     .getByRole("region", { name: "作成したファイル" })
     .getByRole("button", { name: "PayPay残高の現在残高を設定" })
@@ -542,8 +549,15 @@ test("MFME CSVの入れ替えで保存済み記録をリセットする", async 
     )
     .toMatchObject({
       localImportedCounts: [],
-      accountBalances: [["PayPay残高", { amount: 4493 }]],
+      accountBalances: [["PayPay残高", { amount: 4810 }]],
     });
+  const mfmeInputRegion = page.getByRole("region", {
+    name: "MoneyForward MEから書き出した入出金履歴",
+  });
+  await expect(
+    mfmeInputRegion.getByText("1ファイル", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("moneyforward-history.csv")).toBeVisible();
 });
 
 test("別名のMFME CSVは同じ内容でも追加して保存済み記録をリセットする", async ({

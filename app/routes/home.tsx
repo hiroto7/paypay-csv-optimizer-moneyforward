@@ -64,7 +64,8 @@ export default function Home() {
     notice,
     dismissNotice,
     selectPayPayFile,
-    replaceMfmeFiles,
+    addMfmeFiles,
+    clearMfmeFiles,
     payPayData,
     payPayError,
     mfmeData,
@@ -229,7 +230,8 @@ export default function Home() {
                   files={mfmeFiles}
                   stats={mfmeData?.exclusionStats ?? null}
                   error={mfmeError}
-                  onFilesSelected={replaceMfmeFiles}
+                  onFilesAdded={addMfmeFiles}
+                  onFilesCleared={clearMfmeFiles}
                   localImportedStats={recordStats}
                 />
               </div>

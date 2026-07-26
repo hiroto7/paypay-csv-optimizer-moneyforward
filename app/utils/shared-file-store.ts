@@ -45,10 +45,10 @@ const openDatabase = (): Promise<IDBDatabase> =>
     request.onerror = () => reject(request.error);
   });
 
-export const mergeUniqueFiles = async (
+export const mergeUniqueFiles = (
   currentFiles: readonly File[],
   newFiles: readonly File[],
-): Promise<File[]> => {
+): File[] => {
   const filesByName = new Map<string, File>();
 
   for (const file of [...currentFiles, ...newFiles]) {
