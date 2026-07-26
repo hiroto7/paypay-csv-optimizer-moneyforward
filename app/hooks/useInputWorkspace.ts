@@ -27,7 +27,6 @@ const useParsedSource = <Source, Result>(
   source: Source,
   empty: boolean,
   parse: (source: Source) => Promise<Result>,
-  onSettled?: () => void,
 ) => {
   const [state, setState] = useState<ParsedState<Result>>({
     data: null,
@@ -39,37 +38,31 @@ const useParsedSource = <Source, Result>(
 
     if (empty) {
       setState({ data: null, error: "" });
-      onSettled?.();
       return;
     }
 
-    setState((current) => ({ ...current, error: "" }));
+    setState({ data: null, error: "" });
     void parse(source)
-      .then(
-        (data) => {
-          if (active) {
-            setState({ data, error: "" });
-          }
-        },
-        (error: unknown) => {
-          if (!active) return;
-          setState({
-            data: null,
-            error:
-              error instanceof Error
-                ? error.message
-                : "CSVファイルを読み込めませんでした。",
-          });
-        },
-      )
-      .then(() => {
-        if (active) onSettled?.();
+      .then((data) => {
+        if (active) {
+          setState({ data, error: "" });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setState({
+          data: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "CSVファイルを読み込めませんでした。",
+        });
       });
 
     return () => {
       active = false;
     };
-  }, [empty, onSettled, parse, source]);
+  }, [empty, parse, source]);
 
   return state;
 };
@@ -100,20 +93,22 @@ const parseMfmeFiles = async (files: File[]): Promise<MfmeParsedResult> => {
 };
 
 type InputWorkspaceCallbacks = {
+  onPayPayFileChanged: () => void;
   onMfmeFilesChanged: () => boolean;
-  onPayPayParseSettled: () => void;
 };
 
 export function useInputWorkspace({
+  onPayPayFileChanged,
   onMfmeFilesChanged,
-  onPayPayParseSettled,
 }: InputWorkspaceCallbacks) {
-  const files = useInputFilesStore(onMfmeFilesChanged);
+  const files = useInputFilesStore({
+    onPayPayFileChanged,
+    onMfmeFilesChanged,
+  });
   const payPay = useParsedSource(
     files.payPayFile,
     files.payPayFile === null,
     parsePayPayFile,
-    onPayPayParseSettled,
   );
   const mfme = useParsedSource(
     files.mfmeFiles,

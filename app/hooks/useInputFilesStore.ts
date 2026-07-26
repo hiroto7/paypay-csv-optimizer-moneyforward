@@ -31,7 +31,15 @@ const persistInputFiles = async (inputFiles: InputFiles): Promise<void> => {
   }
 };
 
-export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
+type InputFilesStoreCallbacks = {
+  onPayPayFileChanged: () => void;
+  onMfmeFilesChanged: () => boolean;
+};
+
+export function useInputFilesStore({
+  onPayPayFileChanged,
+  onMfmeFilesChanged,
+}: InputFilesStoreCallbacks) {
   const [inputFiles, setInputFiles] = useState<InputFiles>(emptyInputFiles);
   const [notice, setNotice] = useState<SharedFileNotice | null>(null);
   const inputFilesRef = useRef(inputFiles);
@@ -67,13 +75,14 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
         const nextFiles = { ...currentFiles, payPayFile: file };
         try {
           await persistInputFiles(nextFiles);
+          onPayPayFileChanged();
           applyInputFiles(nextFiles);
         } catch (error) {
           reportPersistenceError(error);
         }
       });
     },
-    [applyInputFiles, enqueue, reportPersistenceError],
+    [applyInputFiles, enqueue, onPayPayFileChanged, reportPersistenceError],
   );
 
   const changeMfmeFiles = useCallback(
@@ -183,6 +192,9 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
           await persistInputFiles(nextFiles);
           const didResetImportedRecords =
             receivedMfmeFiles.length > 0 && onMfmeFilesChanged();
+          if (payPayFiles.length > 0) {
+            onPayPayFileChanged();
+          }
           applyInputFiles(nextFiles);
 
           if (!mountedRef.current) return;
@@ -226,7 +238,13 @@ export function useInputFilesStore(onMfmeFilesChanged: () => boolean) {
     return () => {
       mountedRef.current = false;
     };
-  }, [applyInputFiles, enqueue, onMfmeFilesChanged, reportPersistenceError]);
+  }, [
+    applyInputFiles,
+    enqueue,
+    onMfmeFilesChanged,
+    onPayPayFileChanged,
+    reportPersistenceError,
+  ]);
 
   return {
     payPayFile: inputFiles.payPayFile,

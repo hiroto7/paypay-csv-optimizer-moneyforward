@@ -53,7 +53,7 @@ export default function Home() {
     setImportedChunkKeys(new Set());
     closeModal();
   }, [closeModal]);
-  const handlePayPayParseSettled = useCallback(() => {
+  const handlePayPayFileChanged = useCallback(() => {
     refreshConversionCounts();
     resetCurrentImportState();
   }, [refreshConversionCounts, resetCurrentImportState]);
@@ -75,8 +75,8 @@ export default function Home() {
     mfmeData,
     mfmeError,
   } = useInputWorkspace({
+    onPayPayFileChanged: handlePayPayFileChanged,
     onMfmeFilesChanged: handleMfmeFilesChanged,
-    onPayPayParseSettled: handlePayPayParseSettled,
   });
 
   const conversionResult = useMemo(() => {
