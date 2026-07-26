@@ -45,22 +45,25 @@ const useParsedSource = <Source, Result>(
 
     setState((current) => ({ ...current, error: "" }));
     void parse(source)
-      .then((data) => {
-        if (active) {
-          setState({ data, error: "" });
-          onSettled?.();
-        }
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setState({
-          data: null,
-          error:
-            error instanceof Error
-              ? error.message
-              : "CSVファイルを読み込めませんでした。",
-        });
-        onSettled?.();
+      .then(
+        (data) => {
+          if (active) {
+            setState({ data, error: "" });
+          }
+        },
+        (error: unknown) => {
+          if (!active) return;
+          setState({
+            data: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "CSVファイルを読み込めませんでした。",
+          });
+        },
+      )
+      .then(() => {
+        if (active) onSettled?.();
       });
 
     return () => {
