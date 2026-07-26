@@ -12,12 +12,11 @@ import Step3FileList from "~/components/Step3FileList";
 import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
 import { useInputFilesStore } from "~/hooks/useInputFilesStore";
 import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
-import { findMfmeDeletionCandidates } from "~/services/deletion-candidates";
 import {
   createChunksFromGroupedTransactions,
-  filterTransactionsBySources,
   type ProcessedResult,
 } from "~/services/paypay-csv";
+import { reconcileTransactions } from "~/services/transaction-reconciliation";
 import { shareCsv } from "~/utils/csv-share";
 import type { Route } from "./+types/home";
 
@@ -62,34 +61,33 @@ export default function Home() {
     replaceMfmeFiles,
   } = useInputFilesStore(resetImportedRecords);
 
-  const conversionResult = useMemo(() => {
+  const reconciliationResult = useMemo(() => {
     if (!payPayData) {
-      return { chunks: {} satisfies ProcessedResult, duplicates: 0 };
+      return reconcileTransactions([], new Map(), [], new Map());
     }
 
-    const filteredResult = filterTransactionsBySources(
+    return reconcileTransactions(
       payPayData.transactions,
       mfmeData?.exclusionCounts ?? new Map(),
+      mfmeData?.records ?? [],
       conversionCounts,
     );
-    return {
-      chunks: createChunksFromGroupedTransactions(
-        filteredResult.groupedTransactions,
-        payPayData.headers,
-      ),
-      duplicates: filteredResult.duplicates,
-      mfmeDuplicates: filteredResult.mfmeDuplicates,
-      importedDuplicates: filteredResult.importedDuplicates,
-    };
   }, [payPayData, mfmeData, conversionCounts]);
 
-  const deletionCandidates = useMemo(() => {
-    if (!payPayData || !mfmeData) return [];
-    return findMfmeDeletionCandidates(
-      payPayData.transactions,
-      mfmeData.records,
-    );
-  }, [payPayData, mfmeData]);
+  const conversionResult = useMemo(() => {
+    if (!payPayData) {
+      return { chunks: {} satisfies ProcessedResult };
+    }
+
+    return {
+      chunks: createChunksFromGroupedTransactions(
+        reconciliationResult.groupedTransactions,
+        payPayData.headers,
+      ),
+      mfmeDuplicates: reconciliationResult.mfmeDuplicates,
+      importedDuplicates: reconciliationResult.importedDuplicates,
+    };
+  }, [payPayData, reconciliationResult]);
 
   const processedChunks = useMemo<ProcessedResult>(
     () =>
@@ -280,7 +278,7 @@ export default function Home() {
             <AuditPanel
               hasPayPay={Boolean(payPayData)}
               hasMfme={hasMfmeRecords}
-              candidates={deletionCandidates}
+              candidates={reconciliationResult.candidates}
             />
           </div>
         </div>

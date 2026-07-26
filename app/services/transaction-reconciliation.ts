@@ -16,10 +16,45 @@ export type DeletionCandidate = {
   content: string;
   expectedInstitution: string;
   actualInstitution: string;
-  category: string;
-  subCategory: string;
-  memo: string;
-  id: string;
+};
+
+export type ReconciliationResult = {
+  groupedTransactions: Record<string, PayPayTransaction[]>;
+  mfmeDuplicates: number;
+  importedDuplicates: number;
+  candidates: DeletionCandidate[];
+};
+
+const groupRemainingTransactions = (
+  transactions: readonly PayPayTransaction[],
+  exclusionCounts: ReadonlyMap<string, number>,
+): {
+  groupedTransactions: Record<string, PayPayTransaction[]>;
+  duplicates: number;
+} => {
+  let duplicates = 0;
+  const groupedTransactions: Record<string, PayPayTransaction[]> = {};
+  const remainingExclusionCounts = new Map(exclusionCounts);
+
+  for (const transaction of transactions) {
+    const remainingCount = remainingExclusionCounts.get(transaction.key) ?? 0;
+    if (remainingCount > 0) {
+      duplicates++;
+      if (remainingCount === 1) {
+        remainingExclusionCounts.delete(transaction.key);
+      } else {
+        remainingExclusionCounts.set(transaction.key, remainingCount - 1);
+      }
+      continue;
+    }
+
+    const matchingTransactions =
+      groupedTransactions[transaction.paymentMethod] ?? [];
+    matchingTransactions.push(transaction);
+    groupedTransactions[transaction.paymentMethod] = matchingTransactions;
+  }
+
+  return { groupedTransactions, duplicates };
 };
 
 const createMfmeCandidateKey = (
@@ -29,10 +64,10 @@ const createMfmeCandidateKey = (
   record[MFME_COLUMNS.id] ??
   `${record[MFME_COLUMNS.date] ?? ""}_${record[MFME_COLUMNS.amount] ?? ""}_${record[MFME_COLUMNS.institution] ?? ""}_${record[MFME_COLUMNS.content] ?? ""}_${fallbackIndex}`;
 
-export function findMfmeDeletionCandidates(
-  transactions: PayPayTransaction[],
-  mfmeRecords: CsvRecord[],
-): DeletionCandidate[] {
+const findMfmeDeletionCandidates = (
+  transactions: readonly PayPayTransaction[],
+  mfmeRecords: readonly CsvRecord[],
+): DeletionCandidate[] => {
   const transactionsByBaseKey = new Map<string, PayPayTransaction[]>();
   const mfmeRecordsByBaseKey = new Map<string, CsvRecord[]>();
 
@@ -42,12 +77,9 @@ export function findMfmeDeletionCandidates(
       transaction.amountKey,
       transaction.contentKey,
     );
-    const existingTransactions = transactionsByBaseKey.get(key);
-    if (existingTransactions) {
-      existingTransactions.push(transaction);
-    } else {
-      transactionsByBaseKey.set(key, [transaction]);
-    }
+    const matchingTransactions = transactionsByBaseKey.get(key) ?? [];
+    matchingTransactions.push(transaction);
+    transactionsByBaseKey.set(key, matchingTransactions);
   }
 
   for (const record of mfmeRecords) {
@@ -56,21 +88,16 @@ export function findMfmeDeletionCandidates(
       record[MFME_COLUMNS.amount],
       record[MFME_COLUMNS.content],
     );
-    const existingRecords = mfmeRecordsByBaseKey.get(key);
-    if (existingRecords) {
-      existingRecords.push(record);
-    } else {
-      mfmeRecordsByBaseKey.set(key, [record]);
-    }
+    const matchingRecords = mfmeRecordsByBaseKey.get(key) ?? [];
+    matchingRecords.push(record);
+    mfmeRecordsByBaseKey.set(key, matchingRecords);
   }
 
   const candidates: DeletionCandidate[] = [];
 
   for (const [baseKey, matchingTransactions] of transactionsByBaseKey) {
     const matchingRecords = mfmeRecordsByBaseKey.get(baseKey);
-    if (!matchingRecords) {
-      continue;
-    }
+    if (!matchingRecords) continue;
 
     const expectedCounts = new Map<string, number>();
     for (const transaction of matchingTransactions) {
@@ -90,10 +117,9 @@ export function findMfmeDeletionCandidates(
 
       if (matchedCount < expectedCount) {
         matchedCounts.set(actualInstitution, matchedCount + 1);
-        return;
+      } else {
+        unmatchedRecords.push({ record, index });
       }
-
-      unmatchedRecords.push({ record, index });
     });
 
     const missingInstitutions = [...expectedCounts].flatMap(
@@ -108,25 +134,42 @@ export function findMfmeDeletionCandidates(
 
     unmatchedRecords.forEach(({ record, index }, unmatchedIndex) => {
       const expectedInstitution = missingInstitutions[unmatchedIndex];
-      const reason: DeletionCandidateReason =
-        expectedInstitution === undefined ? "duplicate" : "wrong-account";
-
       candidates.push({
         key: createMfmeCandidateKey(record, index),
-        reason,
+        reason:
+          expectedInstitution === undefined ? "duplicate" : "wrong-account",
         date: record[MFME_COLUMNS.date] ?? "",
         amount: normalizeAmount(record[MFME_COLUMNS.amount]),
         content: record[MFME_COLUMNS.content] ?? "",
         expectedInstitution:
           expectedInstitution ?? record[MFME_COLUMNS.institution] ?? "",
         actualInstitution: record[MFME_COLUMNS.institution] ?? "",
-        category: record[MFME_COLUMNS.category] ?? "",
-        subCategory: record[MFME_COLUMNS.subCategory] ?? "",
-        memo: record[MFME_COLUMNS.memo] ?? "",
-        id: record[MFME_COLUMNS.id] ?? "",
       });
     });
   }
 
   return candidates;
+};
+
+export function reconcileTransactions(
+  transactions: readonly PayPayTransaction[],
+  mfmeCounts: ReadonlyMap<string, number>,
+  mfmeRecords: readonly CsvRecord[],
+  importedCounts: ReadonlyMap<string, number>,
+): ReconciliationResult {
+  const mfmeResult = groupRemainingTransactions(transactions, mfmeCounts);
+  const transactionsAfterMfme = Object.values(
+    mfmeResult.groupedTransactions,
+  ).flat();
+  const importedResult = groupRemainingTransactions(
+    transactionsAfterMfme,
+    importedCounts,
+  );
+
+  return {
+    groupedTransactions: importedResult.groupedTransactions,
+    mfmeDuplicates: mfmeResult.duplicates,
+    importedDuplicates: importedResult.duplicates,
+    candidates: findMfmeDeletionCandidates(transactions, mfmeRecords),
+  };
 }

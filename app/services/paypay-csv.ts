@@ -123,68 +123,6 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
   return { transactions, stats, headers };
 }
 
-export function filterTransactions(
-  transactions: PayPayTransaction[],
-  exclusionCounts: ReadonlyMap<string, number>,
-): {
-  groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] };
-  duplicates: number;
-} {
-  let duplicates = 0;
-  const groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] } =
-    {};
-  const remainingExclusionCounts = new Map(exclusionCounts);
-
-  for (const transaction of transactions) {
-    const remainingCount = remainingExclusionCounts.get(transaction.key) ?? 0;
-    if (remainingCount > 0) {
-      duplicates++;
-      if (remainingCount === 1) {
-        remainingExclusionCounts.delete(transaction.key);
-      } else {
-        remainingExclusionCounts.set(transaction.key, remainingCount - 1);
-      }
-      continue;
-    }
-
-    const existingTransactions = groupedTransactions[transaction.paymentMethod];
-    if (existingTransactions) {
-      existingTransactions.push(transaction);
-    } else {
-      groupedTransactions[transaction.paymentMethod] = [transaction];
-    }
-  }
-
-  return { groupedTransactions, duplicates };
-}
-
-export function filterTransactionsBySources(
-  transactions: PayPayTransaction[],
-  mfmeCounts: ReadonlyMap<string, number>,
-  importedCounts: ReadonlyMap<string, number>,
-): {
-  groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] };
-  duplicates: number;
-  mfmeDuplicates: number;
-  importedDuplicates: number;
-} {
-  const mfmeResult = filterTransactions(transactions, mfmeCounts);
-  const transactionsAfterMfme = Object.values(
-    mfmeResult.groupedTransactions,
-  ).flat();
-  const importedResult = filterTransactions(
-    transactionsAfterMfme,
-    importedCounts,
-  );
-
-  return {
-    groupedTransactions: importedResult.groupedTransactions,
-    duplicates: mfmeResult.duplicates + importedResult.duplicates,
-    mfmeDuplicates: mfmeResult.duplicates,
-    importedDuplicates: importedResult.duplicates,
-  };
-}
-
 export function createChunksFromGroupedTransactions(
   groupedTransactions: { [paymentMethod: string]: PayPayTransaction[] },
   headers: string[],

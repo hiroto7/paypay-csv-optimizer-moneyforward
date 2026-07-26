@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ListChecks } from "lucide-react";
-import type { DeletionCandidate } from "~/services/deletion-candidates";
+import type { DeletionCandidate } from "~/services/transaction-reconciliation";
 
 interface Step4DeletionCandidatesProps {
   candidates: DeletionCandidate[];
