@@ -5,6 +5,9 @@ updates:
     schedule:
       interval: "weekly"
     groups:
+      playwright:
+        patterns:
+          - "@playwright/test"
       dependencies:
         patterns:
           - "*"
