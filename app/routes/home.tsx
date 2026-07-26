@@ -9,7 +9,6 @@ import Step3FileList from "~/components/Step3FileList";
 import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
 import { useInputWorkspace } from "~/hooks/useInputWorkspace";
 import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
-import { findMfmeDeletionCandidates } from "~/services/deletion-candidates";
 import {
   createChunksFromGroupedTransactions,
   filterTransactionsBySources,
@@ -81,23 +80,15 @@ export default function Home() {
 
   const conversionResult = useMemo(() => {
     if (!payPayData) {
-      return filterTransactionsBySources([], new Map(), new Map());
+      return filterTransactionsBySources([], [], new Map());
     }
 
     return filterTransactionsBySources(
       payPayData.transactions,
-      mfmeData?.exclusionCounts ?? new Map(),
+      mfmeData?.records ?? [],
       conversionCounts,
     );
   }, [payPayData, mfmeData, conversionCounts]);
-
-  const deletionCandidates = useMemo(() => {
-    if (!payPayData || !mfmeData) return [];
-    return findMfmeDeletionCandidates(
-      payPayData.transactions,
-      mfmeData.records,
-    );
-  }, [payPayData, mfmeData]);
 
   const chunks = useMemo<ProcessedResult>(() => {
     if (!payPayData) {
@@ -237,7 +228,7 @@ export default function Home() {
               <div className="border-t border-zinc-200 pt-5">
                 <Step2MfmeFilter
                   files={mfmeFiles}
-                  stats={mfmeData?.exclusionStats ?? null}
+                  stats={mfmeData?.stats ?? null}
                   error={mfmeError}
                   onFilesAdded={addMfmeFiles}
                   onFilesCleared={clearMfmeFiles}
@@ -273,7 +264,7 @@ export default function Home() {
             <AuditPanel
               hasPayPay={Boolean(payPayData)}
               hasMfme={hasMfmeRecords}
-              candidates={deletionCandidates}
+              candidates={conversionResult.mfmeCandidates}
             />
           </div>
         </div>

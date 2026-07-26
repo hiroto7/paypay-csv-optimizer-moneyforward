@@ -8,7 +8,7 @@ import {
   SINGLE_PAYMENT_ROW,
   VISA_PAYMENT_ROW,
 } from "./csv-test-fixtures";
-import { createMfmeExclusionSet } from "./mfme-csv";
+import { parseMfmeCsvs } from "./mfme-csv";
 import {
   createChunksFromGroupedTransactions,
   extractTransactionsFromPayPayCsv,
@@ -20,8 +20,10 @@ const groupWithoutExclusions = (
     typeof extractTransactionsFromPayPayCsv
   >["transactions"],
 ) =>
-  filterTransactionsBySources(transactions, new Map(), new Map())
-    .groupedTransactions;
+  filterTransactionsBySources(transactions, [], new Map()).groupedTransactions;
+
+const parseMfmeRecords = (rows: string) =>
+  parseMfmeCsvs([`${MFME_CSV_HEADER}\n${rows}`]).records;
 
 describe("extractTransactionsFromPayPayCsv", () => {
   it("単一支払いのレコードを正しく抽出できること", () => {
@@ -88,7 +90,7 @@ describe("extractTransactionsFromPayPayCsv", () => {
     );
     const { groupedTransactions } = filterTransactionsBySources(
       transactions,
-      new Map(),
+      [],
       new Map(),
     );
     const chunks = createChunksFromGroupedTransactions(
@@ -123,13 +125,13 @@ describe("filterTransactionsBySources", () => {
   it("除外キーに一致するトランザクションをフィルタリングできること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${VISA_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
-    const exclusionCounts = new Map([
-      ["2025/10/24_-190_PayPay残高_ダミーストアA", 1],
-    ]);
+    const records = parseMfmeRecords(
+      "1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01",
+    );
 
     const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
       transactions,
-      exclusionCounts,
+      records,
       new Map(),
     );
 
@@ -141,13 +143,13 @@ describe("filterTransactionsBySources", () => {
   it("併用払いの片方のみを除外できること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${COMBINED_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
-    const exclusionCounts = new Map([
-      ["2025/09/29_-317_PayPay残高_ダミーストアB", 1],
-    ]);
+    const records = parseMfmeRecords(
+      "1,2025/09/29,ダミーストアB,-317,PayPay残高,食費,食費,メモ,,id01",
+    );
 
     const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
       transactions,
-      exclusionCounts,
+      records,
       new Map(),
     );
 
@@ -162,7 +164,7 @@ describe("filterTransactionsBySources", () => {
 
     const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
       transactions,
-      new Map(),
+      [],
       new Map(),
     );
 
@@ -177,7 +179,7 @@ describe("filterTransactionsBySources", () => {
 
     const { groupedTransactions } = filterTransactionsBySources(
       transactions,
-      new Map(),
+      [],
       new Map(),
     );
 
@@ -188,13 +190,13 @@ describe("filterTransactionsBySources", () => {
   it("同じキーのPayPay取引をMoneyForward MEの件数分だけ除外すること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
-    const exclusionCounts = new Map([
-      ["2025/10/24_-190_PayPay残高_ダミーストアA", 1],
-    ]);
+    const records = parseMfmeRecords(
+      "1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01",
+    );
 
     const { groupedTransactions, mfmeDuplicates } = filterTransactionsBySources(
       transactions,
-      exclusionCounts,
+      records,
       new Map(),
     );
 
@@ -207,9 +209,12 @@ describe("filterTransactionsBySources by sources", () => {
   it("MFME CSVと前回の取り込み記録ごとの除外件数を集計すること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}\n${VISA_PAYMENT_ROW}`;
     const { transactions } = extractTransactionsFromPayPayCsv(csvContent);
+    const records = parseMfmeRecords(
+      "1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01",
+    );
     const result = filterTransactionsBySources(
       transactions,
-      new Map([["2025/10/24_-190_PayPay残高_ダミーストアA", 1]]),
+      records,
       new Map([["2025/10/24_-190_PayPay残高_ダミーストアA", 1]]),
     );
 
@@ -226,13 +231,13 @@ describe("filterTransactionsBySources by sources", () => {
     const { transactions } = extractTransactionsFromPayPayCsv(
       `${PAYPAY_CSV_HEADER}\n${payPayRow}`,
     );
-    const { exclusionCounts } = createMfmeExclusionSet([
+    const { records } = parseMfmeCsvs([
       `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id01`,
     ]);
 
     const result = filterTransactionsBySources(
       transactions,
-      exclusionCounts,
+      records,
       new Map(),
     );
 
@@ -252,7 +257,7 @@ describe("createChunksFromGroupedTransactions", () => {
       extractTransactionsFromPayPayCsv(csvContent);
     const { groupedTransactions } = filterTransactionsBySources(
       transactions,
-      new Map(),
+      [],
       new Map(),
     );
 

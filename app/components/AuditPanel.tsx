@@ -1,12 +1,12 @@
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { useState } from "react";
-import Step4DeletionCandidates from "~/components/Step4DeletionCandidates";
-import type { DeletionCandidate } from "~/services/deletion-candidates";
+import AuditResults from "~/components/AuditResults";
+import type { MfmeReviewCandidate } from "~/services/mfme-reconciliation";
 
 interface AuditPanelProps {
   hasPayPay: boolean;
   hasMfme: boolean;
-  candidates: DeletionCandidate[];
+  candidates: MfmeReviewCandidate[];
 }
 
 export default function AuditPanel({
@@ -42,10 +42,10 @@ export default function AuditPanel({
               id="audit-panel-title"
               className="block text-sm font-bold text-zinc-950"
             >
-              重複登録・口座間違いを探す
+              重複登録・口座間違いを確認する
             </span>
             <span className="mt-0.5 block text-xs leading-5 text-zinc-500">
-              MoneyForward MEにある明細と見比べて、修正候補を表示します
+              PayPay明細と完全一致しない要確認明細を表示します
             </span>
           </span>
         </span>
@@ -74,7 +74,7 @@ export default function AuditPanel({
               </p>
             </div>
           ) : (
-            <Step4DeletionCandidates candidates={candidates} />
+            <AuditResults candidates={candidates} />
           )}
         </div>
       )}

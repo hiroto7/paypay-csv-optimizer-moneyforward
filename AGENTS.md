@@ -23,7 +23,7 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 
 - **出力対象の支払い方法**: 併用払いを分割した後、名前が`PayPay`で始まる支払い方法だけを変換・監査対象とする。クレジットカードや銀行口座など、それ以外の支払い方法は出力も監査もしない。
 
-- **取引のフィルタリング（重複防止）**: （任意で）MoneyForward MEの取引履歴CSVから抽出して端末内に保存した登録済み明細と、ユーザーが「MoneyForward MEで保存した」と確認した明細をインポート対象から除外する。PayPay CSVとMoneyForward ME CSVの読み込み順序は問わない。具体的には、PayPay側とMoneyForward ME側で「日付」「金額」「内容」「収入か支出か」「金融機関」が一致するものを同一取引とみなし、処理対象から除外する。
+- **取引のフィルタリング（重複防止）**: （任意で）MoneyForward MEの取引履歴CSVに完全一致する明細と、ユーザーが「MoneyForward MEで保存した」と確認した明細をインポート対象から除外する。PayPay CSVとMoneyForward ME CSVの読み込み順序は問わない。MoneyForward MEとの照合では「日付」「金額」「内容」「金融機関」が一致するものを同一取引とみなし、同じ照合結果から変換対象と要確認明細を導出する。
 
 - **取り込み状態の管理**: 共有・ダウンロード後のモーダルで「MoneyForward MEで保存した」ボタンを押すと、そのファイル内の明細キーと件数を端末内へ保存し、次回以降の除外に使う。これはMoneyForward ME側の状態を取得したものではなく、ユーザーの確認に基づく記録である。MoneyForward ME CSVを追加・置換・削除した場合は、この記録をリセットする。
 
@@ -37,7 +37,7 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 
 - **ファイルの分割（チャンキング）**: MoneyForward MEの1インポートあたり100件の制限に対応するため、支払い方法ごとに取引が100件を超える場合は自動的に複数のファイルに分割して出力する。
 
-- **重複登録・口座間違いの候補抽出**: PayPay側とMoneyForward ME側の明細を「日付」「金額」「内容」で束ね、支払い方法・口座ごとの件数を比較する。MoneyForward ME側の超過分を余分な明細候補、期待口座に不足がある状態の別口座明細を口座間違い候補として表示する。取引を一意に識別できる共通IDはないため、結果は確定判定ではなくユーザーが確認するための候補である。
+- **重複登録・口座間違いの候補抽出**: MoneyForward MEとの完全一致を消費したあと、PayPay側に余った明細は変換対象とする。MoneyForward ME側に余った明細は、「日付」「金額」「内容」がPayPay側に存在するものだけを要確認明細として表示する。重複か口座間違いかは推定せず、ユーザーが内容と口座を確認する。
 
 - **明細の修正範囲**: このアプリはMoneyForward ME上の明細を自動で変更・削除しない。候補を確認したユーザーがMoneyForward ME上で不要明細の削除または口座変更を行う。
 
@@ -66,11 +66,12 @@ PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへの�
 - `app/hooks/useLocalImportRecords.ts`: ユーザー確認済みの取り込み記録と、現在の作成結果に使う除外スナップショットを管理する。
 - `app/components/CsvFilePicker.tsx`: 選択前後で共通のファイル選択UIを提供する。
 - `app/components/FileStatsSummary.tsx`: ファイルや明細の件数・期間を共通の見た目で表示する。
-- `app/components/AuditPanel.tsx`: 重複登録・口座間違い候補を折りたたみ表示する。
+- `app/components/AuditPanel.tsx`: 重複登録・口座間違いの要確認明細を折りたたみ表示する。
+- `app/components/AuditResults.tsx`: MoneyForward ME側に残った要確認明細を表示する。
 - `app/components/AccountBalanceControl.tsx`: 「作成したファイル」の口座見出し内で、現在残高と全件反映後の見込み残高を控えめに表示・編集する。
 - `app/services/paypay-csv.ts`: PayPay CSVの解析、既存明細の除外、支払い方法ごとの分割と出力を担う。
-- `app/services/mfme-csv.ts`: MoneyForward ME CSVの解析と除外対象の集計を担う。
-- `app/services/deletion-candidates.ts`: 重複登録・口座間違いの候補抽出を担う。
+- `app/services/mfme-csv.ts`: MoneyForward ME CSVの解析と件数・期間の集計を担う。
+- `app/services/mfme-reconciliation.ts`: MoneyForward MEとの完全一致を消費し、変換対象と要確認明細を導出する。
 - `app/services/csv-date.ts`: CSV内の日付解析と期間集計を担う。
 - `app/services/csv-schema.ts`: CSVの列名、レコード型、照合キー生成を定義する。
 - `app/services/local-exclusion-store.ts`: ユーザー確認済みの取り込み記録と口座残高を`localStorage`へ保存・復元する。

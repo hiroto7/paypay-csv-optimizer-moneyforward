@@ -1,21 +1,11 @@
 import { AlertTriangle, CheckCircle2, ListChecks } from "lucide-react";
-import type { DeletionCandidate } from "~/services/deletion-candidates";
+import type { MfmeReviewCandidate } from "~/services/mfme-reconciliation";
 
-interface Step4DeletionCandidatesProps {
-  candidates: DeletionCandidate[];
+interface AuditResultsProps {
+  candidates: MfmeReviewCandidate[];
 }
 
-const reasonLabel = (reason: DeletionCandidate["reason"]) =>
-  reason === "wrong-account" ? "口座間違いの可能性" : "余分な明細の可能性";
-
-export default function Step4DeletionCandidates({
-  candidates,
-}: Step4DeletionCandidatesProps) {
-  const wrongAccountCount = candidates.filter(
-    (candidate) => candidate.reason === "wrong-account",
-  ).length;
-  const duplicateCount = candidates.length - wrongAccountCount;
-
+export default function AuditResults({ candidates }: AuditResultsProps) {
   if (candidates.length === 0) {
     return (
       <section
@@ -32,7 +22,7 @@ export default function Step4DeletionCandidates({
           読み込んだ入出金履歴の範囲では修正候補は見つかりませんでした
         </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
-          PayPay明細と一致する重複登録や口座間違いの候補は検出されていません。
+          PayPay明細と完全一致しない要確認明細はありません。
         </p>
       </section>
     );
@@ -41,23 +31,18 @@ export default function Step4DeletionCandidates({
   return (
     <section aria-labelledby="audit-result-title">
       <div className="border-b border-zinc-200 px-5 py-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <AlertTriangle
-              className="size-5 text-amber-600"
-              aria-hidden="true"
-            />
-            <h2
-              id="audit-result-title"
-              className="text-base font-bold text-zinc-950"
-            >
-              要確認明細 {candidates.length}件
-            </h2>
-          </div>
-          <p className="mt-1 text-xs text-zinc-500">
-            口座間違い {wrongAccountCount}件 / 余分な明細 {duplicateCount}件
-          </p>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />
+          <h2
+            id="audit-result-title"
+            className="text-base font-bold text-zinc-950"
+          >
+            要確認明細 {candidates.length}件
+          </h2>
         </div>
+        <p className="mt-1 text-xs text-zinc-500">
+          内容と口座をMoneyForward MEで確認してください
+        </p>
       </div>
 
       <div className="border-b border-amber-200 bg-amber-50 px-5 py-4 text-xs leading-5 text-amber-950">
@@ -75,32 +60,19 @@ export default function Step4DeletionCandidates({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[800px] w-full text-sm">
+        <table className="min-w-[640px] w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-50 text-xs text-zinc-500">
-              <th className="px-5 py-3 text-left font-semibold">判定</th>
-              <th className="px-3 py-3 text-left font-semibold">日付</th>
+              <th className="px-5 py-3 text-left font-semibold">日付</th>
               <th className="px-3 py-3 text-left font-semibold">内容</th>
               <th className="px-3 py-3 text-right font-semibold">金額</th>
-              <th className="px-3 py-3 text-left font-semibold">実際の口座</th>
-              <th className="px-5 py-3 text-left font-semibold">想定口座</th>
+              <th className="px-5 py-3 text-left font-semibold">口座</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-200">
             {candidates.map((candidate) => (
               <tr key={candidate.key} className="hover:bg-zinc-50">
-                <td className="px-5 py-3">
-                  <span
-                    className={`inline-flex px-2 py-1 text-xs font-semibold ${
-                      candidate.reason === "wrong-account"
-                        ? "bg-amber-100 text-amber-900"
-                        : "bg-red-50 text-red-800"
-                    }`}
-                  >
-                    {reasonLabel(candidate.reason)}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap px-3 py-3 text-zinc-600">
+                <td className="whitespace-nowrap px-5 py-3 text-zinc-600">
                   {candidate.date}
                 </td>
                 <td className="max-w-64 px-3 py-3 font-medium text-zinc-800">
@@ -109,11 +81,8 @@ export default function Step4DeletionCandidates({
                 <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-zinc-700">
                   {Number(candidate.amount).toLocaleString("ja-JP")}円
                 </td>
-                <td className="px-3 py-3 text-zinc-700">
-                  {candidate.actualInstitution}
-                </td>
                 <td className="px-5 py-3 text-zinc-700">
-                  {candidate.expectedInstitution}
+                  {candidate.actualInstitution}
                 </td>
               </tr>
             ))}

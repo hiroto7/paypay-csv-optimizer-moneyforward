@@ -187,7 +187,7 @@ test("作成結果と保存確認モーダルを表示できる", async ({ page 
   ).toBeVisible();
 
   await page
-    .getByRole("button", { name: "重複登録・口座間違いを探す" })
+    .getByRole("button", { name: "重複登録・口座間違いを確認する" })
     .click();
   await expect(
     page.getByRole("button", { name: "取り込みました" }),
@@ -439,7 +439,7 @@ test("画面選択とShare TargetからMFME CSVを年ごとに追加できる", 
   await expect(page.getByText("2ファイル", { exact: true })).toBeVisible();
 
   await page
-    .getByRole("button", { name: "重複登録・口座間違いを探す" })
+    .getByRole("button", { name: "重複登録・口座間違いを確認する" })
     .click();
   await expect(page.getByText("2ファイル", { exact: true })).toBeVisible();
 
@@ -607,7 +607,7 @@ test("Share Targetから渡したMFME CSVを監査に利用できる", async ({ 
   );
 
   await page
-    .getByRole("button", { name: "重複登録・口座間違いを探す" })
+    .getByRole("button", { name: "重複登録・口座間違いを確認する" })
     .click();
 
   await expect(
@@ -648,7 +648,7 @@ test("同一ページの作成結果と修正候補で同じ入出金履歴を�
     buffer: Buffer.from(auditMfmeCsv),
   });
   await page
-    .getByRole("button", { name: "重複登録・口座間違いを探す" })
+    .getByRole("button", { name: "重複登録・口座間違いを確認する" })
     .click();
   await expect(page.getByText("saved-moneyforward-history.csv")).toBeVisible();
   await expect(
@@ -658,7 +658,7 @@ test("同一ページの作成結果と修正候補で同じ入出金履歴を�
 
 test("重複登録と口座間違いの候補を表示できる", async ({ page }) => {
   await page
-    .getByRole("button", { name: "重複登録・口座間違いを探す" })
+    .getByRole("button", { name: "重複登録・口座間違いを確認する" })
     .click();
   await selectPayPayCsv(page);
   await page.locator("#mfme-csv-input").setInputFiles({

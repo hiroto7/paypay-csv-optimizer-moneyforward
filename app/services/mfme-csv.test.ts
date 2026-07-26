@@ -1,72 +1,41 @@
 import { describe, expect, it } from "vitest";
 import { MFME_CSV_HEADER } from "./csv-test-fixtures";
-import { createMfmeExclusionSet } from "./mfme-csv";
+import { parseMfmeCsvs } from "./mfme-csv";
 
-describe("createMfmeExclusionSet", () => {
-  it("MFMEのCSVから除外キーの件数を作成できること", () => {
+describe("parseMfmeCsvs", () => {
+  it("MFME CSVの明細と統計を読み込むこと", () => {
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
-    const { exclusionCounts, exclusionStats } = createMfmeExclusionSet([
-      mfmeCsv,
-    ]);
+    const result = parseMfmeCsvs([mfmeCsv]);
 
-    expect(exclusionCounts.size).toBe(1);
-    expect(
-      exclusionCounts.get("2025/10/24_-190_PayPay残高_ダミーストアA"),
-    ).toBe(1);
-    expect(exclusionStats.count).toBe(1);
-  });
-
-  it("同じ除外キーの明細件数を保持できること", () => {
-    const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id02`;
-    const { exclusionCounts } = createMfmeExclusionSet([mfmeCsv]);
-
-    expect(
-      exclusionCounts.get("2025/10/24_-190_PayPay残高_ダミーストアA"),
-    ).toBe(2);
-  });
-
-  it("全明細の計算対象が0でも登録済み明細として扱うこと", () => {
-    const mfmeCsv = `${MFME_CSV_HEADER}\n0,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n0,2025/10/25,ダミーストアB,-100,PayPay残高,食費,食費,メモ,,id02`;
-    const { exclusionCounts, exclusionStats } = createMfmeExclusionSet([
-      mfmeCsv,
-    ]);
-
-    expect(exclusionCounts.size).toBe(2);
-    expect(
-      exclusionCounts.get("2025/10/24_-190_PayPay残高_ダミーストアA"),
-    ).toBe(1);
-    expect(exclusionStats.count).toBe(2);
-    expect(exclusionStats.startDate?.toISOString()).toBe(
+    expect(result.records).toHaveLength(1);
+    expect(result.records[0]?.["ID"]).toBe("id01");
+    expect(result.stats.count).toBe(1);
+    expect(result.stats.startDate?.toISOString()).toBe(
       "2025-10-23T15:00:00.000Z",
     );
   });
 
-  it("引用符の表記ゆれを正規化して除外キーを作成すること", () => {
-    const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー＇店舗 - ダミー’店舗,-190,PayPay残高,食費,食費,メモ,,id01`;
-    const { exclusionCounts } = createMfmeExclusionSet([mfmeCsv]);
+  it("計算対象が0の明細も登録済みとして数えること", () => {
+    const mfmeCsv = `${MFME_CSV_HEADER}\n0,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
+    const result = parseMfmeCsvs([mfmeCsv]);
 
-    expect(
-      exclusionCounts.get(
-        "2025/10/24_-190_PayPay残高_ダミー'店舗 - ダミー'店舗",
-      ),
-    ).toBe(1);
+    expect(result.records).toHaveLength(1);
+    expect(result.stats.count).toBe(1);
   });
 
-  it("複数のMFME CSVファイルを統合できること", () => {
-    const mfmeCsv1 = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
-    const mfmeCsv2 = `${MFME_CSV_HEADER}\n1,2025/10/25,ダミーストアB,-100,PayPay残高,食費,食費,メモ,,id02`;
-    const { exclusionCounts } = createMfmeExclusionSet([mfmeCsv1, mfmeCsv2]);
+  it("複数のMFME CSVファイルを統合すること", () => {
+    const first = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
+    const second = `${MFME_CSV_HEADER}\n1,2025/10/25,ダミーストアB,-100,PayPay残高,食費,食費,メモ,,id02`;
+    const result = parseMfmeCsvs([first, second]);
 
-    expect(exclusionCounts.size).toBe(2);
+    expect(result.records).toHaveLength(2);
+    expect(result.stats.count).toBe(2);
   });
 
-  it("空の配列の場合に空の件数マップを返すこと", () => {
-    const { exclusionCounts, exclusionStats, records } = createMfmeExclusionSet(
-      [],
-    );
+  it("空の配列から空の結果を返すこと", () => {
+    const result = parseMfmeCsvs([]);
 
-    expect(exclusionCounts.size).toBe(0);
-    expect(exclusionStats.count).toBe(0);
-    expect(records).toEqual([]);
+    expect(result.records).toEqual([]);
+    expect(result.stats.count).toBe(0);
   });
 });

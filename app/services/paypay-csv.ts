@@ -7,6 +7,10 @@ import {
   normalizeAmount,
   PAYPAY_COLUMNS,
 } from "./csv-schema";
+import {
+  type MfmeReviewCandidate,
+  reconcileMfmeTransactions,
+} from "./mfme-reconciliation";
 
 export type ProcessedCsvChunk = {
   data: string;
@@ -162,26 +166,25 @@ const groupRemainingTransactions = (
 
 export function filterTransactionsBySources(
   transactions: readonly PayPayTransaction[],
-  mfmeCounts: ReadonlyMap<string, number>,
+  mfmeRecords: readonly CsvRecord[],
   importedCounts: ReadonlyMap<string, number>,
 ): {
   groupedTransactions: Record<string, PayPayTransaction[]>;
   mfmeDuplicates: number;
   importedDuplicates: number;
+  mfmeCandidates: MfmeReviewCandidate[];
 } {
-  const mfmeResult = groupRemainingTransactions(transactions, mfmeCounts);
-  const transactionsAfterMfme = Object.values(
-    mfmeResult.groupedTransactions,
-  ).flat();
+  const mfmeResult = reconcileMfmeTransactions(transactions, mfmeRecords);
   const importedResult = groupRemainingTransactions(
-    transactionsAfterMfme,
+    mfmeResult.remainingTransactions,
     importedCounts,
   );
 
   return {
     groupedTransactions: importedResult.groupedTransactions,
-    mfmeDuplicates: mfmeResult.duplicates,
+    mfmeDuplicates: mfmeResult.matchedCount,
     importedDuplicates: importedResult.duplicates,
+    mfmeCandidates: mfmeResult.candidates,
   };
 }
 

@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { useInputFilesStore } from "~/hooks/useInputFilesStore";
 import type { FileStats } from "~/services/csv-date";
-import { countExclusions } from "~/services/local-exclusion-store";
-import {
-  createMfmeExclusionSet,
-  type MfmeParsedResult,
-} from "~/services/mfme-csv";
+import { type MfmeParsedResult, parseMfmeCsvs } from "~/services/mfme-csv";
 import {
   extractTransactionsFromPayPayCsv,
   type PayPayTransaction,
@@ -83,8 +79,8 @@ const parsePayPayFile = async (
 };
 
 const parseMfmeFiles = async (files: File[]): Promise<MfmeParsedResult> => {
-  const result = createMfmeExclusionSet(await readFilesAsTextAuto(files));
-  if (countExclusions(result.exclusionCounts) === 0) {
+  const result = parseMfmeCsvs(await readFilesAsTextAuto(files));
+  if (result.stats.count === 0) {
     throw new Error(
       "MoneyForward MEから書き出した入出金履歴を読み込めませんでした。ファイルを確認してください。",
     );
