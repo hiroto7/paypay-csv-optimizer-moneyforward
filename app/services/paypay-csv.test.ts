@@ -350,20 +350,6 @@ describe("createChunksFromGroupedTransactions", () => {
     expect(chunks["PayPayポイント"]?.[0]?.balanceDelta).toBe(-93);
   });
 
-  it("imported フラグがfalseで初期化されること", () => {
-    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
-    const { transactions, headers } =
-      extractTransactionsFromPayPayCsv(csvContent);
-    const groupedTransactions = groupWithoutExclusions(transactions);
-
-    const chunks = createChunksFromGroupedTransactions(
-      groupedTransactions,
-      headers,
-    );
-
-    expect(chunks["PayPay残高"]?.[0]?.imported).toBe(false);
-  });
-
   it("空のgroupedTransactionsの場合に空のオブジェクトを返すこと", () => {
     const chunks = createChunksFromGroupedTransactions({}, []);
     expect(Object.keys(chunks)).toHaveLength(0);

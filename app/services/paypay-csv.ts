@@ -14,7 +14,6 @@ export type ProcessedCsvChunk = {
   balanceDelta: number;
   startDate: Date | null;
   endDate: Date | null;
-  imported: boolean;
   transactionKeys: string[];
 };
 
@@ -172,7 +171,6 @@ export function createChunksFromGroupedTransactions(
         ),
         startDate: minDate,
         endDate: maxDate,
-        imported: false,
         transactionKeys: chunkOfTransactions.map(
           (transaction) => transaction.key,
         ),

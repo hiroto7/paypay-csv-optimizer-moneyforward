@@ -5,7 +5,7 @@ import { createMfmeExclusionSet } from "./mfme-csv";
 describe("createMfmeExclusionSet", () => {
   it("MFMEのCSVから除外キーの件数を作成できること", () => {
     const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
-    const { exclusionCounts, exclusionStats, stats } = createMfmeExclusionSet([
+    const { exclusionCounts, exclusionStats } = createMfmeExclusionSet([
       mfmeCsv,
     ]);
 
@@ -13,7 +13,6 @@ describe("createMfmeExclusionSet", () => {
     expect(
       exclusionCounts.get("2025/10/24_-190_PayPay残高_ダミーストアA"),
     ).toBe(1);
-    expect(stats.count).toBe(1);
     expect(exclusionStats.count).toBe(1);
   });
 
@@ -28,7 +27,7 @@ describe("createMfmeExclusionSet", () => {
 
   it("全明細の計算対象が0でも登録済み明細として扱うこと", () => {
     const mfmeCsv = `${MFME_CSV_HEADER}\n0,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n0,2025/10/25,ダミーストアB,-100,PayPay残高,食費,食費,メモ,,id02`;
-    const { exclusionCounts, exclusionStats, stats } = createMfmeExclusionSet([
+    const { exclusionCounts, exclusionStats } = createMfmeExclusionSet([
       mfmeCsv,
     ]);
 
@@ -36,7 +35,6 @@ describe("createMfmeExclusionSet", () => {
     expect(
       exclusionCounts.get("2025/10/24_-190_PayPay残高_ダミーストアA"),
     ).toBe(1);
-    expect(stats.count).toBe(2);
     expect(exclusionStats.count).toBe(2);
     expect(exclusionStats.startDate?.toISOString()).toBe(
       "2025-10-23T15:00:00.000Z",
@@ -57,27 +55,18 @@ describe("createMfmeExclusionSet", () => {
   it("複数のMFME CSVファイルを統合できること", () => {
     const mfmeCsv1 = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01`;
     const mfmeCsv2 = `${MFME_CSV_HEADER}\n1,2025/10/25,ダミーストアB,-100,PayPay残高,食費,食費,メモ,,id02`;
-    const { exclusionCounts, stats } = createMfmeExclusionSet([
-      mfmeCsv1,
-      mfmeCsv2,
-    ]);
+    const { exclusionCounts } = createMfmeExclusionSet([mfmeCsv1, mfmeCsv2]);
 
     expect(exclusionCounts.size).toBe(2);
-    expect(stats.count).toBe(2);
-  });
-
-  it("統計情報を正しく計算できること", () => {
-    const mfmeCsv = `${MFME_CSV_HEADER}\n1,2025/10/24,ダミーストアA,-190,PayPay残高,食費,食費,メモ,,id01\n1,2025/11/01,ダミーストアB,-100,PayPay残高,食費,食費,メモ,,id02`;
-    const { stats } = createMfmeExclusionSet([mfmeCsv]);
-
-    expect(stats.startDate?.toISOString()).toBe("2025-10-23T15:00:00.000Z");
-    expect(stats.endDate?.toISOString()).toBe("2025-10-31T15:00:00.000Z");
   });
 
   it("空の配列の場合に空の件数マップを返すこと", () => {
-    const { exclusionCounts, stats } = createMfmeExclusionSet([]);
+    const { exclusionCounts, exclusionStats, records } = createMfmeExclusionSet(
+      [],
+    );
 
     expect(exclusionCounts.size).toBe(0);
-    expect(stats.count).toBe(0);
+    expect(exclusionStats.count).toBe(0);
+    expect(records).toEqual([]);
   });
 });

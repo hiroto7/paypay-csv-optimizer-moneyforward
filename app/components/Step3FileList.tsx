@@ -6,7 +6,6 @@ import {
   Rows3,
 } from "lucide-react";
 import { useState } from "react";
-import { flushSync } from "react-dom";
 import AccountBalanceControl from "~/components/AccountBalanceControl";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import type { AccountBalance } from "~/services/local-exclusion-store";
@@ -15,21 +14,27 @@ import { sum } from "~/utils/array";
 import { createPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
 
 interface Step3FileListProps {
-  processedChunks: ProcessedResult;
+  chunks: ProcessedResult;
+  importedChunkKeys: ReadonlySet<string>;
   hasMfmeData: boolean;
   excludedByMfme: number;
   excludedByImportedRecords: number;
-  onShare: (filename: string, data: string) => Promise<boolean>;
-  onShareStart: (name: string, index: number) => void;
-  onShareEnd: (shared: boolean) => void;
+  onImport: (
+    filename: string,
+    data: string,
+    name: string,
+    index: number,
+  ) => Promise<void>;
   accountBalances: ReadonlyMap<string, AccountBalance>;
   onSetBalance: (accountName: string, amount: number) => void;
   onClearBalance: (accountName: string) => void;
 }
 
+type DisplayChunk = ProcessedCsvChunk & { imported: boolean };
+
 type FileGroup = {
   name: string;
-  chunks: ProcessedCsvChunk[];
+  chunks: DisplayChunk[];
   filenameBase: string;
 };
 
@@ -93,7 +98,9 @@ function FileGroupList({
             </div>
             <AccountBalanceControl
               accountName={name}
-              chunks={chunks}
+              pendingDelta={sum(chunks, (chunk) =>
+                chunk.imported ? 0 : chunk.balanceDelta,
+              )}
               balance={accountBalances.get(name)}
               onSetBalance={onSetBalance}
               onClearBalance={onClearBalance}
@@ -159,19 +166,18 @@ function FileGroupList({
 }
 
 export default function Step3FileList({
-  processedChunks,
+  chunks,
+  importedChunkKeys,
   hasMfmeData,
   excludedByMfme,
   excludedByImportedRecords,
-  onShare,
-  onShareStart,
-  onShareEnd,
+  onImport,
   accountBalances,
   onSetBalance,
   onClearBalance,
 }: Step3FileListProps) {
   const [sharingFilename, setSharingFilename] = useState<string | null>(null);
-  const groupEntries = Object.entries(processedChunks).filter(
+  const groupEntries = Object.entries(chunks).filter(
     ([, chunks]) => chunks.length > 0,
   );
   const uniqueFilenameBases = createUniqueFilenameBases(
@@ -180,7 +186,10 @@ export default function Step3FileList({
   const groups = groupEntries.map(
     ([name, chunks], index): FileGroup => ({
       name,
-      chunks,
+      chunks: chunks.map((chunk, chunkIndex) => ({
+        ...chunk,
+        imported: importedChunkKeys.has(`${name}:${chunkIndex}`),
+      })),
       filenameBase: uniqueFilenameBases[index] ?? name,
     }),
   );
@@ -194,13 +203,9 @@ export default function Step3FileList({
     name: string,
     index: number,
   ) => {
-    flushSync(() => {
-      setSharingFilename(filename);
-      onShareStart(name, index);
-    });
-    void onShare(filename, data)
-      .then(onShareEnd)
-      .catch(() => onShareEnd(false))
+    setSharingFilename(filename);
+    void onImport(filename, data, name, index)
+      .catch(() => undefined)
       .finally(() => setSharingFilename(null));
   };
 

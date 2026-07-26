@@ -9,7 +9,6 @@ import {
 export type MfmeParsedResult = {
   exclusionCounts: Map<string, number>;
   exclusionStats: FileStats;
-  stats: FileStats;
   records: CsvRecord[];
 };
 
@@ -18,9 +17,6 @@ export const createMfmeExclusionSet = (
 ): MfmeParsedResult => {
   const exclusionCounts = new Map<string, number>();
   const allRecords: CsvRecord[] = [];
-  let count = 0;
-  let minDate: Date | null = null;
-  let maxDate: Date | null = null;
   let exclusionCount = 0;
   let exclusionMinDate: Date | null = null;
   let exclusionMaxDate: Date | null = null;
@@ -34,19 +30,14 @@ export const createMfmeExclusionSet = (
     allRecords.push(...records);
 
     for (const record of records) {
-      count++;
       const dateStr = record[MFME_COLUMNS.date];
       const amount = record[MFME_COLUMNS.amount];
       const institution = record[MFME_COLUMNS.institution];
       const content = record[MFME_COLUMNS.content];
 
-      const date = parseDate(dateStr);
-      if (date) {
-        [minDate, maxDate] = updateDateRange(date, minDate, maxDate);
-      }
-
       if (dateStr && amount && institution && content) {
         exclusionCount++;
+        const date = parseDate(dateStr);
         if (date) {
           [exclusionMinDate, exclusionMaxDate] = updateDateRange(
             date,
@@ -67,7 +58,6 @@ export const createMfmeExclusionSet = (
       startDate: exclusionMinDate,
       endDate: exclusionMaxDate,
     },
-    stats: { count, startDate: minDate, endDate: maxDate },
     records: allRecords,
   };
 };

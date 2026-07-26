@@ -112,10 +112,6 @@ export function useLocalImportRecords() {
     setConversionCounts(new Map(stateRef.current.localImportedCounts));
   }, []);
 
-  const recordCount = Array.from(state.localImportedCounts.values()).reduce(
-    (total, count) => total + count,
-    0,
-  );
   const recordStats = createStatsFromTransactionCounts(
     state.localImportedCounts,
   );
@@ -123,7 +119,6 @@ export function useLocalImportRecords() {
   return {
     conversionCounts,
     accountBalances: state.accountBalances,
-    recordCount,
     recordStats,
     addImportedRecords,
     setAccountBalance,

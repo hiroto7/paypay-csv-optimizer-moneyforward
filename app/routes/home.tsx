@@ -1,5 +1,6 @@
 import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import AuditPanel from "~/components/AuditPanel";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
@@ -89,39 +90,38 @@ export default function Home() {
     );
   }, [payPayData, mfmeData, conversionCounts]);
 
-  const conversionResult = useMemo(() => {
+  const chunks = useMemo<ProcessedResult>(() => {
     if (!payPayData) {
-      return { chunks: {} satisfies ProcessedResult };
+      return {};
     }
 
-    return {
-      chunks: createChunksFromGroupedTransactions(
-        reconciliationResult.groupedTransactions,
-        payPayData.headers,
-      ),
-      mfmeDuplicates: reconciliationResult.mfmeDuplicates,
-      importedDuplicates: reconciliationResult.importedDuplicates,
-    };
+    return createChunksFromGroupedTransactions(
+      reconciliationResult.groupedTransactions,
+      payPayData.headers,
+    );
   }, [payPayData, reconciliationResult]);
 
-  const processedChunks = useMemo<ProcessedResult>(
-    () =>
-      Object.fromEntries(
-        Object.entries(conversionResult.chunks).map(([name, chunks]) => [
-          name,
-          chunks.map((chunk, index) => ({
-            ...chunk,
-            imported: importedChunkKeys.has(`${name}:${index}`),
-          })),
-        ]),
-      ),
-    [conversionResult.chunks, importedChunkKeys],
+  const handleImport = useCallback(
+    async (filename: string, data: string, name: string, index: number) => {
+      flushSync(() => setModalContext({ name, index, isSharing: true }));
+      try {
+        const shared = await shareCsv(filename, data);
+        setModalContext((currentContext) =>
+          shared && currentContext
+            ? { ...currentContext, isSharing: false }
+            : null,
+        );
+      } catch {
+        setModalContext(null);
+      }
+    },
+    [],
   );
 
   const handleMarkAsImported = () => {
     if (!modalContext) return;
     const importedChunk =
-      processedChunks[modalContext.name]?.[modalContext.index] ?? null;
+      chunks[modalContext.name]?.[modalContext.index] ?? null;
     if (importedChunk) {
       addImportedRecords(
         importedChunk.transactionKeys,
@@ -139,7 +139,7 @@ export default function Home() {
   };
 
   const hasMfmeRecords = Boolean(mfmeData?.records.length);
-  const hasOutput = Object.keys(processedChunks).length > 0;
+  const hasOutput = Object.keys(chunks).length > 0;
   const canShowConversion = Boolean(payPayData && hasOutput);
 
   return (
@@ -242,23 +242,14 @@ export default function Home() {
             <div className="border border-zinc-200 bg-white">
               {canShowConversion ? (
                 <Step3FileList
-                  processedChunks={processedChunks}
+                  chunks={chunks}
+                  importedChunkKeys={importedChunkKeys}
                   hasMfmeData={hasMfmeRecords}
-                  excludedByMfme={conversionResult.mfmeDuplicates ?? 0}
+                  excludedByMfme={reconciliationResult.mfmeDuplicates}
                   excludedByImportedRecords={
-                    conversionResult.importedDuplicates ?? 0
+                    reconciliationResult.importedDuplicates
                   }
-                  onShare={shareCsv}
-                  onShareStart={(name, index) =>
-                    setModalContext({ name, index, isSharing: true })
-                  }
-                  onShareEnd={(shared) =>
-                    setModalContext((currentContext) =>
-                      shared && currentContext
-                        ? { ...currentContext, isSharing: false }
-                        : null,
-                    )
-                  }
+                  onImport={handleImport}
                   accountBalances={accountBalances}
                   onSetBalance={setAccountBalance}
                   onClearBalance={clearAccountBalance}

@@ -1,11 +1,10 @@
 import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { AccountBalance } from "~/services/local-exclusion-store";
-import type { ProcessedCsvChunk } from "~/services/paypay-csv";
 
 interface AccountBalanceControlProps {
   accountName: string;
-  chunks: readonly ProcessedCsvChunk[];
+  pendingDelta: number;
   balance: AccountBalance | undefined;
   onSetBalance: (accountName: string, amount: number) => void;
   onClearBalance: (accountName: string) => void;
@@ -26,7 +25,7 @@ const parseBalance = (value: string): number | null => {
 
 export default function AccountBalanceControl({
   accountName,
-  chunks,
+  pendingDelta,
   balance,
   onSetBalance,
   onClearBalance,
@@ -36,10 +35,6 @@ export default function AccountBalanceControl({
   const [error, setError] = useState("");
   const inputId = useId();
   const errorId = useId();
-  const pendingDelta = chunks.reduce(
-    (total, chunk) => (chunk.imported ? total : total + chunk.balanceDelta),
-    0,
-  );
   const projectedBalance =
     balance === undefined ? null : balance.amount + pendingDelta;
 
