@@ -55,6 +55,17 @@ describe("reconcileMfmeTransactions", () => {
     expect(result.candidates.map(({ key }) => key)).toEqual(["id02"]);
   });
 
+  it("IDが空の要確認明細にも一意なキーを付けること", () => {
+    const result = reconcileCsvs(
+      SINGLE_PAYMENT_ROW,
+      "1,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,\n1,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,",
+    );
+
+    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates.map(({ key }) => key)).not.toContain("");
+    expect(new Set(result.candidates.map(({ key }) => key)).size).toBe(2);
+  });
+
   it("同じ取引が双方に2件あればすべて一致させること", () => {
     const result = reconcileCsvs(
       `${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}`,

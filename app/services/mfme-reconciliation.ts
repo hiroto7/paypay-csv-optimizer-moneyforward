@@ -29,7 +29,7 @@ const createMfmeCandidateKey = (
   record: CsvRecord,
   fallbackIndex: number,
 ): string =>
-  record[MFME_COLUMNS.id] ??
+  record[MFME_COLUMNS.id] ||
   `${record[MFME_COLUMNS.date] ?? ""}_${record[MFME_COLUMNS.amount] ?? ""}_${record[MFME_COLUMNS.institution] ?? ""}_${record[MFME_COLUMNS.content] ?? ""}_${fallbackIndex}`;
 
 export const reconcileMfmeTransactions = (
