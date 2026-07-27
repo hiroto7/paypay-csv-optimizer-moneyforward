@@ -115,6 +115,94 @@ test("初期画面をデスクトップとモバイルで表示できる", async
   });
 });
 
+test("CSVを共有して読み込む方法とインストール案内を確認できる", async ({
+  page,
+}) => {
+  const guideButton = page.getByRole("button", {
+    name: "CSVを共有して読み込む方法",
+  });
+  await expect(guideButton).toBeVisible();
+
+  await guideButton.click();
+  const dialog = page.getByRole("dialog", {
+    name: "CSVを共有して読み込む",
+  });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "共有先として利用できるかどうかは、端末・OS・ブラウザによって異なります。",
+    ),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "インストールボタンが表示されない場合は、ブラウザのメニューに「アプリをインストール」または「ホーム画面に追加」があるか確認してください。",
+    ),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("csv-share-guide-modal.png", {
+    fullPage: true,
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveScreenshot("csv-share-guide-modal-mobile.png", {
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(guideButton).toBeFocused();
+
+  await page.evaluate(() => {
+    const installChoice = Promise.resolve({
+      outcome: "dismissed" as const,
+      platform: "web",
+    });
+    const installEvent = Object.assign(
+      new Event("beforeinstallprompt", { cancelable: true }),
+      {
+        prompt: async () => {
+          (
+            window as typeof window & {
+              installPromptCalled?: boolean;
+            }
+          ).installPromptCalled = true;
+        },
+        userChoice: installChoice,
+      },
+    );
+    window.dispatchEvent(installEvent);
+  });
+
+  await guideButton.click();
+  await page.getByRole("button", { name: "PP2MFをインストール" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              installPromptCalled?: boolean;
+            }
+          ).installPromptCalled,
+      ),
+    )
+    .toBe(true);
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("appinstalled"));
+  });
+  await guideButton.click();
+  await expect(
+    page.getByText(
+      "PP2MFをインストール済みです。CSVファイルの共有先からPP2MFを選んでください。",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "PP2MFをインストール" }),
+  ).toHaveCount(0);
+});
+
 test("作成結果と保存確認モーダルを表示できる", async ({ page }) => {
   await selectPayPayCsv(page);
 
