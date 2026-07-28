@@ -133,6 +133,15 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
       "ファイル選択に加えて、共有メニューからもCSVを読み込めます",
     ),
   ).toBeVisible();
+  const headerCloseButton = dialog.getByTitle("閉じる");
+  const footerCloseButton = dialog
+    .getByRole("button", { name: "閉じる" })
+    .last();
+  await expect(headerCloseButton).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(footerCloseButton).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(headerCloseButton).toBeFocused();
   await expect(
     dialog.getByText(
       "共有先として利用できるかどうかは、端末・OS・ブラウザによって異なります。",
