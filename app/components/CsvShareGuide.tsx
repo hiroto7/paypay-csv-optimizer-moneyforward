@@ -1,4 +1,11 @@
-import { ArrowRight, Check, Download, FileText, Share2 } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  Download,
+  FileText,
+  LoaderCircle,
+  Share2,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import Modal from "~/components/Modal";
 
@@ -19,9 +26,11 @@ export default function CsvShareGuide() {
   const [isOpen, setIsOpen] = useState(false);
   const [isStandaloneMode, setIsStandaloneMode] = useState(false);
   const [hasInstalledInSession, setHasInstalledInSession] = useState(false);
+  const [isInstalling, setIsInstalling] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
+  const isInstalled = isStandaloneMode || hasInstalledInSession;
 
   useEffect(() => {
     setIsStandaloneMode(isStandalone());
@@ -34,6 +43,7 @@ export default function CsvShareGuide() {
     const handleAppInstalled = () => {
       setInstallPromptEvent(null);
       setInstallError(null);
+      setIsInstalling(false);
       setHasInstalledInSession(true);
     };
 
@@ -50,6 +60,7 @@ export default function CsvShareGuide() {
 
   const close = useCallback(() => {
     setIsOpen(false);
+    setIsInstalling(false);
     setInstallError(null);
   }, []);
 
@@ -57,21 +68,23 @@ export default function CsvShareGuide() {
     if (!installPromptEvent) return;
 
     try {
+      setIsInstalling(true);
+      setInstallError(null);
       await installPromptEvent.prompt();
       const choice = await installPromptEvent.userChoice;
       setInstallPromptEvent(null);
-      if (choice.outcome === "accepted") {
-        setHasInstalledInSession(true);
-        close();
+      if (choice.outcome === "dismissed") {
+        setIsInstalling(false);
       }
     } catch (error) {
       console.error("Failed to show install prompt:", error);
       setInstallPromptEvent(null);
+      setIsInstalling(false);
       setInstallError(
         "インストール画面を開けませんでした。ブラウザのメニューからインストールできるか確認してください。",
       );
     }
-  }, [close, installPromptEvent]);
+  }, [installPromptEvent]);
 
   return (
     <>
@@ -140,7 +153,7 @@ export default function CsvShareGuide() {
 
               <ol className="divide-y divide-zinc-200 border-y border-zinc-200">
                 {[
-                  isStandaloneMode
+                  isInstalled
                     ? "PP2MFはインストール済みです"
                     : "PP2MFをインストールする",
                   "PayPayまたはMoneyForward MEからCSVをダウンロードする",
@@ -148,16 +161,25 @@ export default function CsvShareGuide() {
                 ].map((instruction, index) => (
                   <li
                     key={instruction}
-                    className="grid grid-cols-[28px_1fr] gap-3 py-3"
+                    className={`grid grid-cols-[28px_1fr] gap-3 py-3 ${
+                      index === 0 && isInstalling
+                        ? "font-semibold text-zinc-950"
+                        : ""
+                    }`}
                   >
                     <span
                       className={`flex size-7 items-center justify-center text-xs font-bold ${
-                        index === 0 && isStandaloneMode
+                        index === 0 && isInstalled
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-zinc-100 text-zinc-700"
                       }`}
                     >
-                      {index === 0 && isStandaloneMode ? (
+                      {index === 0 && isInstalling ? (
+                        <LoaderCircle
+                          className="size-4 animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : index === 0 && isInstalled ? (
                         <Check className="size-4" aria-hidden="true" />
                       ) : (
                         index + 1
@@ -167,20 +189,29 @@ export default function CsvShareGuide() {
                       <span className="text-zinc-700">{instruction}</span>
 
                       {index === 0 &&
-                      !isStandaloneMode &&
-                      !hasInstalledInSession &&
-                      installPromptEvent ? (
+                      !isInstalled &&
+                      (isInstalling || installPromptEvent) ? (
                         <button
                           type="button"
                           onClick={() => void install()}
-                          className="mt-2 inline-flex min-h-10 items-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
+                          disabled={isInstalling}
+                          className={`mt-2 inline-flex min-h-10 items-center gap-2 px-4 text-sm font-semibold ${
+                            isInstalling
+                              ? "cursor-wait bg-zinc-200 text-zinc-500"
+                              : "bg-zinc-900 text-white hover:bg-zinc-700"
+                          }`}
                         >
-                          <Download className="size-4" aria-hidden="true" />
-                          インストールする
+                          {isInstalling ? (
+                            <LoaderCircle
+                              className="size-4 animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <Download className="size-4" aria-hidden="true" />
+                          )}
+                          {isInstalling ? "インストール中" : "インストールする"}
                         </button>
-                      ) : index === 0 &&
-                        !isStandaloneMode &&
-                        !hasInstalledInSession ? (
+                      ) : index === 0 && !isInstalled ? (
                         <p className="mt-2 border-l-2 border-zinc-300 pl-3 text-xs leading-5 text-zinc-600">
                           ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。
                         </p>

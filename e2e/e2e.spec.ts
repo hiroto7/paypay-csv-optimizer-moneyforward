@@ -100,6 +100,51 @@ const shareCsvThroughTarget = async (
   await page.waitForURL((url) => !url.searchParams.has("shared-files"));
 };
 
+const dispatchInstallPrompt = async (page: Page, trackPrompt = false) => {
+  await page.evaluate((shouldTrackPrompt) => {
+    let resolveInstallChoice:
+      | ((choice: {
+          outcome: "accepted" | "dismissed";
+          platform: string;
+        }) => void)
+      | undefined;
+    const userChoice = new Promise<{
+      outcome: "accepted" | "dismissed";
+      platform: string;
+    }>((resolve) => {
+      resolveInstallChoice = resolve;
+    });
+    const testWindow = window as typeof window & {
+      installPromptCalled?: boolean;
+      resolveInstallChoice?: (outcome: "accepted" | "dismissed") => void;
+    };
+    testWindow.resolveInstallChoice = (outcome) =>
+      resolveInstallChoice?.({ outcome, platform: "web" });
+
+    window.dispatchEvent(
+      Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+        prompt: async () => {
+          if (shouldTrackPrompt) testWindow.installPromptCalled = true;
+        },
+        userChoice,
+      }),
+    );
+  }, trackPrompt);
+};
+
+const resolveInstallChoice = async (
+  page: Page,
+  outcome: "accepted" | "dismissed",
+) => {
+  await page.evaluate((selectedOutcome) => {
+    (
+      window as typeof window & {
+        resolveInstallChoice?: (outcome: "accepted" | "dismissed") => void;
+      }
+    ).resolveInstallChoice?.(selectedOutcome);
+  }, outcome);
+};
+
 test.beforeEach(async ({ page }) => {
   await openCleanPage(page);
 });
@@ -175,35 +220,14 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await expect(dialog).toHaveCount(0);
   await expect(guideButton).toBeFocused();
 
-  await page.evaluate(() => {
-    const installChoice = Promise.resolve({
-      outcome: "dismissed" as const,
-      platform: "web",
-    });
-    const installEvent = Object.assign(
-      new Event("beforeinstallprompt", { cancelable: true }),
-      {
-        prompt: async () => {
-          (
-            window as typeof window & {
-              installPromptCalled?: boolean;
-            }
-          ).installPromptCalled = true;
-        },
-        userChoice: installChoice,
-      },
-    );
-    window.dispatchEvent(installEvent);
-  });
+  await dispatchInstallPrompt(page, true);
 
   await guideButton.click();
-  await page.getByRole("button", { name: "インストールする" }).click();
+  await dialog.getByRole("button", { name: "インストールする" }).click();
   await expect(dialog).toBeVisible();
   await expect(
-    dialog.getByText(
-      "ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。",
-    ),
-  ).toBeVisible();
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
   await expect
     .poll(() =>
       page.evaluate(
@@ -217,12 +241,29 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
     )
     .toBe(true);
 
+  await resolveInstallChoice(page, "dismissed");
+  await expect(
+    dialog.getByText(
+      "ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。",
+    ),
+  ).toBeVisible();
+
+  await dispatchInstallPrompt(page);
+  await dialog.getByRole("button", { name: "インストールする" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
+  await resolveInstallChoice(page, "accepted");
+  await expect(
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
+
   await page.evaluate(() => {
     window.dispatchEvent(new Event("appinstalled"));
   });
-  await expect(page.getByText("PP2MFはインストール済みです")).toHaveCount(0);
+  await expect(dialog.getByText("PP2MFはインストール済みです")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "インストールする" }),
+    dialog.getByRole("button", { name: "インストールする" }),
   ).toHaveCount(0);
   await dialog.getByTitle("閉じる").click();
   await expect(dialog).toHaveCount(0);
