@@ -13,9 +13,7 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 const isStandalone = (): boolean =>
-  window.matchMedia("(display-mode: standalone)").matches ||
-  (window.navigator as Navigator & { standalone?: boolean }).standalone ===
-    true;
+  window.matchMedia("(display-mode: standalone)").matches;
 
 export default function CsvShareGuide() {
   const [isOpen, setIsOpen] = useState(false);
@@ -89,14 +87,14 @@ export default function CsvShareGuide() {
       {isOpen && (
         <Modal
           title="CSVを共有して読み込む"
-          description="ファイル選択に加えて、共有シートからもCSVを読み込めます"
+          description="PayPayやMoneyForward MEからダウンロードしたCSVを、保存先から探し直さずに読み込めます"
           onClose={close}
         >
           <div className="min-h-0 overflow-y-auto">
             <div className="space-y-4 px-5 py-5 text-sm leading-6 text-zinc-600">
               <figure
                 className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 border border-zinc-200 bg-zinc-50 px-3 py-4"
-                aria-label="CSVファイルを共有してPP2MFへ渡す流れ"
+                aria-label="ダウンロードしたCSVをPP2MFで読み込む流れ"
               >
                 <div className="flex min-w-0 flex-col items-center gap-2 text-center">
                   <span className="flex size-11 items-center justify-center bg-white shadow-sm ring-1 ring-zinc-200">
@@ -121,7 +119,7 @@ export default function CsvShareGuide() {
                     />
                   </span>
                   <span className="text-xs font-semibold leading-4 text-zinc-700">
-                    共有
+                    共有シート
                   </span>
                 </div>
                 <ArrowRight
@@ -140,17 +138,12 @@ export default function CsvShareGuide() {
                 </div>
               </figure>
 
-              <p>
-                PP2MFをインストールすると、PayPayやMoneyForward
-                MEから書き出したCSVを、ファイル選択画面で探し直さずに読み込めます。CSVの「共有」からPP2MFを選ぶだけです。
-              </p>
-
               <ol className="divide-y divide-zinc-200 border-y border-zinc-200">
                 {[
                   isStandaloneMode
                     ? "PP2MFはインストール済みです"
                     : "PP2MFをインストールする",
-                  "読み込みたいCSVファイルで「共有」を選ぶ",
+                  "PayPayまたはMoneyForward MEからCSVをダウンロードする",
                   "共有シートでPP2MFを選ぶ",
                 ].map((instruction, index) => (
                   <li
@@ -170,36 +163,41 @@ export default function CsvShareGuide() {
                         index + 1
                       )}
                     </span>
-                    <span className="pt-0.5 text-zinc-700">{instruction}</span>
+                    <div className="min-w-0 pt-0.5">
+                      <span className="text-zinc-700">{instruction}</span>
+
+                      {index === 0 &&
+                      !isStandaloneMode &&
+                      !hasInstalledInSession &&
+                      installPromptEvent ? (
+                        <button
+                          type="button"
+                          onClick={() => void install()}
+                          className="mt-2 inline-flex min-h-10 items-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
+                        >
+                          <Download className="size-4" aria-hidden="true" />
+                          インストールする
+                        </button>
+                      ) : index === 0 &&
+                        !isStandaloneMode &&
+                        !hasInstalledInSession ? (
+                        <p className="mt-2 border-l-2 border-zinc-300 pl-3 text-xs leading-5 text-zinc-600">
+                          ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。
+                        </p>
+                      ) : null}
+
+                      {index === 0 && installError && (
+                        <p
+                          className="mt-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
+                          role="alert"
+                        >
+                          {installError}
+                        </p>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ol>
-
-              {!isStandaloneMode &&
-              !hasInstalledInSession &&
-              installPromptEvent ? (
-                <button
-                  type="button"
-                  onClick={() => void install()}
-                  className="inline-flex min-h-10 items-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700"
-                >
-                  <Download className="size-4" aria-hidden="true" />
-                  PP2MFをインストール
-                </button>
-              ) : !isStandaloneMode && !hasInstalledInSession ? (
-                <p className="border-l-2 border-zinc-300 pl-3 text-xs leading-5 text-zinc-600">
-                  インストールボタンが表示されない場合は、ブラウザのメニューに「アプリをインストール」または「ホーム画面に追加」があるか確認してください。
-                </p>
-              ) : null}
-
-              {installError && (
-                <p
-                  className="border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
-                  role="alert"
-                >
-                  {installError}
-                </p>
-              )}
 
               <p className="text-xs leading-5 text-zinc-500">
                 端末・OS・ブラウザによっては、PP2MFが共有先に表示されない場合があります。

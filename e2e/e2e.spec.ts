@@ -129,11 +129,13 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   });
   await expect(dialog).toBeVisible();
   await expect(
-    dialog.getByText("ファイル選択に加えて、共有シートからもCSVを読み込めます"),
+    dialog.getByText(
+      "PayPayやMoneyForward MEからダウンロードしたCSVを、保存先から探し直さずに読み込めます",
+    ),
   ).toBeVisible();
   await expect(
     dialog.getByRole("figure", {
-      name: "CSVファイルを共有してPP2MFへ渡す流れ",
+      name: "ダウンロードしたCSVをPP2MFで読み込む流れ",
     }),
   ).toBeVisible();
   const headerCloseButton = dialog.getByTitle("閉じる");
@@ -146,10 +148,9 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await page.keyboard.press("Shift+Tab");
   await expect(headerCloseButton).toBeFocused();
   await expect(
-    dialog.getByText(
-      "PP2MFをインストールすると、PayPayやMoneyForward MEから書き出したCSVを、ファイル選択画面で探し直さずに読み込めます。CSVの「共有」からPP2MFを選ぶだけです。",
-    ),
+    dialog.getByText("PayPayまたはMoneyForward MEからCSVをダウンロードする"),
   ).toBeVisible();
+  await expect(dialog.getByText("共有シートでPP2MFを選ぶ")).toBeVisible();
   await expect(
     dialog.getByText(
       "端末・OS・ブラウザによっては、PP2MFが共有先に表示されない場合があります。",
@@ -157,7 +158,7 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   ).toBeVisible();
   await expect(
     dialog.getByText(
-      "インストールボタンが表示されない場合は、ブラウザのメニューに「アプリをインストール」または「ホーム画面に追加」があるか確認してください。",
+      "ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。",
     ),
   ).toBeVisible();
   await expect(page).toHaveScreenshot("csv-share-guide-modal.png", {
@@ -196,11 +197,11 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   });
 
   await guideButton.click();
-  await page.getByRole("button", { name: "PP2MFをインストール" }).click();
+  await page.getByRole("button", { name: "インストールする" }).click();
   await expect(dialog).toBeVisible();
   await expect(
     dialog.getByText(
-      "インストールボタンが表示されない場合は、ブラウザのメニューに「アプリをインストール」または「ホーム画面に追加」があるか確認してください。",
+      "ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。",
     ),
   ).toBeVisible();
   await expect
@@ -221,17 +222,21 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   });
   await expect(page.getByText("PP2MFはインストール済みです")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "PP2MFをインストール" }),
+    page.getByRole("button", { name: "インストールする" }),
   ).toHaveCount(0);
   await dialog.getByTitle("閉じる").click();
   await expect(dialog).toHaveCount(0);
   await expect(guideButton).toBeFocused();
 
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, "standalone", {
-      configurable: true,
-      value: true,
-    });
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => {
+      const result = originalMatchMedia.call(window, query);
+      if (query === "(display-mode: standalone)") {
+        Object.defineProperty(result, "matches", { value: true });
+      }
+      return result;
+    };
   });
   await page.reload();
   await guideButton.click();
