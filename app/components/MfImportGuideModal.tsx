@@ -109,7 +109,7 @@ export default function MfImportGuideModal({
           ) : (
             <Check className="size-4" aria-hidden="true" />
           )}
-          {isSharing ? "共有先を選択中" : "MoneyForward MEで保存した"}
+          {isSharing ? "共有シートを表示中" : "MoneyForward MEで保存した"}
         </button>
       </div>
     </Modal>

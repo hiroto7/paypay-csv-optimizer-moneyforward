@@ -88,7 +88,7 @@ export default function CsvShareGuide() {
       {isOpen && (
         <Modal
           title="CSVを共有して読み込む"
-          description="ファイル選択に加えて、共有メニューからもCSVを読み込めます"
+          description="ファイル選択に加えて、共有シートからもCSVを読み込めます"
           onClose={close}
         >
           <div className="min-h-0 overflow-y-auto">
@@ -141,7 +141,7 @@ export default function CsvShareGuide() {
 
               <p>
                 対応する端末・ブラウザでは、PP2MFをインストールすると、PayPayの取引履歴やMoneyForward
-                MEの入出金履歴を共有メニューからPP2MFへ直接渡せます。
+                MEの入出金履歴を共有シートからPP2MFへ直接渡せます。
               </p>
 
               <ol className="divide-y divide-zinc-200 border-y border-zinc-200">
@@ -150,7 +150,7 @@ export default function CsvShareGuide() {
                     ? "PP2MFはインストール済みです"
                     : "PP2MFをインストールする",
                   "読み込みたいCSVファイルで「共有」を選ぶ",
-                  "共有先からPP2MFを選ぶ",
+                  "共有シートでPP2MFを選ぶ",
                 ].map((instruction, index) => (
                   <li
                     key={instruction}
@@ -199,7 +199,7 @@ export default function CsvShareGuide() {
               )}
 
               <p className="text-xs leading-5 text-zinc-500">
-                共有先として利用できるかどうかは、端末・OS・ブラウザによって異なります。
+                PP2MFが共有先に表示されるかどうかは、端末・OS・ブラウザによって異なります。
               </p>
             </div>
           </div>
