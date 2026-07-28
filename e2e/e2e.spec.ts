@@ -130,6 +130,11 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await expect(dialog).toBeVisible();
   await expect(
     dialog.getByText(
+      "ファイル選択に加えて、共有メニューからもCSVを読み込めます",
+    ),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText(
       "共有先として利用できるかどうかは、端末・OS・ブラウザによって異なります。",
     ),
   ).toBeVisible();
@@ -193,11 +198,7 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
     window.dispatchEvent(new Event("appinstalled"));
   });
   await guideButton.click();
-  await expect(
-    page.getByText(
-      "PP2MFをインストール済みです。CSVファイルの共有先からPP2MFを選んでください。",
-    ),
-  ).toBeVisible();
+  await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "PP2MFをインストール" }),
   ).toHaveCount(0);
