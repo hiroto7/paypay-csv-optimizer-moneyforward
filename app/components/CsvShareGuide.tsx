@@ -1,4 +1,4 @@
-import { CheckCircle2, Download, Share2 } from "lucide-react";
+import { ArrowRight, Check, Download, FileText, Share2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import Modal from "~/components/Modal";
 
@@ -63,8 +63,8 @@ export default function CsvShareGuide() {
       setInstallPromptEvent(null);
       if (choice.outcome === "accepted") {
         setIsInstalled(true);
+        close();
       }
-      close();
     } catch (error) {
       console.error("Failed to show install prompt:", error);
       setInstallPromptEvent(null);
@@ -93,6 +93,52 @@ export default function CsvShareGuide() {
         >
           <div className="min-h-0 overflow-y-auto">
             <div className="space-y-4 px-5 py-5 text-sm leading-6 text-zinc-600">
+              <figure
+                className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 border border-zinc-200 bg-zinc-50 px-3 py-4"
+                aria-label="CSVファイルを共有してPP2MFへ渡す流れ"
+              >
+                <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                  <span className="flex size-11 items-center justify-center bg-white shadow-sm ring-1 ring-zinc-200">
+                    <FileText
+                      className="size-6 text-zinc-600"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <span className="text-xs font-semibold leading-4 text-zinc-700">
+                    CSVファイル
+                  </span>
+                </div>
+                <ArrowRight
+                  className="size-4 shrink-0 text-zinc-400"
+                  aria-hidden="true"
+                />
+                <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                  <span className="flex size-11 items-center justify-center bg-white shadow-sm ring-1 ring-zinc-200">
+                    <Share2
+                      className="size-6 text-zinc-600"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <span className="text-xs font-semibold leading-4 text-zinc-700">
+                    共有
+                  </span>
+                </div>
+                <ArrowRight
+                  className="size-4 shrink-0 text-zinc-400"
+                  aria-hidden="true"
+                />
+                <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                  <img
+                    src="/pwa-icon.svg"
+                    alt=""
+                    className="size-11 shadow-sm"
+                  />
+                  <span className="text-xs font-semibold leading-4 text-zinc-700">
+                    PP2MF
+                  </span>
+                </div>
+              </figure>
+
               <p>
                 対応する端末・ブラウザでは、PP2MFをインストールすると、PayPayの取引履歴やMoneyForward
                 MEの入出金履歴を共有メニューからPP2MFへ直接渡せます。
@@ -118,7 +164,7 @@ export default function CsvShareGuide() {
                       }`}
                     >
                       {index === 0 && isInstalled ? (
-                        <CheckCircle2 className="size-4" aria-hidden="true" />
+                        <Check className="size-4" aria-hidden="true" />
                       ) : (
                         index + 1
                       )}

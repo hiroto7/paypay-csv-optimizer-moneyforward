@@ -133,6 +133,11 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
       "ファイル選択に加えて、共有メニューからもCSVを読み込めます",
     ),
   ).toBeVisible();
+  await expect(
+    dialog.getByRole("figure", {
+      name: "CSVファイルを共有してPP2MFへ渡す流れ",
+    }),
+  ).toBeVisible();
   const headerCloseButton = dialog.getByTitle("閉じる");
   const footerCloseButton = dialog
     .getByRole("button", { name: "閉じる" })
@@ -189,7 +194,12 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
 
   await guideButton.click();
   await page.getByRole("button", { name: "PP2MFをインストール" }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "インストールボタンが表示されない場合は、ブラウザのメニューに「アプリをインストール」または「ホーム画面に追加」があるか確認してください。",
+    ),
+  ).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(
@@ -206,7 +216,6 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await page.evaluate(() => {
     window.dispatchEvent(new Event("appinstalled"));
   });
-  await guideButton.click();
   await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "PP2MFをインストール" }),
