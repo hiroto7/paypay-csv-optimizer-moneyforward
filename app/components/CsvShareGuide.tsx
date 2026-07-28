@@ -19,13 +19,14 @@ const isStandalone = (): boolean =>
 
 export default function CsvShareGuide() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isStandaloneMode, setIsStandaloneMode] = useState(false);
+  const [hasInstalledInSession, setHasInstalledInSession] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsInstalled(isStandalone());
+    setIsStandaloneMode(isStandalone());
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -35,7 +36,7 @@ export default function CsvShareGuide() {
     const handleAppInstalled = () => {
       setInstallPromptEvent(null);
       setInstallError(null);
-      setIsInstalled(true);
+      setHasInstalledInSession(true);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -62,7 +63,7 @@ export default function CsvShareGuide() {
       const choice = await installPromptEvent.userChoice;
       setInstallPromptEvent(null);
       if (choice.outcome === "accepted") {
-        setIsInstalled(true);
+        setHasInstalledInSession(true);
         close();
       }
     } catch (error) {
@@ -140,13 +141,13 @@ export default function CsvShareGuide() {
               </figure>
 
               <p>
-                対応する端末・ブラウザでは、PP2MFをインストールすると、PayPayの取引履歴やMoneyForward
-                MEの入出金履歴を共有シートからPP2MFへ直接渡せます。
+                PP2MFをインストールすると、PayPayやMoneyForward
+                MEから書き出したCSVを、ファイル選択画面で探し直さずに読み込めます。CSVの「共有」からPP2MFを選ぶだけです。
               </p>
 
               <ol className="divide-y divide-zinc-200 border-y border-zinc-200">
                 {[
-                  isInstalled
+                  isStandaloneMode
                     ? "PP2MFはインストール済みです"
                     : "PP2MFをインストールする",
                   "読み込みたいCSVファイルで「共有」を選ぶ",
@@ -158,12 +159,12 @@ export default function CsvShareGuide() {
                   >
                     <span
                       className={`flex size-7 items-center justify-center text-xs font-bold ${
-                        index === 0 && isInstalled
+                        index === 0 && isStandaloneMode
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-zinc-100 text-zinc-700"
                       }`}
                     >
-                      {index === 0 && isInstalled ? (
+                      {index === 0 && isStandaloneMode ? (
                         <Check className="size-4" aria-hidden="true" />
                       ) : (
                         index + 1
@@ -174,7 +175,9 @@ export default function CsvShareGuide() {
                 ))}
               </ol>
 
-              {!isInstalled && installPromptEvent ? (
+              {!isStandaloneMode &&
+              !hasInstalledInSession &&
+              installPromptEvent ? (
                 <button
                   type="button"
                   onClick={() => void install()}
@@ -183,7 +186,7 @@ export default function CsvShareGuide() {
                   <Download className="size-4" aria-hidden="true" />
                   PP2MFをインストール
                 </button>
-              ) : !isInstalled ? (
+              ) : !isStandaloneMode && !hasInstalledInSession ? (
                 <p className="border-l-2 border-zinc-300 pl-3 text-xs leading-5 text-zinc-600">
                   インストールボタンが表示されない場合は、ブラウザのメニューに「アプリをインストール」または「ホーム画面に追加」があるか確認してください。
                 </p>
@@ -199,7 +202,7 @@ export default function CsvShareGuide() {
               )}
 
               <p className="text-xs leading-5 text-zinc-500">
-                PP2MFが共有先に表示されるかどうかは、端末・OS・ブラウザによって異なります。
+                端末・OS・ブラウザによっては、PP2MFが共有先に表示されない場合があります。
               </p>
             </div>
           </div>

@@ -147,7 +147,12 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await expect(headerCloseButton).toBeFocused();
   await expect(
     dialog.getByText(
-      "PP2MFが共有先に表示されるかどうかは、端末・OS・ブラウザによって異なります。",
+      "PP2MFをインストールすると、PayPayやMoneyForward MEから書き出したCSVを、ファイル選択画面で探し直さずに読み込めます。CSVの「共有」からPP2MFを選ぶだけです。",
+    ),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "端末・OS・ブラウザによっては、PP2MFが共有先に表示されない場合があります。",
     ),
   ).toBeVisible();
   await expect(
@@ -214,13 +219,23 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await page.evaluate(() => {
     window.dispatchEvent(new Event("appinstalled"));
   });
-  await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
+  await expect(page.getByText("PP2MFはインストール済みです")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "PP2MFをインストール" }),
   ).toHaveCount(0);
   await dialog.getByTitle("閉じる").click();
   await expect(dialog).toHaveCount(0);
   await expect(guideButton).toBeFocused();
+
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "standalone", {
+      configurable: true,
+      value: true,
+    });
+  });
+  await page.reload();
+  await guideButton.click();
+  await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
 });
 
 test("作成結果と保存確認モーダルを表示できる", async ({ page }) => {
