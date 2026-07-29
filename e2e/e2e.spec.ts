@@ -285,6 +285,19 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
 });
 
 test("スマホだけでPWAインストールイベントを診断できる", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "getInstalledRelatedApps", {
+      configurable: true,
+      value: async () =>
+        (
+          window as typeof window & {
+            debugInstalledRelatedApp?: boolean;
+          }
+        ).debugInstalledRelatedApp
+          ? [{ platform: "webapp", id: "/", url: "/manifest.webmanifest" }]
+          : [],
+    });
+  });
   await page.goto("/?debug-pwa-install=1");
   await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
 
@@ -296,6 +309,9 @@ test("スマホだけでPWAインストールイベントを診断できる", as
     dialog.getByText("PWAインストール診断ログ", { exact: false }),
   ).toBeVisible();
   await expect(debugLog).toContainText("listeners-mounted");
+  await expect(debugLog).toContainText(
+    'installed-related-apps-changed standalone=false visibility=visible {"attempt":0,"apps":[]}',
+  );
 
   await dispatchInstallPrompt(page);
   await expect(debugLog).toContainText("beforeinstallprompt");
@@ -304,6 +320,16 @@ test("スマホだけでPWAインストールイベントを診断できる", as
   await resolveInstallChoice(page, "dismissed");
   await expect(debugLog).toContainText(
     'user-choice standalone=false visibility=visible {"outcome":"dismissed","platform":"web"}',
+  );
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        debugInstalledRelatedApp?: boolean;
+      }
+    ).debugInstalledRelatedApp = true;
+  });
+  await expect(debugLog).toContainText(
+    '"apps":[{"platform":"webapp","id":"/","url":"/manifest.webmanifest"}]',
   );
 
   await page.reload();

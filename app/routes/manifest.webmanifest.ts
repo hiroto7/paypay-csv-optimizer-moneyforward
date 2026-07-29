@@ -14,6 +14,12 @@ export function loader() {
     start_url: "/",
     scope: "/",
     display: "standalone",
+    related_applications: [
+      {
+        platform: "webapp",
+        url: "/manifest.webmanifest",
+      },
+    ],
     background_color: "#f4f4f5",
     theme_color: "#dc2626",
     categories: ["finance", "productivity", "utilities"],

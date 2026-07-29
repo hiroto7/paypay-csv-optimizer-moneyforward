@@ -71,3 +71,59 @@ export const clearPwaInstallDebugEntries = () => {
   window.sessionStorage.removeItem(STORAGE_KEY);
   window.dispatchEvent(new Event(UPDATE_EVENT));
 };
+
+type InstalledRelatedApp = {
+  platform: string;
+  id?: string;
+  url?: string;
+};
+
+export const startPwaInstallStatusPolling = () => {
+  if (!isPwaInstallDebugEnabled()) return () => undefined;
+
+  const getInstalledRelatedApps = (
+    navigator as Navigator & {
+      getInstalledRelatedApps?: () => Promise<InstalledRelatedApp[]>;
+    }
+  ).getInstalledRelatedApps;
+  if (!getInstalledRelatedApps) {
+    recordPwaInstallDebug("installed-related-apps-unavailable");
+    return () => undefined;
+  }
+
+  let cancelled = false;
+  let attempt = 0;
+  let previousResult: string | undefined;
+
+  const poll = async () => {
+    try {
+      const apps = await getInstalledRelatedApps.call(navigator);
+      const result = JSON.stringify(apps);
+      if (result !== previousResult) {
+        previousResult = result;
+        recordPwaInstallDebug("installed-related-apps-changed", undefined, {
+          attempt,
+          apps,
+        });
+      }
+      if (apps.length > 0) return;
+    } catch (error) {
+      recordPwaInstallDebug("installed-related-apps-error", undefined, {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    attempt += 1;
+    if (!cancelled && attempt < 120) {
+      window.setTimeout(() => void poll(), 500);
+    } else if (!cancelled) {
+      recordPwaInstallDebug("installed-related-apps-timeout");
+    }
+  };
+
+  void poll();
+  return () => {
+    cancelled = true;
+  };
+};

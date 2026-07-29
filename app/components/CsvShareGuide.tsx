@@ -12,6 +12,7 @@ import PwaInstallDebugPanel from "~/components/PwaInstallDebugPanel";
 import {
   isPwaInstallDebugEnabled,
   recordPwaInstallDebug,
+  startPwaInstallStatusPolling,
 } from "~/utils/pwa-install-debug";
 
 type InstallChoice = {
@@ -45,6 +46,7 @@ export default function CsvShareGuide() {
     recordPwaInstallDebug("listeners-mounted", undefined, {
       navigationType: navigation?.type ?? "unknown",
     });
+    const stopInstallStatusPolling = startPwaInstallStatusPolling();
 
     const handleBeforeInstallPrompt = (event: Event) => {
       recordPwaInstallDebug("beforeinstallprompt", event);
@@ -80,6 +82,7 @@ export default function CsvShareGuide() {
       window.removeEventListener("appinstalled", handleAppInstalled);
       window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stopInstallStatusPolling();
     };
   }, []);
 
