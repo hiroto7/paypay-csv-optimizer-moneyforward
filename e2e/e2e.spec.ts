@@ -284,6 +284,36 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
 });
 
+test("スマホだけでPWAインストールイベントを診断できる", async ({ page }) => {
+  await page.goto("/?debug-pwa-install=1");
+  await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
+
+  const dialog = page.getByRole("dialog", {
+    name: "CSVを共有して読み込む",
+  });
+  const debugLog = dialog.locator("pre");
+  await expect(
+    dialog.getByText("PWAインストール診断ログ", { exact: false }),
+  ).toBeVisible();
+  await expect(debugLog).toContainText("listeners-mounted");
+
+  await dispatchInstallPrompt(page);
+  await expect(debugLog).toContainText("beforeinstallprompt");
+  await dialog.getByRole("button", { name: "インストールする" }).click();
+  await expect(debugLog).toContainText("install-button-click");
+  await resolveInstallChoice(page, "dismissed");
+  await expect(debugLog).toContainText(
+    'user-choice standalone=false visibility=visible {"outcome":"dismissed","platform":"web"}',
+  );
+
+  await page.reload();
+  await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
+  await expect(dialog.locator("pre")).toContainText("pagehide");
+  await expect(dialog.locator("pre")).toContainText(
+    '"navigationType":"reload"',
+  );
+});
+
 test("作成結果と保存確認モーダルを表示できる", async ({ page }) => {
   await selectPayPayCsv(page);
 

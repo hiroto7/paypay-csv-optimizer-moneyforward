@@ -8,6 +8,11 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import Modal from "~/components/Modal";
+import PwaInstallDebugPanel from "~/components/PwaInstallDebugPanel";
+import {
+  isPwaInstallDebugEnabled,
+  recordPwaInstallDebug,
+} from "~/utils/pwa-install-debug";
 
 type InstallChoice = {
   outcome: "accepted" | "dismissed";
@@ -34,27 +39,47 @@ export default function CsvShareGuide() {
 
   useEffect(() => {
     setIsStandaloneMode(isStandalone());
+    const navigation = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    recordPwaInstallDebug("listeners-mounted", undefined, {
+      navigationType: navigation?.type ?? "unknown",
+    });
 
     const handleBeforeInstallPrompt = (event: Event) => {
+      recordPwaInstallDebug("beforeinstallprompt", event);
       event.preventDefault();
       setInstallPromptEvent(event as BeforeInstallPromptEvent);
       setInstallError(null);
     };
-    const handleAppInstalled = () => {
+    const handleAppInstalled = (event: Event) => {
+      recordPwaInstallDebug("appinstalled", event);
       setInstallPromptEvent(null);
       setInstallError(null);
       setIsInstalling(false);
       setHasInstalledInSession(true);
     };
+    const handlePageHide = (event: PageTransitionEvent) => {
+      recordPwaInstallDebug("pagehide", event, {
+        persisted: event.persisted,
+      });
+    };
+    const handleVisibilityChange = (event: Event) => {
+      recordPwaInstallDebug("visibilitychange", event);
+    };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener(
         "beforeinstallprompt",
         handleBeforeInstallPrompt,
       );
       window.removeEventListener("appinstalled", handleAppInstalled);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -68,16 +93,25 @@ export default function CsvShareGuide() {
     if (!installPromptEvent) return;
 
     try {
+      recordPwaInstallDebug("install-button-click");
       setIsInstalling(true);
       setInstallError(null);
       await installPromptEvent.prompt();
+      recordPwaInstallDebug("prompt-returned");
       const choice = await installPromptEvent.userChoice;
+      recordPwaInstallDebug("user-choice", undefined, {
+        outcome: choice.outcome,
+        platform: choice.platform,
+      });
       setInstallPromptEvent(null);
       if (choice.outcome === "dismissed") {
         setIsInstalling(false);
       }
     } catch (error) {
       console.error("Failed to show install prompt:", error);
+      recordPwaInstallDebug("install-error", undefined, {
+        message: error instanceof Error ? error.message : String(error),
+      });
       setInstallPromptEvent(null);
       setIsInstalling(false);
       setInstallError(
@@ -233,6 +267,8 @@ export default function CsvShareGuide() {
               <p className="text-xs leading-5 text-zinc-500">
                 端末・OS・ブラウザによっては、PP2MFが共有先に表示されない場合があります。
               </p>
+
+              {isPwaInstallDebugEnabled() && <PwaInstallDebugPanel />}
             </div>
           </div>
 
