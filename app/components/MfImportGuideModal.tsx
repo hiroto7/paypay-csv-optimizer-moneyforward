@@ -92,7 +92,7 @@ export default function MfImportGuideModal({
           onClick={onClose}
           className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
         >
-          後で確認
+          閉じる
         </button>
         <button
           type="button"

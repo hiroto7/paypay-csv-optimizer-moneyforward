@@ -374,6 +374,9 @@ test("作成結果と保存確認モーダルを表示できる", async ({ page 
   await expect(
     page.getByRole("button", { name: "MoneyForward MEで保存した" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "閉じる" }).last(),
+  ).toBeVisible();
   await expect(page).toHaveScreenshot("import-guide-modal.png", {
     fullPage: true,
   });

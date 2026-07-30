@@ -19,20 +19,10 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<InstallChoice>;
 };
 
-type InstalledRelatedApp = {
-  platform: string;
-  url?: string;
-};
-
 const isPp2mfInstalled = async (): Promise<boolean> => {
-  const getInstalledRelatedApps = (
-    navigator as Navigator & {
-      getInstalledRelatedApps?: () => Promise<InstalledRelatedApp[]>;
-    }
-  ).getInstalledRelatedApps;
-  if (!getInstalledRelatedApps) return false;
+  const installedApps = await navigator.getInstalledRelatedApps?.();
+  if (!installedApps) return false;
 
-  const installedApps = await getInstalledRelatedApps.call(navigator);
   const manifestUrl = new URL("/manifest.webmanifest", window.location.href);
 
   return installedApps.some((app) => {
