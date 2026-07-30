@@ -223,6 +223,12 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await dispatchInstallPrompt(page, true);
 
   await guideButton.click();
+  await expect(
+    dialog.getByRole("button", { name: "インストールする" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("csv-share-guide-modal-installable.png", {
+    fullPage: true,
+  });
   await dialog.getByRole("button", { name: "インストールする" }).click();
   await expect(dialog).toBeVisible();
   await expect(

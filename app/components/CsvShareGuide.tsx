@@ -215,7 +215,7 @@ export default function CsvShareGuide() {
                       )}
                     </span>
                     <div className="min-w-0 pt-0.5">
-                      <span className="text-zinc-700">{instruction}</span>
+                      <span className="block text-zinc-700">{instruction}</span>
 
                       {index === 0 &&
                       !isInstalled &&
