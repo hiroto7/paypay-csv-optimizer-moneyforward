@@ -59,6 +59,17 @@ export default function CsvShareGuide() {
   const [installError, setInstallError] = useState<string | null>(null);
   const isInstalled = isStandaloneMode || hasInstalledInSession;
 
+  const updateInstalledState = useCallback(async () => {
+    try {
+      if (await isPp2mfInstalled()) {
+        setIsInstalling(false);
+        setHasInstalledInSession(true);
+      }
+    } catch (error) {
+      console.error("Failed to check installed related apps:", error);
+    }
+  }, []);
+
   useEffect(() => {
     setIsStandaloneMode(isStandalone());
 
@@ -67,20 +78,13 @@ export default function CsvShareGuide() {
       setInstallPromptEvent(event as BeforeInstallPromptEvent);
       setInstallError(null);
     };
-    const handleAppInstalled = async () => {
+    const handleAppInstalled = () => {
       setInstallPromptEvent(null);
       setInstallError(null);
 
-      try {
-        // Android Chromeの実機調査では、承認直後と実インストール後の両方で
-        // appinstalledが発火したため、イベントごとに実際の登録状態を確認する。
-        if (await isPp2mfInstalled()) {
-          setIsInstalling(false);
-          setHasInstalledInSession(true);
-        }
-      } catch (error) {
-        console.error("Failed to check installed related apps:", error);
-      }
+      // Android Chromeの実機調査では、承認直後と実インストール後の両方で
+      // appinstalledが発火したため、イベントごとに実際の登録状態を確認する。
+      void updateInstalledState();
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -92,7 +96,12 @@ export default function CsvShareGuide() {
       );
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, []);
+  }, [updateInstalledState]);
+
+  const open = useCallback(() => {
+    setIsOpen(true);
+    void updateInstalledState();
+  }, [updateInstalledState]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -126,7 +135,7 @@ export default function CsvShareGuide() {
     <>
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={open}
         className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
       >
         <Share2 className="size-3.5" aria-hidden="true" />

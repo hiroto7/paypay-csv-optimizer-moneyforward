@@ -303,6 +303,23 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await expect(guideButton).toBeFocused();
 
   await page.addInitScript(() => {
+    Object.defineProperty(navigator, "getInstalledRelatedApps", {
+      configurable: true,
+      value: async () => [
+        {
+          platform: "webapp",
+          url: `${window.location.origin}/manifest.webmanifest`,
+        },
+      ],
+    });
+  });
+  await page.reload();
+  await guideButton.click();
+  await expect(dialog.getByText("PP2MFはインストール済みです")).toBeVisible();
+});
+
+test("standaloneで開いた場合はインストール済みと表示する", async ({ page }) => {
+  await page.addInitScript(() => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = (query) => {
       const result = originalMatchMedia.call(window, query);
@@ -313,7 +330,7 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
     };
   });
   await page.reload();
-  await guideButton.click();
+  await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
   await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
 });
 
