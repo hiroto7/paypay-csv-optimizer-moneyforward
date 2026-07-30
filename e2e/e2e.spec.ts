@@ -259,6 +259,39 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   ).toBeDisabled();
 
   await page.evaluate(() => {
+    Object.defineProperty(navigator, "getInstalledRelatedApps", {
+      configurable: true,
+      value: async () =>
+        (
+          window as typeof window & {
+            isTestPwaInstalled?: boolean;
+          }
+        ).isTestPwaInstalled
+          ? [
+              {
+                platform: "webapp",
+                url: `${window.location.origin}/manifest.webmanifest`,
+              },
+            ]
+          : [],
+    });
+  });
+
+  // Android Chromeで観察した承認直後のappinstalledでは、まだ完了扱いにしない。
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("appinstalled"));
+  });
+  await expect(
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
+
+  // 実インストール後のappinstalledで登録を確認できたら完了表示にする。
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        isTestPwaInstalled?: boolean;
+      }
+    ).isTestPwaInstalled = true;
     window.dispatchEvent(new Event("appinstalled"));
   });
   await expect(dialog.getByText("PP2MFはインストール済みです")).toBeVisible();
@@ -282,62 +315,6 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await page.reload();
   await guideButton.click();
   await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
-});
-
-test("スマホだけでPWAインストールイベントを診断できる", async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "getInstalledRelatedApps", {
-      configurable: true,
-      value: async () =>
-        (
-          window as typeof window & {
-            debugInstalledRelatedApp?: boolean;
-          }
-        ).debugInstalledRelatedApp
-          ? [{ platform: "webapp", id: "/", url: "/manifest.webmanifest" }]
-          : [],
-    });
-  });
-  await page.goto("/?debug-pwa-install=1");
-  await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
-
-  const dialog = page.getByRole("dialog", {
-    name: "CSVを共有して読み込む",
-  });
-  const debugLog = dialog.locator("pre");
-  await expect(
-    dialog.getByText("PWAインストール診断ログ", { exact: false }),
-  ).toBeVisible();
-  await expect(debugLog).toContainText("listeners-mounted");
-  await expect(debugLog).toContainText(
-    'installed-related-apps-changed standalone=false visibility=visible {"attempt":0,"apps":[]}',
-  );
-
-  await dispatchInstallPrompt(page);
-  await expect(debugLog).toContainText("beforeinstallprompt");
-  await dialog.getByRole("button", { name: "インストールする" }).click();
-  await expect(debugLog).toContainText("install-button-click");
-  await resolveInstallChoice(page, "dismissed");
-  await expect(debugLog).toContainText(
-    'user-choice standalone=false visibility=visible {"outcome":"dismissed","platform":"web"}',
-  );
-  await page.evaluate(() => {
-    (
-      window as typeof window & {
-        debugInstalledRelatedApp?: boolean;
-      }
-    ).debugInstalledRelatedApp = true;
-  });
-  await expect(debugLog).toContainText(
-    '"apps":[{"platform":"webapp","id":"/","url":"/manifest.webmanifest"}]',
-  );
-
-  await page.reload();
-  await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
-  await expect(dialog.locator("pre")).toContainText("pagehide");
-  await expect(dialog.locator("pre")).toContainText(
-    '"navigationType":"reload"',
-  );
 });
 
 test("作成結果と保存確認モーダルを表示できる", async ({ page }) => {

@@ -14,15 +14,15 @@ export function loader() {
     start_url: "/",
     scope: "/",
     display: "standalone",
+    background_color: "#f4f4f5",
+    theme_color: "#dc2626",
+    categories: ["finance", "productivity", "utilities"],
     related_applications: [
       {
         platform: "webapp",
         url: "/manifest.webmanifest",
       },
     ],
-    background_color: "#f4f4f5",
-    theme_color: "#dc2626",
-    categories: ["finance", "productivity", "utilities"],
     share_target: {
       action: "/share-target",
       method: "POST",
