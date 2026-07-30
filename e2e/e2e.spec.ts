@@ -318,22 +318,6 @@ test("CSVを共有して読み込む方法とインストール案内を確認�
   await expect(dialog.getByText("PP2MFはインストール済みです")).toBeVisible();
 });
 
-test("standaloneで開いた場合はインストール済みと表示する", async ({ page }) => {
-  await page.addInitScript(() => {
-    const originalMatchMedia = window.matchMedia;
-    window.matchMedia = (query) => {
-      const result = originalMatchMedia.call(window, query);
-      if (query === "(display-mode: standalone)") {
-        Object.defineProperty(result, "matches", { value: true });
-      }
-      return result;
-    };
-  });
-  await page.reload();
-  await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
-  await expect(page.getByText("PP2MFはインストール済みです")).toBeVisible();
-});
-
 test("作成結果と保存確認モーダルを表示できる", async ({ page }) => {
   await selectPayPayCsv(page);
 

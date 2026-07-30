@@ -24,9 +24,6 @@ type InstalledRelatedApp = {
   url?: string;
 };
 
-const isStandalone = (): boolean =>
-  window.matchMedia("(display-mode: standalone)").matches;
-
 const isPp2mfInstalled = async (): Promise<boolean> => {
   const getInstalledRelatedApps = (
     navigator as Navigator & {
@@ -51,13 +48,12 @@ const isPp2mfInstalled = async (): Promise<boolean> => {
 
 export default function CsvShareGuide() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isStandaloneMode, setIsStandaloneMode] = useState(false);
   const [hasInstalledInSession, setHasInstalledInSession] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
-  const isInstalled = isStandaloneMode || hasInstalledInSession;
+  const isInstalled = hasInstalledInSession;
 
   const updateInstalledState = useCallback(async () => {
     try {
@@ -71,8 +67,6 @@ export default function CsvShareGuide() {
   }, []);
 
   useEffect(() => {
-    setIsStandaloneMode(isStandalone());
-
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setInstallPromptEvent(event as BeforeInstallPromptEvent);
