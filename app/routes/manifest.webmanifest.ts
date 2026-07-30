@@ -21,6 +21,7 @@ export function loader() {
       {
         platform: "webapp",
         url: "/manifest.webmanifest",
+        id: "/",
       },
     ],
     share_target: {
