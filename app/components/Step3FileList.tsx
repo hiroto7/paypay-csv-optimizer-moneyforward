@@ -152,7 +152,7 @@ function FileGroupList({
                     {chunk.imported
                       ? "取り込みました"
                       : sharingFilename === filename
-                        ? "共有先を選択中"
+                        ? "共有シートを表示中"
                         : "取り込む"}
                   </button>
                 </div>

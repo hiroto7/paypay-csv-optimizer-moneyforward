@@ -2,6 +2,7 @@ import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import AuditPanel from "~/components/AuditPanel";
+import CsvShareGuide from "~/components/CsvShareGuide";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
 import Step2MfmeFilter from "~/components/Step2MfmeFilter";
@@ -234,6 +235,9 @@ export default function Home() {
                   onFilesCleared={clearMfmeFiles}
                   localImportedStats={recordStats}
                 />
+              </div>
+              <div className="border-t border-zinc-200 pt-4">
+                <CsvShareGuide />
               </div>
             </div>
           </aside>

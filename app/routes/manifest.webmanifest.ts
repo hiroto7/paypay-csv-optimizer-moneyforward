@@ -4,7 +4,8 @@ const isPreviewDeployment =
   process.env["APP_ENV"] === "preview" ||
   process.env["VERCEL_ENV"] === "preview";
 
-export function loader() {
+export function loader({ request }: { request: Request }) {
+  const origin = new URL(request.url).origin;
   const manifest: WebAppManifest = {
     id: "/",
     name: `${isPreviewDeployment ? "[PREVIEW] " : ""}PP2MF - PayPay CSV Optimizer for MoneyForward ME`,
@@ -17,6 +18,13 @@ export function loader() {
     background_color: "#f4f4f5",
     theme_color: "#dc2626",
     categories: ["finance", "productivity", "utilities"],
+    related_applications: [
+      {
+        platform: "webapp",
+        url: "/manifest.webmanifest",
+        id: `${origin}/`,
+      },
+    ],
     share_target: {
       action: "/share-target",
       method: "POST",

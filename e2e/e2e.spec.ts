@@ -100,6 +100,51 @@ const shareCsvThroughTarget = async (
   await page.waitForURL((url) => !url.searchParams.has("shared-files"));
 };
 
+const dispatchInstallPrompt = async (page: Page, trackPrompt = false) => {
+  await page.evaluate((shouldTrackPrompt) => {
+    let resolveInstallChoice:
+      | ((choice: {
+          outcome: "accepted" | "dismissed";
+          platform: string;
+        }) => void)
+      | undefined;
+    const userChoice = new Promise<{
+      outcome: "accepted" | "dismissed";
+      platform: string;
+    }>((resolve) => {
+      resolveInstallChoice = resolve;
+    });
+    const testWindow = window as typeof window & {
+      installPromptCalled?: boolean;
+      resolveInstallChoice?: (outcome: "accepted" | "dismissed") => void;
+    };
+    testWindow.resolveInstallChoice = (outcome) =>
+      resolveInstallChoice?.({ outcome, platform: "web" });
+
+    window.dispatchEvent(
+      Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+        prompt: async () => {
+          if (shouldTrackPrompt) testWindow.installPromptCalled = true;
+        },
+        userChoice,
+      }),
+    );
+  }, trackPrompt);
+};
+
+const resolveInstallChoice = async (
+  page: Page,
+  outcome: "accepted" | "dismissed",
+) => {
+  await page.evaluate((selectedOutcome) => {
+    (
+      window as typeof window & {
+        resolveInstallChoice?: (outcome: "accepted" | "dismissed") => void;
+      }
+    ).resolveInstallChoice?.(selectedOutcome);
+  }, outcome);
+};
+
 test.beforeEach(async ({ page }) => {
   await openCleanPage(page);
 });
@@ -113,6 +158,170 @@ test("初期画面をデスクトップとモバイルで表示できる", async
   await expect(page).toHaveScreenshot("initial-mobile.png", {
     fullPage: true,
   });
+});
+
+test("CSVを共有して読み込む方法とインストール案内を確認できる", async ({
+  page,
+}) => {
+  const guideButton = page.getByRole("button", {
+    name: "CSVを共有して読み込む方法",
+  });
+  await expect(guideButton).toBeVisible();
+
+  await guideButton.click();
+  const dialog = page.getByRole("dialog", {
+    name: "CSVを共有して読み込む",
+  });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "PayPayやMoneyForward MEからダウンロードしたCSVを、保存先から探し直さずに読み込めます",
+    ),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("figure", {
+      name: "ダウンロードしたCSVをPP2MFで読み込む流れ",
+    }),
+  ).toBeVisible();
+  const headerCloseButton = dialog.getByTitle("閉じる");
+  const footerCloseButton = dialog
+    .getByRole("button", { name: "閉じる" })
+    .last();
+  await expect(headerCloseButton).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(footerCloseButton).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(headerCloseButton).toBeFocused();
+  await expect(
+    dialog.getByText("PayPayまたはMoneyForward MEからCSVをダウンロードする"),
+  ).toBeVisible();
+  await expect(dialog.getByText("共有シートでPP2MFを選ぶ")).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "端末・OS・ブラウザによっては、PP2MFが共有先に表示されない場合があります。",
+    ),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。",
+    ),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("csv-share-guide-modal.png", {
+    fullPage: true,
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveScreenshot("csv-share-guide-modal-mobile.png", {
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(guideButton).toBeFocused();
+
+  await dispatchInstallPrompt(page, true);
+
+  await guideButton.click();
+  await expect(
+    dialog.getByRole("button", { name: "インストールする" }),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("csv-share-guide-modal-installable.png", {
+    fullPage: true,
+  });
+  await dialog.getByRole("button", { name: "インストールする" }).click();
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              installPromptCalled?: boolean;
+            }
+          ).installPromptCalled,
+      ),
+    )
+    .toBe(true);
+
+  await resolveInstallChoice(page, "dismissed");
+  await expect(
+    dialog.getByText(
+      "ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。",
+    ),
+  ).toBeVisible();
+
+  await dispatchInstallPrompt(page);
+  await dialog.getByRole("button", { name: "インストールする" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
+  await resolveInstallChoice(page, "accepted");
+  await expect(
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "getInstalledRelatedApps", {
+      configurable: true,
+      value: async () =>
+        (
+          window as typeof window & {
+            isTestPwaInstalled?: boolean;
+          }
+        ).isTestPwaInstalled
+          ? [
+              {
+                platform: "webapp",
+                url: `${window.location.origin}/manifest.webmanifest`,
+              },
+            ]
+          : [],
+    });
+  });
+
+  // Android Chromeで観察した承認直後のappinstalledでは、まだ完了扱いにしない。
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("appinstalled"));
+  });
+  await expect(
+    dialog.getByRole("button", { name: "インストール中" }),
+  ).toBeDisabled();
+
+  // 実インストール後のappinstalledで登録を確認できたら完了表示にする。
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        isTestPwaInstalled?: boolean;
+      }
+    ).isTestPwaInstalled = true;
+    window.dispatchEvent(new Event("appinstalled"));
+  });
+  await expect(dialog.getByText("PP2MFはインストール済みです")).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "インストールする" }),
+  ).toHaveCount(0);
+  await dialog.getByTitle("閉じる").click();
+  await expect(dialog).toHaveCount(0);
+  await expect(guideButton).toBeFocused();
+
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "getInstalledRelatedApps", {
+      configurable: true,
+      value: async () => [
+        {
+          platform: "webapp",
+          url: `${window.location.origin}/manifest.webmanifest`,
+        },
+      ],
+    });
+  });
+  await page.reload();
+  await guideButton.click();
+  await expect(dialog.getByText("PP2MFはインストール済みです")).toBeVisible();
 });
 
 test("作成結果と保存確認モーダルを表示できる", async ({ page }) => {
@@ -170,6 +379,12 @@ test("作成結果と保存確認モーダルを表示できる", async ({ page 
   });
   await expect(
     page.getByRole("button", { name: "MoneyForward MEで保存した" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog", { name: "MoneyForward MEに取り込む" })
+      .getByRole("button", { name: "閉じる" })
+      .last(),
   ).toBeVisible();
   await expect(page).toHaveScreenshot("import-guide-modal.png", {
     fullPage: true,
