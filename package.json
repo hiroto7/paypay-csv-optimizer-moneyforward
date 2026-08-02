@@ -22,13 +22,13 @@
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",
     "isbot": "^5.2.1",
-    "lucide-react": "^1.27.0",
+    "lucide-react": "^1.28.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.3.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.5",
+    "@biomejs/biome": "2.5.6",
     "@playwright/test": "1.62.0",
     "@react-router/dev": "^8.3.0",
     "@resvg/resvg-js": "^2.6.2",
