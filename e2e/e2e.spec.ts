@@ -8,6 +8,10 @@ const payPayHeader =
   "取引日,出金金額（円）,入金金額（円）,海外出金金額,通貨,変換レート（円）,利用国,取引内容,取引先,取引方法,支払い区分,利用者,取引番号";
 const mfmeHeader =
   "計算対象,日付,内容,金額（円）,保有金融機関,大項目,中項目,メモ,振替,ID";
+const pageTitle = "PayPayの決済をMoneyForward MEにストレスなく取り込み | PP2MF";
+const pageDescription =
+  "PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。PayPayポイントで支払った分はPayPay残高とは別の口座として登録でき、ポイントと残高を併用した支払いも自動で分けて整理します。明細が多くても、上限に合わせて取り込み用ファイルを自動で分割します。";
+const canonicalUrl = "https://pp2mf.vercel.app/";
 
 const payPayCsv = [
   payPayHeader,
@@ -42,7 +46,7 @@ const openCleanPage = async (page: Page) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: "MoneyForward MEに取り込むファイルを作る",
+      name: "PayPayの決済を、MoneyForward MEにストレスなく取り込み。",
     }),
   ).toBeVisible();
   await page.waitForTimeout(500);
@@ -150,6 +154,42 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("初期画面をデスクトップとモバイルで表示できる", async ({ page }) => {
+  await expect(page).toHaveTitle(pageTitle);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    pageDescription,
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    canonicalUrl,
+  );
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    "content",
+    pageTitle,
+  );
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
+    "content",
+    pageDescription,
+  );
+  await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
+    "content",
+    "website",
+  );
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+    "content",
+    canonicalUrl,
+  );
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    "content",
+    "summary",
+  );
+  await expect(page.getByText(pageDescription)).toBeVisible();
+  await expect(
+    page.getByText(
+      "併用払いのときも明細が多いときも、MoneyForward MEへ取り込みやすいファイルに自動で整理します。",
+    ),
+  ).toBeVisible();
+
   await expect(page).toHaveScreenshot("initial-desktop.png", {
     fullPage: true,
   });

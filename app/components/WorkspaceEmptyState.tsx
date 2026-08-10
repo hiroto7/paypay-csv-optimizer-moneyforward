@@ -18,7 +18,7 @@ export default function WorkspaceEmptyState({
 
   const description = (() => {
     if (!hasPayPay)
-      return "選んだ明細を支払い方法ごとに分け、MoneyForward MEに取り込めるファイルを作ります。";
+      return "併用払いのときも明細が多いときも、MoneyForward MEへ取り込みやすいファイルに自動で整理します。";
     if (conversionIsEmpty) {
       return "すべての取引が、登録済みとして扱う明細に含まれている可能性があります。";
     }
