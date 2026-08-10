@@ -19,6 +19,8 @@ import { shareCsv } from "~/utils/csv-share";
 import type { Route } from "./+types/home";
 
 const pageTitle = "PayPayの決済をMoneyForward MEにストレスなく取り込み | PP2MF";
+const heroDescription =
+  "PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。";
 const pageDescription =
   "PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。PayPayポイントで支払った分はPayPay残高とは別の口座として登録でき、ポイントと残高を併用した支払いも自動で分けて整理します。明細が多くても、上限に合わせて取り込み用ファイルを自動で分割します。";
 const canonicalUrl = "https://pp2mf.vercel.app/";
@@ -219,7 +221,7 @@ export default function Home() {
               PayPayの決済を、MoneyForward MEにストレスなく取り込み。
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-              {pageDescription}
+              {heroDescription}
             </p>
           </div>
         </div>

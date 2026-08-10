@@ -9,6 +9,8 @@ const payPayHeader =
 const mfmeHeader =
   "計算対象,日付,内容,金額（円）,保有金融機関,大項目,中項目,メモ,振替,ID";
 const pageTitle = "PayPayの決済をMoneyForward MEにストレスなく取り込み | PP2MF";
+const heroDescription =
+  "PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。";
 const pageDescription =
   "PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。PayPayポイントで支払った分はPayPay残高とは別の口座として登録でき、ポイントと残高を併用した支払いも自動で分けて整理します。明細が多くても、上限に合わせて取り込み用ファイルを自動で分割します。";
 const canonicalUrl = "https://pp2mf.vercel.app/";
@@ -183,10 +185,20 @@ test("初期画面をデスクトップとモバイルで表示できる", async
     "content",
     "summary",
   );
-  await expect(page.getByText(pageDescription)).toBeVisible();
+  await expect(page.getByText(heroDescription)).toBeVisible();
   await expect(
     page.getByText(
-      "併用払いのときも明細が多いときも、MoneyForward MEへ取り込みやすいファイルに自動で整理します。",
+      "選んだ明細を支払い方法ごとに分け、MoneyForward MEに取り込めるファイルを作ります。",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "PayPay残高とPayPayポイントを併用した支払いは、支払い方法ごとの明細に分けて、それぞれ別の口座へ登録できます。",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "明細が多い場合は、取り込み用ファイルを100件ごとに分割します。",
     ),
   ).toBeVisible();
 

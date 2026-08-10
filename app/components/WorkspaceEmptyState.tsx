@@ -18,7 +18,7 @@ export default function WorkspaceEmptyState({
 
   const description = (() => {
     if (!hasPayPay)
-      return "併用払いのときも明細が多いときも、MoneyForward MEへ取り込みやすいファイルに自動で整理します。";
+      return "選んだ明細を支払い方法ごとに分け、MoneyForward MEに取り込めるファイルを作ります。";
     if (conversionIsEmpty) {
       return "すべての取引が、登録済みとして扱う明細に含まれている可能性があります。";
     }
@@ -34,6 +34,14 @@ export default function WorkspaceEmptyState({
       <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
         {description}
       </p>
+      {!hasPayPay && (
+        <ul className="mt-3 max-w-md list-disc space-y-1 pl-5 text-left text-sm leading-6 text-zinc-600">
+          <li>
+            PayPay残高とPayPayポイントを併用した支払いは、支払い方法ごとの明細に分けて、それぞれ別の口座へ登録できます。
+          </li>
+          <li>明細が多い場合は、取り込み用ファイルを100件ごとに分割します。</li>
+        </ul>
+      )}
     </div>
   );
 }
