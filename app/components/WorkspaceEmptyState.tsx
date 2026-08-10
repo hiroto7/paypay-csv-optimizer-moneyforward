@@ -34,6 +34,14 @@ export default function WorkspaceEmptyState({
       <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
         {description}
       </p>
+      {!hasPayPay && (
+        <ul className="mt-3 max-w-md list-disc space-y-1 pl-5 text-left text-sm leading-6 text-zinc-600">
+          <li>
+            PayPay残高とPayPayポイントを併用した支払いは、支払い方法ごとの明細に分けて、それぞれ別の口座へ登録できます。
+          </li>
+          <li>明細が多い場合は、取り込み用ファイルを100件ごとに分割します。</li>
+        </ul>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 # PayPay CSV Optimizer for MoneyForward ME
 
-PayPayからエクスポートした取引履歴CSVを、MoneyForward MEへインポートするために最適化するWebアプリケーションです。
+PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。PayPayポイントで支払った分はPayPay残高とは別の口座として登録でき、ポイントと残高を併用した支払いも自動で分けて整理します。明細が多くても、上限に合わせて取り込み用ファイルを自動で分割します。
+
+[公開アプリでPP2MFを使う](https://pp2mf.vercel.app/)
 
 ## 概要
 
