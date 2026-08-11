@@ -1,6 +1,7 @@
 import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
+import AppFooter from "~/components/AppFooter";
 import AuditPanel from "~/components/AuditPanel";
 import CsvShareGuide from "~/components/CsvShareGuide";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
@@ -156,7 +157,7 @@ export default function Home() {
   const canShowConversion = Boolean(payPayData && hasOutput);
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900">
+    <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -186,7 +187,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 sm:px-6 sm:py-7">
         {notice && (
           <div
             className={`mb-5 flex items-center justify-between gap-3 border px-4 py-2.5 text-sm ${
@@ -285,6 +286,8 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      <AppFooter />
 
       {modalContext && (
         <MfImportGuideModal
