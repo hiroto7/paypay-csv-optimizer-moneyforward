@@ -9,8 +9,6 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import "@fontsource-variable/inter/opsz.css";
-import "@fontsource-variable/noto-sans-jp/wght.css";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
