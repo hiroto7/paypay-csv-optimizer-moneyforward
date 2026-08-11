@@ -1,7 +1,8 @@
-import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
+import { AlertCircle, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import AppFooter from "~/components/AppFooter";
+import AppHeader from "~/components/AppHeader";
 import AuditPanel from "~/components/AuditPanel";
 import CsvShareGuide from "~/components/CsvShareGuide";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
@@ -158,34 +159,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <img
-              src="/pwa-icon.svg"
-              alt=""
-              className="size-9 shrink-0 rounded-lg"
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <h1 className="truncate text-sm font-bold text-zinc-950 sm:text-base">
-                PP2MF
-              </h1>
-              <p className="truncate text-[10px] leading-4 text-zinc-500 sm:text-xs">
-                PayPay CSV Optimizer for MoneyForward ME
-              </p>
-            </div>
-          </div>
-          <div
-            className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-zinc-500"
-            title="ブラウザ内で処理"
-          >
-            <LockKeyhole className="size-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">ブラウザ内で処理</span>
-            <span className="sr-only sm:hidden">ブラウザ内で処理</span>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 sm:px-6 sm:py-7">
         {notice && (
@@ -218,9 +192,9 @@ export default function Home() {
 
         <div className="mb-5">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-950">
+            <h1 className="text-2xl font-bold text-zinc-950">
               PayPayの決済を、MoneyForward MEにストレスなく取り込み。
-            </h2>
+            </h1>
             <p className="mt-1 max-w-2xl text-sm text-zinc-600">
               {heroDescription}
             </p>

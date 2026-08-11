@@ -212,6 +212,35 @@ test("初期画面をデスクトップとモバイルで表示できる", async
   });
 });
 
+test("3ページで共通ヘッダーと情報ページの戻る導線を表示できる", async ({
+  page,
+}) => {
+  for (const path of ["/", "/guide", "/privacy"]) {
+    await page.goto(path);
+    const header = page.getByRole("banner");
+
+    await expect(header.locator('img[src="/pwa-icon.svg"]')).toBeVisible();
+    await expect(header.getByText("PP2MF", { exact: true })).toBeVisible();
+    await expect(
+      header.getByText("PayPay CSV Optimizer for MoneyForward ME", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      header.getByText("ブラウザ内で処理", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.locator("main h1")).toHaveCount(1);
+  }
+
+  await page.goto("/guide");
+  await page.getByRole("link", { name: "アプリに戻る" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto("/privacy");
+  await page.getByRole("link", { name: "アプリに戻る" }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test("CSVを共有して読み込む方法とインストール案内を確認できる", async ({
   page,
 }) => {
