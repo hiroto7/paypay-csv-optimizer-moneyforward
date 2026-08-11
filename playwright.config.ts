@@ -29,7 +29,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 4173",
+    command: "npm run build && PORT=4173 npm start",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !isCI,
     timeout: 120_000,
