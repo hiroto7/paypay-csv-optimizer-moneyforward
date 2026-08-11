@@ -1,9 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import process from "node:process";
+import packageJson from "../package.json" with { type: "json" };
 
-const require = createRequire(import.meta.url);
-const packageJson = require("../package.json");
 const playwrightVersion = packageJson.devDependencies["@playwright/test"];
 const playwrightImage = `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
 const updateSnapshots = process.argv.includes("--update-snapshots");
@@ -21,7 +19,7 @@ const result = spawnSync(
     "--platform",
     "linux/amd64",
     "--env",
-    "CI=1",
+    "CI",
     "--volume",
     `${process.cwd()}:/work`,
     "--volume",
