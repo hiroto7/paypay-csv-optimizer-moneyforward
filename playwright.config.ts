@@ -12,14 +12,6 @@ export default defineConfig({
   reporter: isCI
     ? [["line"], ["html", { open: "never" }]]
     : [["list"], ["html", { open: "never" }]],
-  expect: {
-    toHaveScreenshot: {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      threshold: 0.2,
-    },
-  },
   use: {
     baseURL: "http://127.0.0.1:4173",
     colorScheme: "light",
