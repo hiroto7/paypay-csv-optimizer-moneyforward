@@ -6,8 +6,8 @@ const playwrightVersion = packageJson.devDependencies["@playwright/test"];
 const playwrightImage = `mcr.microsoft.com/playwright:v${playwrightVersion}-noble`;
 const updateSnapshots = process.argv.includes("--update-snapshots");
 const testCommand = updateSnapshots
-  ? "npm run test:e2e:container -- --update-snapshots"
-  : "npm run test:e2e:container";
+  ? "./node_modules/.bin/playwright test --update-snapshots"
+  : "./node_modules/.bin/playwright test";
 
 const result = spawnSync(
   "docker",
