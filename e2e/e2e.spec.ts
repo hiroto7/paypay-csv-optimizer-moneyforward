@@ -46,12 +46,12 @@ const createChunkedPayPayCsv = (count: number) =>
 
 const openCleanPage = async (page: Page) => {
   await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-hydrated", "true");
   await expect(
     page.getByRole("heading", {
       name: "PayPayの決済を、MoneyForward MEにストレスなく取り込み。",
     }),
   ).toBeVisible();
-  await page.waitForTimeout(500);
 };
 
 const selectPayPayCsv = async (page: Page) => {

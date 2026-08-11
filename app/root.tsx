@@ -28,15 +28,20 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) {
-      return;
+    const root = document.documentElement;
+    root.dataset["hydrated"] = "true";
+
+    if ("serviceWorker" in navigator) {
+      void navigator.serviceWorker
+        .register("/share-target-sw.js", { scope: "/" })
+        .catch((error: unknown) => {
+          console.error("Service worker registration failed:", error);
+        });
     }
 
-    void navigator.serviceWorker
-      .register("/share-target-sw.js", { scope: "/" })
-      .catch((error: unknown) => {
-        console.error("Service worker registration failed:", error);
-      });
+    return () => {
+      delete root.dataset["hydrated"];
+    };
   }, []);
 
   return (
