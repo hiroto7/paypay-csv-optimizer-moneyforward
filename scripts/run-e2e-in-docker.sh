@@ -14,7 +14,8 @@ exec docker run \
   --platform linux/amd64 \
   --env CI \
   --volume "$PWD:/work" \
-  --volume /work/node_modules \
+  --volume pp2mf-npm-cache:/root/.npm \
+  --tmpfs /work/node_modules:exec \
   --workdir /work \
   "$PLAYWRIGHT_IMAGE" \
   ./scripts/run-playwright-in-container.sh \
