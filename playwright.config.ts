@@ -17,7 +17,7 @@ export default defineConfig({
     colorScheme: "light",
     locale: "ja-JP",
     timezoneId: "Asia/Tokyo",
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
   },
   projects: [
     {
