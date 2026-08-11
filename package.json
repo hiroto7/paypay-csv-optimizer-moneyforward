@@ -10,8 +10,8 @@
     "lint": "biome check .",
     "lint:ci": "biome ci .",
     "start": "react-router-serve ./build/server/index.js",
-    "test:e2e": "node scripts/run-e2e-in-docker.mjs",
-    "test:vrt:update": "node scripts/run-e2e-in-docker.mjs --update-snapshots",
+    "test:e2e": "./scripts/run-e2e-in-docker.sh",
+    "test:vrt:update": "./scripts/run-e2e-in-docker.sh --update-snapshots",
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run"
   },
