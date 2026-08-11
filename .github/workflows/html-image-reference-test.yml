@@ -1,0 +1,48 @@
+name: HTML image reference test
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+      - name: Upload an unarchived image
+        id: image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: e2e/e2e.spec.ts-snapshots/initial-mobile-chromium-linux.png
+          archive: false
+          retention-days: 14
+      - name: Create comparison HTML
+        run: >-
+          node scripts/create-html-image-reference-test.mjs
+          e2e/e2e.spec.ts-snapshots/initial-mobile-chromium-linux.png
+          '${{ steps.image.outputs.artifact-url }}'
+          html-image-reference-test.html
+      - name: Upload comparison HTML
+        id: html
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: html-image-reference-test
+          path: html-image-reference-test.html
+          retention-days: 14
+      - name: Add links to job summary
+        env:
+          IMAGE_URL: ${{ steps.image.outputs.artifact-url }}
+          HTML_URL: ${{ steps.html.outputs.artifact-url }}
+        run: |
+          {
+            echo '## HTML image reference test'
+            echo
+            echo "- [比較HTMLをダウンロード](${HTML_URL})"
+            echo "- [個別画像Artifactを直接開く](${IMAGE_URL})"
+          } >> "$GITHUB_STEP_SUMMARY"
