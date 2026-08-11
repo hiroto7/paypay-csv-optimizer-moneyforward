@@ -9,21 +9,13 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import "@fontsource-variable/inter/opsz.css";
+import "@fontsource-variable/noto-sans-jp/wght.css";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap",
-  },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
