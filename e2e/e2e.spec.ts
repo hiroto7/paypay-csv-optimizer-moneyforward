@@ -230,6 +230,12 @@ test("3ページで共通ヘッダーと情報ページの戻る導線を表示�
       header.getByText("ブラウザ内で処理", { exact: true }).first(),
     ).toBeVisible();
     await expect(page.locator("main h1")).toHaveCount(1);
+
+    if (path !== "/") {
+      await expect(page).toHaveScreenshot(`${path.slice(1)}-page.png`, {
+        fullPage: true,
+      });
+    }
   }
 
   await page.goto("/guide");
