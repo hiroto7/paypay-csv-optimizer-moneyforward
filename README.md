@@ -47,6 +47,7 @@ PayPayの取引履歴とMoneyForward MEの入出金履歴の両方を読み込�
 - 画面で選択またはShare Targetで読み込んだ作業中のPayPayの取引履歴とMoneyForward MEの入出金履歴は、再読み込み後も作業を続けられるよう端末のIndexedDBへ保存します。
 - 「MoneyForward MEで保存した」の記録と、手動で設定した口座残高は端末の`localStorage`へ保存します。
 - MoneyForward MEの入出金履歴を変更すると取り込み記録はリセットされますが、手動で設定した残高は保持されます。
+- 取り込み記録と口座残高は、MoneyForward MEとは自動で同期されません。
 
 詳しくは[プライバシーについて](https://pp2mf.vercel.app/privacy)を参照してください。
 
@@ -70,6 +71,8 @@ npm run test:e2e
 ```
 
 E2EとVisual Regression TestはDocker内のLinux/AMD64環境で実行するため、事前にDockerを起動してください。意図した表示変更でスナップショットを更新する場合は、差分を確認してから`npm run test:vrt:update`を実行します。
+
+CSV処理、照合、端末内状態の実装上の契約は[技術設計](docs/technical-design.md)を参照してください。
 
 ## 使用技術
 

@@ -14,6 +14,7 @@ export const shareCsv = async (
   filename: string,
   data: string,
 ): Promise<boolean> => {
+  // MoneyForward MEへ渡すファイルは、共有とダウンロードのどちらもBOM付きUTF-8にする。
   const blob = new Blob([`\uFEFF${data}`], { type: "text/csv" });
   const file = new File([blob], filename, { type: "text/csv" });
 

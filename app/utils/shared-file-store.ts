@@ -49,6 +49,7 @@ export const mergeUniqueFiles = (
   currentFiles: readonly File[],
   newFiles: readonly File[],
 ): File[] => {
+  // 年ごとの再エクスポートを更新できるよう、内容ではなくファイル名で置き換える。
   const filesByName = new Map<string, File>();
 
   for (const file of [...currentFiles, ...newFiles]) {

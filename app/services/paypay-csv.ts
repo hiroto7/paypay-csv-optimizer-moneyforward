@@ -96,6 +96,7 @@ export function extractTransactionsFromPayPayCsv(payPayCsvContent: string): {
       continue;
     }
 
+    // 金額の桁区切りにもカンマが入るため、取引方法をカンマで単純分割しない。
     const combinedPaymentRegex = /([^,]+?)\s*\((\d+|[\d,]+)円\)/g;
     const matches = [...transactionMethod.matchAll(combinedPaymentRegex)];
 
