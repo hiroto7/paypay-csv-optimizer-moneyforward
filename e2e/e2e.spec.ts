@@ -201,6 +201,9 @@ test("初期画面をデスクトップとモバイルで表示できる", async
       "明細が多い場合は、取り込み用ファイルを100件ごとに分割します。",
     ),
   ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "使い方を見る" }),
+  ).toHaveAttribute("href", "/guide");
 
   await expect(page).toHaveScreenshot("initial-desktop.png", {
     fullPage: true,

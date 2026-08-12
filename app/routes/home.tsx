@@ -1,6 +1,7 @@
 import { AlertCircle, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
+import { Link } from "react-router";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
 import AuditPanel from "~/components/AuditPanel";
@@ -198,6 +199,12 @@ export default function Home() {
             <p className="mt-1 max-w-2xl text-sm text-zinc-600">
               {heroDescription}
             </p>
+            <Link
+              to="/guide"
+              className="mt-2 inline-block text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+            >
+              使い方を見る
+            </Link>
           </div>
         </div>
 
