@@ -17,18 +17,25 @@ export function meta(_args: Route.MetaArgs) {
 
 const steps = [
   {
-    title: "PayPay CSVを選ぶ",
-    description: "PayPayから書き出した取引履歴CSVを選択します。",
+    title: "PayPayの取引履歴を選ぶ",
+    paragraphs: [
+      "PayPayから取引履歴CSVをダウンロードし、そのファイルをPP2MFで選びます。",
+    ],
   },
   {
-    title: "MoneyForward ME CSVを選ぶ（任意）",
-    description:
-      "すでに登録した明細を除外する場合は、MoneyForward MEから書き出した入出金履歴CSVを追加します。除外が不要なら選ばずに進めます。",
+    title: "MoneyForward MEの入出金履歴を追加する（任意）",
+    paragraphs: [
+      "MoneyForward MEから書き出した入出金履歴CSVを追加すると、すでに登録されている明細を作成対象から除外します。",
+      "追加しない場合は、PayPayの取引履歴を除外せずに処理します。",
+    ],
   },
   {
-    title: "作成したCSVをMoneyForward MEへ取り込む",
-    description:
-      "作成したファイルを共有またはダウンロードし、MoneyForward MEで口座を確認して保存します。PP2MFへ戻り、「MoneyForward MEで保存した」を押すと、次回以降その明細を除外できます。",
+    title: "作成されたCSVをMoneyForward MEへ取り込む",
+    paragraphs: [
+      "PP2MFが、登録済み明細の除外や支払い方法ごとの振り分けを行い、MoneyForward MEへの取り込み用CSVを作成します。",
+      "作成されたCSVをMoneyForward MEアプリへ共有し、画面の案内に従って取り込みます。",
+      "保存したらPP2MFへ戻り、「MoneyForward MEで保存した」を押してください。取り込んだ明細が記録され、次回以降は作成対象から自動で除外されます。",
+    ],
   },
 ] as const;
 
@@ -49,16 +56,39 @@ export default function Guide() {
           <div className="border-b border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
             <h1 className="text-2xl font-bold text-zinc-950">使い方</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-600">
-              PayPayの取引履歴を、MoneyForward MEへ取り込む流れを説明します。
+              PP2MFは、PayPayの取引履歴をMoneyForward
+              MEへ継続的に取り込むための補助ツールです。
             </p>
           </div>
 
           <section className="px-5 py-5 sm:px-7 sm:py-6">
             <h2 className="text-base font-bold text-zinc-950">
+              なぜPP2MFを使うのか
+            </h2>
+            <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
+              <p>
+                MoneyForward
+                MEにはPayPayの取引履歴を自動取得する機能がありません。その代わりとして、PayPayから書き出した取引履歴CSVを読み込み、明細を登録する機能があります。
+              </p>
+              <p>
+                ただし、すでに登録した明細を自動で除外する仕組みはないため、以前取り込んだ期間と重なるCSVを読み込むと、同じ明細を重複して登録する可能性があります。
+              </p>
+              <p>
+                PP2MFは、MoneyForward
+                MEから書き出した入出金履歴と、PP2MFで取り込み済みと記録した明細を照合し、登録済みの取引を自動で除外します。
+              </p>
+              <p>
+                あわせて、PayPay残高やPayPayポイントといった支払い方法ごとのCSVへの振り分けと、100件単位の分割も自動で行います。
+              </p>
+            </div>
+          </section>
+
+          <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
+            <h2 className="text-base font-bold text-zinc-950">
               取り込み用CSVを作る
             </h2>
             <ol className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
-              {steps.map(({ title, description }, index) => (
+              {steps.map(({ title, paragraphs }, index) => (
                 <li
                   key={title}
                   className="grid grid-cols-[28px_1fr] gap-3 py-4"
@@ -68,9 +98,11 @@ export default function Guide() {
                   </span>
                   <div>
                     <h3 className="text-sm font-bold text-zinc-950">{title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-zinc-600">
-                      {description}
-                    </p>
+                    <div className="mt-1 space-y-2 text-sm leading-6 text-zinc-600">
+                      {paragraphs.map((paragraph) => (
+                        <p key={paragraph}>{paragraph}</p>
+                      ))}
+                    </div>
                   </div>
                 </li>
               ))}
@@ -79,27 +111,28 @@ export default function Guide() {
 
           <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
             <h2 className="text-base font-bold text-zinc-950">
-              要確認明細について
+              重複登録・口座間違いの明細を見つける
             </h2>
-            <p className="mt-3 text-sm leading-7 text-zinc-700">
-              PayPay CSVとMoneyForward ME
-              CSVの両方を選ぶと、重複登録や口座間違いの可能性がある明細を画面下部で確認できます。内容と口座を確認し、必要な修正はMoneyForward
-              ME側で行ってください。PP2MFが明細を自動で変更・削除することはありません。
-            </p>
+            <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
+              <p>
+                PayPayの取引履歴とMoneyForward
+                MEの入出金履歴の両方を読み込むと、重複登録や口座間違いの可能性がある明細を確認できます。
+              </p>
+              <p>
+                修正が必要な場合は、MoneyForward ME側で手動で行ってください。
+              </p>
+            </div>
           </section>
 
           <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
-            <h2 className="text-base font-bold text-zinc-950">
-              知っておくこと
-            </h2>
+            <h2 className="text-base font-bold text-zinc-950">補足</h2>
             <ul className="mt-3 space-y-2 text-sm leading-7 text-zinc-700">
-              <li>「PayPay」で始まる支払い方法だけが作成対象です。</li>
               <li>
-                クレジットカードや銀行口座など、MoneyForward
-                MEへ直接連携している支払い方法は作成対象外です。
+                支払い方法が「PayPay」で始まる明細だけを取り込み用CSVの対象とします。PayPayの取引履歴に含まれていても、クレジットカードや銀行口座などを使用した明細は対象外です。
               </li>
-              <li>1ファイルの明細が100件を超える場合は、自動で分割します。</li>
-              <li>CSVの処理はブラウザ内で行われ、サーバーへ送信されません。</li>
+              <li>
+                CSVの処理はブラウザ内で行い、内容をPP2MFのサーバーへ送信しません。
+              </li>
             </ul>
           </section>
 
