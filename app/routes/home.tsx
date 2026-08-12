@@ -1,4 +1,4 @@
-import { AlertCircle, UploadCloud, X } from "lucide-react";
+import { AlertCircle, LockKeyhole, UploadCloud, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link } from "react-router";
@@ -159,16 +159,14 @@ export default function Home() {
   const canShowConversion = Boolean(payPayData && hasOutput);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
+    <div className="app-frame flex flex-col">
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 sm:px-6 sm:py-7">
+      <main className="app-container flex-1 pb-8 sm:pb-12">
         {notice && (
           <div
-            className={`mb-5 flex items-center justify-between gap-3 border px-4 py-2.5 text-sm ${
-              notice.tone === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                : "border-red-200 bg-red-50 text-red-800"
+            className={`mt-4 flex items-center justify-between gap-3 border px-4 py-2 text-sm ${
+              notice.tone === "success" ? "status-success" : "status-error"
             }`}
             role={notice.tone === "error" ? "alert" : "status"}
           >
@@ -183,7 +181,7 @@ export default function Home() {
             <button
               type="button"
               onClick={dismissNotice}
-              className="inline-flex size-7 shrink-0 items-center justify-center hover:bg-black/5"
+              className="icon-control interactive"
               aria-label="通知を閉じる"
             >
               <X className="size-4" aria-hidden="true" />
@@ -191,36 +189,56 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-5">
-          <div>
-            <h1 className="text-2xl font-bold text-zinc-950">
-              PayPayの決済を、MoneyForward MEにストレスなく取り込み。
+        <section className="home-intro" aria-labelledby="home-title">
+          <div className="min-w-0">
+            <h1 id="home-title" className="text-ink">
+              PayPayの決済を、MoneyForward MEに
+              <span className="whitespace-nowrap">ストレスなく取り込み。</span>
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-zinc-600">
+            <p className="mt-3 max-w-3xl text-base leading-7 text-ink-2">
               {heroDescription}
             </p>
             <Link
               to="/guide"
-              className="mt-2 inline-block text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+              className="control-link interactive mt-2 pr-2 text-sm"
             >
               使い方を見る
             </Link>
           </div>
-        </div>
-
-        <div className="grid items-start gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="border border-zinc-200 bg-white">
-            <div className="border-b border-zinc-200 px-5 py-4">
-              <h2 className="text-sm font-bold text-zinc-950">入力ファイル</h2>
+          <aside className="trust-note" aria-label="データの取り扱い">
+            <LockKeyhole
+              className="mt-0.5 size-5 text-accent"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="font-display text-sm font-bold text-ink">
+                ブラウザ内で処理
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                CSVの内容をアプリケーションサーバーへ送信せず、端末上で照合・変換します。
+              </p>
             </div>
-            <div className="space-y-6 p-5">
+          </aside>
+        </section>
+
+        <div className="workbench">
+          <aside className="workbench-rail" aria-labelledby="input-title">
+            <div className="border-b border-rule px-4 py-4 sm:px-5">
+              <h2
+                id="input-title"
+                className="font-display text-sm font-bold text-ink"
+              >
+                入力ファイル
+              </h2>
+            </div>
+            <div className="space-y-7 p-4 sm:p-5">
               <Step1PayPayUpload
                 file={payPayFile}
                 stats={payPayData?.stats ?? null}
                 error={payPayError}
                 onFileSelected={selectPayPayFile}
               />
-              <div className="border-t border-zinc-200 pt-5">
+              <div className="border-t border-rule pt-6">
                 <Step2MfmeFilter
                   files={mfmeFiles}
                   stats={mfmeData?.stats ?? null}
@@ -230,14 +248,14 @@ export default function Home() {
                   localImportedStats={recordStats}
                 />
               </div>
-              <div className="border-t border-zinc-200 pt-4">
+              <div className="border-t border-rule pt-4">
                 <CsvShareGuide />
               </div>
             </div>
           </aside>
 
-          <div className="min-w-0 space-y-5">
-            <div className="border border-zinc-200 bg-white">
+          <div className="workbench-canvas">
+            <div>
               {canShowConversion ? (
                 <Step3FileList
                   chunks={chunks}

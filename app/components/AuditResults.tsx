@@ -9,43 +9,47 @@ export default function AuditResults({ candidates }: AuditResultsProps) {
   if (candidates.length === 0) {
     return (
       <section
-        className="flex min-h-96 flex-col items-center justify-center px-6 py-12 text-center"
+        className="px-5 py-5 text-left"
         aria-labelledby="audit-result-title"
       >
-        <div className="flex size-12 items-center justify-center bg-emerald-50 text-emerald-700">
-          <CheckCircle2 className="size-6" aria-hidden="true" />
+        <div className="flex items-start gap-3">
+          <span className="status-success flex size-11 shrink-0 items-center justify-center border">
+            <CheckCircle2 className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2
+              id="audit-result-title"
+              className="text-base font-bold text-foreground"
+            >
+              読み込んだ入出金履歴の範囲では修正候補は見つかりませんでした
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-foreground-subtle">
+              PayPay明細と完全一致しない要確認明細はありません。
+            </p>
+          </div>
         </div>
-        <h2
-          id="audit-result-title"
-          className="mt-4 text-lg font-bold text-zinc-950"
-        >
-          読み込んだ入出金履歴の範囲では修正候補は見つかりませんでした
-        </h2>
-        <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
-          PayPay明細と完全一致しない要確認明細はありません。
-        </p>
       </section>
     );
   }
 
   return (
     <section aria-labelledby="audit-result-title">
-      <div className="border-b border-zinc-200 px-5 py-4">
+      <div className="border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />
+          <AlertTriangle className="size-5 text-warning" aria-hidden="true" />
           <h2
             id="audit-result-title"
-            className="text-base font-bold text-zinc-950"
+            className="text-base font-bold text-foreground"
           >
             要確認明細 {candidates.length}件
           </h2>
         </div>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-sm text-foreground-subtle">
           内容と口座をMoneyForward MEで確認してください
         </p>
       </div>
 
-      <div className="border-b border-amber-200 bg-amber-50 px-5 py-4 text-xs leading-5 text-amber-950">
+      <div className="status-warning border-b px-5 py-4 text-sm leading-6">
         <div className="flex gap-2">
           <ListChecks className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div>
@@ -59,29 +63,41 @@ export default function AuditResults({ candidates }: AuditResultsProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-[640px] w-full text-sm">
+      <div>
+        <table className="audit-table text-sm" aria-label="要確認明細">
           <thead>
-            <tr className="border-b border-zinc-200 bg-zinc-50 text-xs text-zinc-500">
+            <tr className="border-b border-border bg-surface text-xs text-foreground-subtle">
               <th className="px-5 py-3 text-left font-semibold">日付</th>
               <th className="px-3 py-3 text-left font-semibold">内容</th>
               <th className="px-3 py-3 text-right font-semibold">金額</th>
               <th className="px-5 py-3 text-left font-semibold">口座</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-200">
+          <tbody className="divide-y divide-border">
             {candidates.map((candidate) => (
-              <tr key={candidate.key} className="hover:bg-zinc-50">
-                <td className="whitespace-nowrap px-5 py-3 text-zinc-600">
+              <tr key={candidate.key}>
+                <td
+                  data-label="日付"
+                  className="whitespace-nowrap px-5 py-3 text-foreground-subtle"
+                >
                   {candidate.date}
                 </td>
-                <td className="max-w-64 px-3 py-3 font-medium text-zinc-800">
+                <td
+                  data-label="内容"
+                  className="px-3 py-3 font-medium text-foreground"
+                >
                   {candidate.content}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-zinc-700">
+                <td
+                  data-label="金額"
+                  className="type-data whitespace-nowrap px-3 py-3 text-right text-foreground-subtle"
+                >
                   {Number(candidate.amount).toLocaleString("ja-JP")}円
                 </td>
-                <td className="px-5 py-3 text-zinc-700">
+                <td
+                  data-label="口座"
+                  className="px-5 py-3 text-foreground-subtle"
+                >
                   {candidate.actualInstitution}
                 </td>
               </tr>

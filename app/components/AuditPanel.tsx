@@ -23,7 +23,7 @@ export default function AuditPanel({
 
   return (
     <section
-      className="border border-zinc-200 bg-white"
+      className="border-t border-border"
       aria-labelledby="audit-panel-title"
     >
       <button
@@ -31,45 +31,45 @@ export default function AuditPanel({
         aria-expanded={isOpen}
         aria-controls="audit-panel-content"
         onClick={() => setIsOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-zinc-50"
+        className="button-quiet interactive flex min-h-11 w-full items-center justify-between gap-2 px-3 py-4 text-left sm:gap-4 sm:px-5"
       >
         <span className="flex min-w-0 items-start gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center bg-zinc-100 text-zinc-600">
+          <span className="surface-quiet hidden size-11 shrink-0 items-center justify-center text-foreground-subtle sm:flex">
             <Search className="size-4" aria-hidden="true" />
           </span>
           <span className="min-w-0">
             <span
               id="audit-panel-title"
-              className="block text-sm font-bold text-zinc-950"
+              className="block whitespace-nowrap text-xs font-bold text-foreground sm:text-sm"
             >
               重複登録・口座間違いを確認する
             </span>
-            <span className="mt-0.5 block text-xs leading-5 text-zinc-500">
+            <span className="mt-0.5 hidden text-sm leading-5 text-foreground-subtle sm:block">
               PayPay明細と完全一致しない要確認明細を表示します
             </span>
           </span>
         </span>
         {isOpen ? (
           <ChevronUp
-            className="size-5 shrink-0 text-zinc-500"
+            className="size-5 shrink-0 text-foreground-subtle"
             aria-hidden="true"
           />
         ) : (
           <ChevronDown
-            className="size-5 shrink-0 text-zinc-500"
+            className="size-5 shrink-0 text-foreground-subtle"
             aria-hidden="true"
           />
         )}
       </button>
 
       {isOpen && (
-        <div id="audit-panel-content" className="border-t border-zinc-200">
+        <div id="audit-panel-content" className="border-t border-border">
           {missingInputMessage ? (
-            <div className="px-5 py-8 text-center">
-              <p className="text-sm font-semibold text-zinc-800">
+            <div className="px-5 py-5 text-left">
+              <p className="text-sm font-semibold text-foreground">
                 {missingInputMessage}
               </p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-sm text-foreground-subtle">
                 左の入力欄からファイルを選ぶと、ここに結果を表示します。
               </p>
             </div>

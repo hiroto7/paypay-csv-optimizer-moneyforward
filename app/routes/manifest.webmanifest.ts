@@ -15,8 +15,8 @@ export function loader({ request }: { request: Request }) {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#f4f4f5",
-    theme_color: "#dc2626",
+    background_color: "#f4eceb",
+    theme_color: "#e23e46",
     categories: ["finance", "productivity", "utilities"],
     related_applications: [
       {

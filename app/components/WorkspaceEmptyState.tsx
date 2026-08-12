@@ -26,21 +26,27 @@ export default function WorkspaceEmptyState({
   })();
 
   return (
-    <div className="flex min-h-80 flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[520px] sm:py-12">
-      <div className="flex size-12 items-center justify-center bg-zinc-100 text-zinc-600">
-        <FileCheck2 className="size-6" aria-hidden="true" />
+    <div className="flex min-h-64 flex-col justify-center px-5 py-8 sm:min-h-80 sm:px-8">
+      <div className="flex max-w-2xl items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center bg-paper-3 text-ink-2">
+          <FileCheck2 className="size-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold leading-7 text-ink">{title}</h2>
+          <p className="mt-1 text-base leading-7 text-ink-2">{description}</p>
+        </div>
       </div>
-      <h2 className="mt-4 text-lg font-bold text-zinc-950">{title}</h2>
-      <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
-        {description}
-      </p>
       {!hasPayPay && (
-        <ul className="mt-3 max-w-md list-disc space-y-1 pl-5 text-left text-sm leading-6 text-zinc-600">
-          <li>
-            PayPay残高とPayPayポイントを併用した支払いは、支払い方法ごとの明細に分けて、それぞれ別の口座へ登録できます。
-          </li>
-          <li>明細が多い場合は、取り込み用ファイルを100件ごとに分割します。</li>
-        </ul>
+        <div className="ml-0 mt-5 max-w-2xl sm:ml-[52px]">
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
+            <li>
+              PayPay残高とPayPayポイントを併用した支払いは、支払い方法ごとの明細に分けて、それぞれ別の口座へ登録できます。
+            </li>
+            <li>
+              明細が多い場合は、取り込み用ファイルを100件ごとに分割します。
+            </li>
+          </ul>
+        </div>
       )}
     </div>
   );

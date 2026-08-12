@@ -31,18 +31,15 @@ export default function Step1PayPayUpload({
   return (
     <section aria-labelledby="paypay-upload-title">
       <div className="mb-3 flex items-start gap-3">
-        <div className="flex size-7 shrink-0 items-center justify-center bg-red-600 text-xs font-bold text-white">
+        <div className="step-number flex size-7 shrink-0 items-center justify-center bg-accent text-xs font-bold text-accent-ink">
           1
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h2
-              id="paypay-upload-title"
-              className="text-sm font-bold text-zinc-950"
-            >
+            <h2 id="paypay-upload-title" className="text-sm font-bold text-ink">
               PayPayから書き出した取引履歴
             </h2>
-            <span className="shrink-0 text-xs font-medium text-red-700">
+            <span className="shrink-0 text-xs font-semibold text-accent">
               必須
             </span>
           </div>
@@ -62,7 +59,7 @@ export default function Step1PayPayUpload({
 
       {error && (
         <div
-          className="mt-3 flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
+          className="status-error mt-3 flex gap-2 border px-3 py-3 text-sm"
           role="alert"
         >
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "scanned_at": "2026-08-13",
+  "framework": {
+    "name": "React Router",
+    "major": 8
+  },
+  "styling": {
+    "name": "Tailwind CSS",
+    "major": 4,
+    "token_source": "tokens.css"
+  },
+  "fonts": {
+    "delivery": "Fontsource variable packages",
+    "display": "M PLUS 1 Code Variable",
+    "body": "Noto Sans JP Variable"
+  },
+  "motion": {
+    "libraries": [],
+    "stance": "motion-cut"
+  },
+  "spacing": {
+    "base_px": 4,
+    "scale": "named"
+  },
+  "palette": {
+    "route": "custom",
+    "format": "OKLCH",
+    "source": "tokens.css"
+  },
+  "design_system": "design.md"
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-08-13",
+    "scope": "app",
+    "macrostructure": "Workbench / Long Document",
+    "theme": "custom",
+    "theme_axes": "light / mono / warm",
+    "nav": "N1 minimal 2-link",
+    "footer": "Ft2 inline",
+    "enrichment": "none",
+    "brief": "PP2MF multi-page design system"
+  }
+]

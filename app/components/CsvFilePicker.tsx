@@ -50,48 +50,32 @@ export default function CsvFilePicker({
     const isError = tone === "error";
     return (
       <div
-        className={`border px-3 py-3 ${
-          isError
-            ? "border-red-200 bg-red-50"
-            : "border-emerald-200 bg-emerald-50/70"
+        className={`border-y px-3 py-3 ${
+          isError ? "status-error" : "status-success"
         }`}
       >
         {input}
         <div className="flex min-w-0 items-start gap-2.5">
           {isError ? (
             <AlertCircle
-              className="mt-0.5 size-5 shrink-0 text-red-600"
+              className="mt-0.5 size-5 shrink-0 text-error"
               aria-hidden="true"
             />
           ) : (
             <CheckCircle2
-              className="mt-0.5 size-5 shrink-0 text-emerald-700"
+              className="mt-0.5 size-5 shrink-0 text-success"
               aria-hidden="true"
             />
           )}
           <div className="min-w-0 flex-1">
-            <p
-              className={`break-words text-sm font-semibold ${
-                isError ? "text-red-900" : "text-emerald-950"
-              }`}
-            >
-              {selectedLabel}
-            </p>
-            {selectedMeta && (
-              <div
-                className={`mt-1 text-xs ${
-                  isError ? "text-red-700" : "text-emerald-800"
-                }`}
-              >
-                {selectedMeta}
-              </div>
-            )}
+            <p className="break-words text-sm font-semibold">{selectedLabel}</p>
+            {selectedMeta && <div className="mt-1 text-xs">{selectedMeta}</div>}
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-black/10 pt-3">
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-rule pt-3">
           <label
             htmlFor={id}
-            className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+            className="interactive control-button button-secondary cursor-pointer gap-1.5 text-xs"
           >
             <RefreshCw className="size-3.5" aria-hidden="true" />
             {changeLabel}
@@ -99,7 +83,7 @@ export default function CsvFilePicker({
           <button
             type="button"
             onClick={onClear}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 px-3 text-xs font-semibold text-red-700 hover:bg-red-100/60"
+            className="interactive control-button button-danger gap-1.5 text-xs"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
             {clearLabel}
@@ -119,10 +103,10 @@ export default function CsvFilePicker({
   return (
     <label
       htmlFor={id}
-      className={`group flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed px-5 py-6 text-center transition-colors ${
+      className={`interactive group flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed px-5 py-6 text-center ${
         isDragging
-          ? "border-red-500 bg-red-50"
-          : "border-zinc-300 bg-zinc-50 hover:border-zinc-400 hover:bg-white"
+          ? "border-accent bg-paper-3 text-accent"
+          : "border-rule-strong bg-paper-2 text-ink-2"
       }`}
       onDragEnter={(event) => {
         event.preventDefault();
@@ -138,15 +122,12 @@ export default function CsvFilePicker({
     >
       {input}
       {isDragging ? (
-        <FileText className="size-6 text-red-600" aria-hidden="true" />
+        <FileText className="size-6 text-accent" aria-hidden="true" />
       ) : (
-        <UploadCloud
-          className="size-6 text-zinc-500 transition-colors group-hover:text-zinc-700"
-          aria-hidden="true"
-        />
+        <UploadCloud className="size-6 text-muted" aria-hidden="true" />
       )}
-      <span className="text-sm font-semibold text-zinc-700">{emptyLabel}</span>
-      <span className="text-xs text-zinc-500">
+      <span className="text-sm font-semibold text-ink-2">{emptyLabel}</span>
+      <span className="text-xs text-muted">
         CSVファイル / ドラッグ＆ドロップ対応
       </span>
     </label>

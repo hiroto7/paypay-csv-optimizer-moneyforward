@@ -1,0 +1,135 @@
+/* Hallmark · genre: modern-minimal · design-system: design.md · designed-as-app
+ * macrostructures: Workbench / Long Document · nav: N1 · footer: Ft2
+ * pre-emit critique: P5 H5 E5 S5 R5 V4 · enrichment: none
+ */
+
+@theme {
+  --color-paper: oklch(98% 0.006 25);
+  --color-paper-2: oklch(95% 0.009 25);
+  --color-paper-3: oklch(91% 0.012 25);
+  --color-ink: oklch(19% 0.014 25);
+  --color-ink-2: oklch(35% 0.012 25);
+  --color-muted: oklch(46% 0.01 25);
+  --color-rule: oklch(72% 0.012 25);
+  --color-rule-2: oklch(58% 0.014 25);
+  --color-rule-strong: var(--color-rule-2);
+  --color-accent: oklch(61% 0.2 23);
+  --color-accent-ink: oklch(14% 0.01 25);
+  --color-focus: oklch(48% 0.19 23);
+
+  --color-success: oklch(48% 0.13 150);
+  --color-success-surface: oklch(94% 0.035 150);
+  --color-success-ink: oklch(27% 0.06 150);
+  --color-warning: oklch(58% 0.13 75);
+  --color-warning-surface: oklch(95% 0.04 75);
+  --color-warning-ink: oklch(30% 0.07 75);
+  --color-error: oklch(52% 0.2 23);
+  --color-error-surface: oklch(95% 0.035 23);
+  --color-error-ink: oklch(29% 0.1 23);
+  --color-backdrop: oklch(19% 0.014 25 / 56%);
+
+  --font-display:
+    "M PLUS 1 Code Variable", "Noto Sans JP Variable", ui-monospace, monospace;
+  --font-body:
+    "Noto Sans JP Variable", ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: var(--font-display);
+  --font-outlier: var(--font-display);
+  --font-sans: var(--font-body);
+
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.6;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.65;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.45;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 1.2;
+  --text-display: clamp(2rem, 4vw, 3.5rem);
+  --text-display--line-height: 1.08;
+
+  --spacing-hm-3xs: 0.25rem;
+  --spacing-hm-2xs: 0.5rem;
+  --spacing-hm-xs: 0.75rem;
+  --spacing-hm-sm: 1rem;
+  --spacing-hm-md: 1.5rem;
+  --spacing-hm-lg: 2rem;
+  --spacing-hm-xl: 3rem;
+  --spacing-hm-2xl: 4rem;
+  --spacing-hm-3xl: 5rem;
+  --spacing-hm-4xl: 6rem;
+  --spacing-hm-5xl: 8rem;
+
+  --radius-control: 0.125rem;
+  --radius-panel: 0.25rem;
+  --radius-dialog: 0.375rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@theme inline {
+  --color-background: var(--color-paper);
+  --color-surface: var(--color-paper-2);
+  --color-surface-muted: var(--color-paper-3);
+  --color-foreground: var(--color-ink);
+  --color-foreground-subtle: var(--color-ink-2);
+  --color-border: var(--color-rule);
+  --color-border-strong: var(--color-rule-strong);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-ink);
+}
+
+:root {
+  --spacing-3xs: var(--spacing-hm-3xs);
+  --spacing-2xs: var(--spacing-hm-2xs);
+  --spacing-xs: var(--spacing-hm-xs);
+  --spacing-sm: var(--spacing-hm-sm);
+  --spacing-md: var(--spacing-hm-md);
+  --spacing-lg: var(--spacing-hm-lg);
+  --spacing-xl: var(--spacing-hm-xl);
+  --spacing-2xl: var(--spacing-hm-2xl);
+  --spacing-3xl: var(--spacing-hm-3xl);
+  --spacing-4xl: var(--spacing-hm-4xl);
+  --spacing-5xl: var(--spacing-hm-5xl);
+  --space-3xs: var(--spacing-hm-3xs);
+  --space-2xs: var(--spacing-hm-2xs);
+  --space-xs: var(--spacing-hm-xs);
+  --space-sm: var(--spacing-hm-sm);
+  --space-md: var(--spacing-hm-md);
+  --space-lg: var(--spacing-hm-lg);
+  --space-xl: var(--spacing-hm-xl);
+  --space-2xl: var(--spacing-hm-2xl);
+  --space-3xl: var(--spacing-hm-3xl);
+  --space-4xl: var(--spacing-hm-4xl);
+  --space-5xl: var(--spacing-hm-5xl);
+  --text-meta: var(--text-xs);
+  --text-body: var(--text-sm);
+  --text-title: var(--text-display);
+  --tracking-display: -0.035em;
+  --display-weight: 700;
+  --display-style: normal;
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-dialog: 300ms;
+  --dur-reduced: 120ms;
+  --dur-fast: var(--dur-micro);
+  --dur-base: var(--dur-short);
+  --dur-slow: var(--dur-dialog);
+  --rule-hair: 1px;
+  --rule-fine: 2px;
+  --rule-hairline: var(--rule-hair);
+  --radius-card: var(--radius-panel);
+  --radius-pill: var(--radius-control);
+  --radius-input: var(--radius-control);
+  --shadow-card: none;
+  --control-height: 2.75rem;
+  --measure-prose: 65ch;
+  --container-app: 90rem;
+  --container-document: 68rem;
+}

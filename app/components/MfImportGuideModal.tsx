@@ -20,7 +20,7 @@ export default function MfImportGuideModal({
       description="共有後、MoneyForward MEで口座を指定して保存してください"
       onClose={onClose}
     >
-      <ol className="min-h-0 overflow-y-auto divide-y divide-zinc-200 px-5">
+      <ol className="min-h-0 overflow-y-auto divide-y divide-border px-5">
         {[
           { instruction: "共有シートでMoneyForward MEを選ぶ" },
           { instruction: "「CSVを読み込む」を押す" },
@@ -45,15 +45,15 @@ export default function MfImportGuideModal({
               key={instruction}
               className={`grid grid-cols-[28px_minmax(0,1fr)] items-start gap-3 py-4 text-sm ${
                 isShareStep && isSharing
-                  ? "font-semibold text-zinc-950"
-                  : "text-zinc-700"
+                  ? "font-semibold text-foreground"
+                  : "text-foreground-subtle"
               }`}
             >
               <span
-                className={`flex size-7 items-center justify-center text-xs font-bold ${
+                className={`step-number flex size-7 items-center justify-center border text-xs font-bold ${
                   isShareStep && !isSharing
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-zinc-100 text-zinc-700"
+                    ? "status-success"
+                    : "surface-quiet border-border text-foreground-subtle"
                 }`}
               >
                 {isShareStep ? (
@@ -78,7 +78,9 @@ export default function MfImportGuideModal({
               >
                 <span className="block leading-5">{instruction}</span>
                 {description !== undefined && (
-                  <p className="mt-0.5 text-xs text-zinc-500">{description}</p>
+                  <p className="mt-0.5 text-sm text-foreground-subtle">
+                    {description}
+                  </p>
                 )}
               </div>
             </li>
@@ -86,11 +88,11 @@ export default function MfImportGuideModal({
         })}
       </ol>
 
-      <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
+      <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface px-5 py-4 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
+          className="control-button button-secondary interactive w-full text-sm sm:w-auto"
         >
           閉じる
         </button>
@@ -98,11 +100,7 @@ export default function MfImportGuideModal({
           type="button"
           onClick={onImported}
           disabled={isSharing}
-          className={`inline-flex min-h-10 w-full items-center justify-center gap-2 px-4 text-sm font-semibold sm:w-auto ${
-            isSharing
-              ? "cursor-wait bg-zinc-200 text-zinc-500"
-              : "bg-zinc-900 text-white hover:bg-zinc-700"
-          }`}
+          className="control-button button-primary interactive w-full gap-2 text-sm sm:w-auto"
         >
           {isSharing ? (
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />

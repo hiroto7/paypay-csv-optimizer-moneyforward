@@ -120,7 +120,7 @@ export default function CsvShareGuide() {
       <button
         type="button"
         onClick={open}
-        className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+        className="interactive control-link gap-1.5 text-xs"
       >
         <Share2 className="size-3.5" aria-hidden="true" />
         CSVを共有して読み込む方法
@@ -133,54 +133,47 @@ export default function CsvShareGuide() {
           onClose={close}
         >
           <div className="min-h-0 overflow-y-auto">
-            <div className="space-y-4 px-5 py-5 text-sm leading-6 text-zinc-600">
+            <div className="space-y-4 px-5 py-5 text-sm leading-6 text-ink-2">
               <figure
-                className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 border border-zinc-200 bg-zinc-50 px-3 py-4"
+                className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border border-rule bg-paper-2 px-3 py-4"
                 aria-label="ダウンロードしたCSVをPP2MFで読み込む流れ"
               >
                 <div className="flex min-w-0 flex-col items-center gap-2 text-center">
-                  <span className="flex size-11 items-center justify-center bg-white shadow-sm ring-1 ring-zinc-200">
+                  <span className="flex size-11 items-center justify-center border border-rule bg-paper">
                     <FileText
-                      className="size-6 text-zinc-600"
+                      className="size-6 text-ink-2"
                       aria-hidden="true"
                     />
                   </span>
-                  <span className="text-xs font-semibold leading-4 text-zinc-700">
+                  <span className="text-xs font-semibold leading-4 text-ink-2">
                     CSVファイル
                   </span>
                 </div>
                 <ArrowRight
-                  className="size-4 shrink-0 text-zinc-400"
+                  className="size-4 shrink-0 text-muted"
                   aria-hidden="true"
                 />
                 <div className="flex min-w-0 flex-col items-center gap-2 text-center">
-                  <span className="flex size-11 items-center justify-center bg-white shadow-sm ring-1 ring-zinc-200">
-                    <Share2
-                      className="size-6 text-zinc-600"
-                      aria-hidden="true"
-                    />
+                  <span className="flex size-11 items-center justify-center border border-rule bg-paper">
+                    <Share2 className="size-6 text-ink-2" aria-hidden="true" />
                   </span>
-                  <span className="text-xs font-semibold leading-4 text-zinc-700">
+                  <span className="text-xs font-semibold leading-4 text-ink-2">
                     共有シート
                   </span>
                 </div>
                 <ArrowRight
-                  className="size-4 shrink-0 text-zinc-400"
+                  className="size-4 shrink-0 text-muted"
                   aria-hidden="true"
                 />
                 <div className="flex min-w-0 flex-col items-center gap-2 text-center">
-                  <img
-                    src="/pwa-icon.svg"
-                    alt=""
-                    className="size-11 shadow-sm"
-                  />
-                  <span className="text-xs font-semibold leading-4 text-zinc-700">
+                  <img src="/pwa-icon.svg" alt="" className="size-11" />
+                  <span className="text-xs font-semibold leading-4 text-ink-2">
                     PP2MF
                   </span>
                 </div>
               </figure>
 
-              <ol className="divide-y divide-zinc-200 border-y border-zinc-200">
+              <ol className="divide-y divide-rule border-y border-rule">
                 {[
                   isInstalled
                     ? "PP2MFはインストール済みです"
@@ -190,17 +183,17 @@ export default function CsvShareGuide() {
                 ].map((instruction, index) => (
                   <li
                     key={instruction}
-                    className={`grid grid-cols-[28px_1fr] gap-3 py-3 ${
+                    className={`grid grid-cols-[28px_minmax(0,1fr)] gap-3 py-3 ${
                       index === 0 && isInstalling
-                        ? "font-semibold text-zinc-950"
+                        ? "font-semibold text-ink"
                         : ""
                     }`}
                   >
                     <span
-                      className={`flex size-7 items-center justify-center text-xs font-bold ${
+                      className={`step-number flex size-7 items-center justify-center text-xs font-bold ${
                         index === 0 && isInstalled
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-zinc-100 text-zinc-700"
+                          ? "status-success"
+                          : "bg-paper-3 text-ink-2"
                       }`}
                     >
                       {index === 0 && isInstalling ? (
@@ -215,7 +208,7 @@ export default function CsvShareGuide() {
                       )}
                     </span>
                     <div className="min-w-0 pt-0.5">
-                      <span className="block text-zinc-700">{instruction}</span>
+                      <span className="block text-ink-2">{instruction}</span>
 
                       {index === 0 &&
                       !isInstalled &&
@@ -224,10 +217,8 @@ export default function CsvShareGuide() {
                           type="button"
                           onClick={() => void install()}
                           disabled={isInstalling}
-                          className={`mt-2 inline-flex min-h-10 items-center gap-2 px-4 text-sm font-semibold ${
-                            isInstalling
-                              ? "cursor-wait bg-zinc-200 text-zinc-500"
-                              : "bg-zinc-900 text-white hover:bg-zinc-700"
+                          className={`interactive control-button mt-2 gap-2 text-sm ${
+                            isInstalling ? "button-secondary" : "button-primary"
                           }`}
                         >
                           {isInstalling ? (
@@ -241,14 +232,14 @@ export default function CsvShareGuide() {
                           {isInstalling ? "インストール中" : "インストールする"}
                         </button>
                       ) : index === 0 && !isInstalled ? (
-                        <p className="mt-2 border-l-2 border-zinc-300 pl-3 text-xs leading-5 text-zinc-600">
+                        <p className="mt-2 text-sm leading-6 text-muted">
                           ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。
                         </p>
                       ) : null}
 
                       {index === 0 && installError && (
                         <p
-                          className="mt-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
+                          className="status-error mt-2 border px-3 py-3 text-sm"
                           role="alert"
                         >
                           {installError}
@@ -259,17 +250,17 @@ export default function CsvShareGuide() {
                 ))}
               </ol>
 
-              <p className="text-xs leading-5 text-zinc-500">
+              <p className="text-sm leading-6 text-muted">
                 端末・OS・ブラウザによっては、PP2MFが共有先に表示されない場合があります。
               </p>
             </div>
           </div>
 
-          <div className="flex shrink-0 justify-end border-t border-zinc-200 bg-zinc-50 px-5 py-4">
+          <div className="flex shrink-0 justify-end border-t border-rule bg-paper-2 px-5 py-4">
             <button
               type="button"
               onClick={close}
-              className="min-h-9 border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+              className="interactive control-button button-secondary text-sm"
             >
               閉じる
             </button>

@@ -86,13 +86,13 @@ function FileGroupList({
   const isSharing = sharingFilename !== null;
 
   return (
-    <div className="divide-y divide-zinc-200">
+    <div className="divide-y divide-border">
       {groups.map(({ name, chunks, filenameBase }) => (
         <div key={name} className="px-5 py-5">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
-              <h3 className="text-sm font-bold text-zinc-950">{name}</h3>
-              <span className="text-xs text-zinc-500">
+            <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
+              <h3 className="text-sm font-bold text-foreground">{name}</h3>
+              <span className="type-data text-xs text-foreground-subtle">
                 {countRecords(chunks)}件
               </span>
             </div>
@@ -107,7 +107,7 @@ function FileGroupList({
             />
           </div>
 
-          <div className="divide-y divide-zinc-200 border-y border-zinc-200">
+          <div className="divide-y divide-border border-y border-border">
             {chunks.map((chunk, index) => {
               const filename = createPp2mfOutputFilename(
                 filenameBase,
@@ -117,13 +117,13 @@ function FileGroupList({
               return (
                 <div
                   key={filename}
-                  className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                  className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
                   <div className={chunk.imported ? "opacity-55" : ""}>
-                    <p className="break-all text-sm font-semibold text-zinc-800">
+                    <p className="break-all text-sm font-semibold text-foreground">
                       {filename}
                     </p>
-                    <div className="mt-1 text-xs text-zinc-500">
+                    <div className="type-data mt-1 text-xs text-foreground-subtle">
                       <FileStatsSummary stats={chunk} />
                     </div>
                   </div>
@@ -131,12 +131,15 @@ function FileGroupList({
                     type="button"
                     onClick={() => onImport(filename, chunk.data, name, index)}
                     disabled={chunk.imported || isSharing}
-                    className={`inline-flex min-h-9 w-full items-center justify-center gap-2 px-4 py-2 text-sm font-semibold sm:w-auto ${
+                    aria-busy={sharingFilename === filename || undefined}
+                    className={`control-button interactive w-full gap-2 text-sm sm:w-auto ${
                       chunk.imported
-                        ? "cursor-default bg-zinc-100 text-zinc-500"
-                        : isSharing
-                          ? "cursor-wait bg-zinc-200 text-zinc-500"
-                          : "bg-zinc-900 text-white hover:bg-zinc-700"
+                        ? "button-secondary"
+                        : sharingFilename === filename
+                          ? "button-primary cursor-wait"
+                          : isSharing
+                            ? "button-secondary"
+                            : "button-primary"
                     }`}
                   >
                     {chunk.imported ? (
@@ -211,16 +214,16 @@ export default function Step3FileList({
 
   return (
     <section aria-labelledby="output-title">
-      <div className="flex flex-col gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 id="output-title" className="text-base font-bold text-zinc-950">
+          <h2 id="output-title" className="text-base font-bold text-foreground">
             作成したファイル
           </h2>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="type-data mt-0.5 text-xs text-foreground-subtle">
             {totalRecords}件を{totalFiles}ファイルに分割しました
           </p>
         </div>
-        <div className="flex gap-4 text-xs text-zinc-600">
+        <div className="type-data flex gap-4 text-xs text-foreground-subtle">
           <span className="inline-flex items-center gap-1.5">
             <Rows3 className="size-3.5" aria-hidden="true" />
             {groups.length}口座
@@ -233,18 +236,18 @@ export default function Step3FileList({
       </div>
 
       {!hasMfmeData && (
-        <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-950">
+        <div className="status-warning border-b px-5 py-3 text-xs">
           MoneyForward
           MEの入出金履歴を読み込んでいないため、PayPayの取引をすべて出力しています。
         </div>
       )}
 
       {totalExcluded > 0 && (
-        <div className="border-b border-zinc-200 bg-zinc-50 px-5 py-3">
-          <p className="text-xs font-semibold text-zinc-800">
+        <div className="surface-quiet border-b border-border px-5 py-3">
+          <p className="type-data text-xs font-semibold text-foreground">
             登録済みの明細 {totalExcluded}件を除外しました
           </p>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+          <div className="type-data mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-subtle">
             {excludedByMfme > 0 && (
               <span>入出金履歴との一致: {excludedByMfme}件</span>
             )}

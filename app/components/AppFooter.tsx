@@ -2,26 +2,23 @@ import { Link } from "react-router";
 
 export default function AppFooter() {
   return (
-    <footer className="border-t border-zinc-200 bg-white">
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-2 px-4 py-4 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <nav aria-label="補足情報" className="flex flex-wrap gap-x-4 gap-y-1">
-          <Link
-            to="/guide"
-            className="underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
-          >
+    <footer className="border-t border-rule-strong bg-paper">
+      <div className="app-container py-3 text-sm text-muted">
+        <nav
+          aria-label="補足情報"
+          className="flex flex-wrap items-center gap-x-1 sm:gap-x-3"
+        >
+          <Link to="/guide" className="control-link interactive px-2">
             使い方
           </Link>
-          <Link
-            to="/privacy"
-            className="underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
-          >
+          <Link to="/privacy" className="control-link interactive px-2">
             プライバシーについて
           </Link>
           <a
             href="https://github.com/hiroto7/paypay-csv-optimizer-moneyforward"
             target="_blank"
             rel="noreferrer"
-            className="underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+            className="control-link interactive px-2"
           >
             GitHub
           </a>

@@ -11,5 +11,9 @@ export default function PeriodDisplay({
   startDate,
   endDate,
 }: PeriodDisplayProps) {
-  return <>{dateFormatter.formatRange(startDate, endDate)}</>;
+  return (
+    <span className="type-data whitespace-nowrap">
+      {dateFormatter.formatRange(startDate, endDate)}
+    </span>
+  );
 }

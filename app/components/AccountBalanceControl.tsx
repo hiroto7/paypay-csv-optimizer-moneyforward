@@ -1,4 +1,4 @@
-import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import type { AccountBalance } from "~/services/local-exclusion-store";
 
@@ -61,44 +61,42 @@ export default function AccountBalanceControl({
   };
 
   if (!isEditing) {
-    if (!balance) {
-      return (
-        <button
-          type="button"
-          onClick={startEditing}
-          className="inline-flex min-h-8 items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-950"
-          aria-label={`${accountName}の現在残高を設定`}
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-          残高を設定
-        </button>
-      );
-    }
-
     return (
-      <div className="flex min-h-8 flex-wrap items-center gap-1.5 text-xs">
-        <span className="text-zinc-500">残高</span>
-        <span className="font-semibold text-zinc-800">
-          {currencyFormatter.format(balance.amount)}
-        </span>
-        {pendingDelta !== 0 && projectedBalance !== null && (
-          <>
-            <ArrowRight className="size-3 text-zinc-400" aria-hidden="true" />
-            <span
-              className="font-semibold text-zinc-950"
-              title="全件取り込み後の見込み残高"
-            >
-              {currencyFormatter.format(projectedBalance)}
-            </span>
-          </>
-        )}
+      <div className="grid w-full gap-2 text-xs sm:w-auto">
+        <dl className="grid gap-1">
+          <div className="flex min-h-6 flex-wrap items-baseline justify-between gap-x-3">
+            <dt className="text-foreground-subtle">現在残高</dt>
+            <dd className="type-data font-semibold text-foreground">
+              {balance === undefined
+                ? "未設定"
+                : currencyFormatter.format(balance.amount)}
+            </dd>
+          </div>
+          <div className="flex min-h-6 flex-wrap items-baseline justify-between gap-x-3">
+            <dt className="text-foreground-subtle">取り込み後の見込み残高</dt>
+            <dd className="type-data font-semibold text-foreground">
+              {projectedBalance === null
+                ? "—"
+                : currencyFormatter.format(projectedBalance)}
+            </dd>
+          </div>
+        </dl>
         <button
           type="button"
           onClick={startEditing}
-          className="inline-flex size-7 items-center justify-center text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
-          aria-label={`${accountName}の現在残高を編集`}
+          className="control-button button-secondary interactive w-full gap-1.5 text-xs sm:w-auto sm:justify-self-end"
+          aria-label={
+            balance === undefined
+              ? `${accountName}の現在残高を設定`
+              : `${accountName}の現在残高を編集`
+          }
         >
-          <Pencil className="size-3.5" aria-hidden="true" />
+          {balance === undefined ? (
+            <Plus className="size-3.5" aria-hidden="true" />
+          ) : (
+            <Pencil className="size-3.5" aria-hidden="true" />
+          )}
+          {balance === undefined ? "残高を設定" : "残高を編集"}
         </button>
       </div>
     );
@@ -112,64 +110,78 @@ export default function AccountBalanceControl({
         saveBalance();
       }}
     >
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <label htmlFor={inputId} className="sr-only">
-          MoneyForward MEの現在残高
-        </label>
-        <div className="flex">
-          <input
-            id={inputId}
-            type="text"
-            inputMode="numeric"
-            value={draftBalance}
-            onChange={(event) => {
-              setDraftBalance(event.target.value);
-              setError("");
-            }}
-            className="h-8 w-28 border border-zinc-300 px-2 text-right text-xs font-semibold outline-none focus:border-red-600"
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
-          />
-          <span className="flex h-8 items-center border-y border-r border-zinc-300 bg-zinc-50 px-2 text-xs text-zinc-500">
-            円
+      <div className="grid gap-2">
+        <div className="grid gap-1">
+          <label
+            htmlFor={inputId}
+            className="text-xs font-semibold text-foreground-subtle"
+          >
+            現在残高
+          </label>
+          <div className="flex">
+            <input
+              id={inputId}
+              type="text"
+              inputMode="numeric"
+              value={draftBalance}
+              onChange={(event) => {
+                setDraftBalance(event.target.value);
+                setError("");
+              }}
+              className="type-data h-11 w-28 border border-border-strong bg-background px-3 text-right text-sm font-semibold text-foreground"
+              aria-label="MoneyForward MEの現在残高"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={errorId}
+            />
+            <span className="flex h-11 items-center border-y border-r border-border-strong bg-surface px-3 text-sm text-foreground-subtle">
+              円
+            </span>
+          </div>
+        </div>
+        <div className="flex min-h-6 flex-wrap items-baseline justify-between gap-x-3 text-xs">
+          <span className="text-foreground-subtle">取り込み後の見込み残高</span>
+          <span className="type-data font-semibold text-foreground">
+            {projectedBalance === null
+              ? "—"
+              : currencyFormatter.format(projectedBalance)}
           </span>
         </div>
-        <button
-          type="submit"
-          className="min-h-8 bg-zinc-900 px-3 text-xs font-semibold text-white hover:bg-zinc-700"
-        >
-          保存
-        </button>
-        <button
-          type="button"
-          onClick={cancelEditing}
-          className="min-h-8 px-2 text-xs font-semibold text-zinc-500 hover:bg-zinc-100"
-        >
-          キャンセル
-        </button>
-        {balance && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="submit"
+            className="control-button button-primary interactive text-xs"
+          >
+            保存
+          </button>
           <button
             type="button"
-            onClick={() => {
-              onClearBalance(accountName);
-              cancelEditing();
-            }}
-            className="inline-flex size-8 items-center justify-center text-zinc-400 hover:bg-zinc-100 hover:text-red-700"
-            aria-label={`${accountName}の残高設定を解除`}
+            onClick={cancelEditing}
+            className="control-button button-quiet interactive text-xs"
           >
-            <Trash2 className="size-3.5" aria-hidden="true" />
+            キャンセル
           </button>
-        )}
+          {balance && (
+            <button
+              type="button"
+              onClick={() => {
+                onClearBalance(accountName);
+                cancelEditing();
+              }}
+              className="icon-control button-danger interactive"
+              aria-label={`${accountName}の残高設定を解除`}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
-      {error && (
-        <p
-          id={errorId}
-          className="mt-1 text-right text-xs text-red-700"
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
+      <p
+        id={errorId}
+        className="field-message mt-2 text-left text-xs"
+        role={error ? "alert" : undefined}
+      >
+        {error}
+      </p>
     </form>
   );
 }
