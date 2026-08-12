@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   SHARED_FILE_DATABASE_NAME,
   SHARED_FILE_DATABASE_VERSION,
@@ -151,6 +151,50 @@ const resolveInstallChoice = async (
   }, outcome);
 };
 
+const responsiveWidths = [320, 375, 414, 768] as const;
+
+const expectNoHorizontalOverflow = async (page: Page) => {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBe(true);
+};
+
+const expectTextOnOneLine = async (locator: Locator) => {
+  const lineCount = await locator.evaluate((element) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const ranges: Range[] = [];
+    let textNode = walker.nextNode();
+    while (textNode) {
+      if (textNode.textContent?.trim()) {
+        const range = document.createRange();
+        range.selectNodeContents(textNode);
+        ranges.push(range);
+      }
+      textNode = walker.nextNode();
+    }
+    return new Set(
+      ranges
+        .flatMap((range) => [...range.getClientRects()])
+        .filter(({ width, height }) => width > 0 && height > 0)
+        .map(({ top }) => Math.round(top)),
+    ).size;
+  });
+  expect(lineCount).toBe(1);
+};
+
+const expectMinTouchTarget = async (locator: Locator) => {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+};
+
 test.beforeEach(async ({ page }) => {
   await openCleanPage(page);
 });
@@ -225,12 +269,10 @@ test("3ページで共通ヘッダーと情報ページの戻る導線を表示�
     await expect(header.locator('img[src="/pwa-icon.svg"]')).toBeVisible();
     await expect(header.getByText("PP2MF", { exact: true })).toBeVisible();
     await expect(
-      header.getByText("PayPay CSV Optimizer for MoneyForward ME", {
-        exact: true,
-      }),
+      header.getByRole("link", { name: "使い方", exact: true }),
     ).toBeVisible();
     await expect(
-      header.getByText("ブラウザ内で処理", { exact: true }).first(),
+      header.getByRole("link", { name: "プライバシー", exact: true }),
     ).toBeVisible();
     await expect(page.locator("main h1")).toHaveCount(1);
 
@@ -238,6 +280,11 @@ test("3ページで共通ヘッダーと情報ページの戻る導線を表示�
       await expect(page).toHaveScreenshot(`${path.slice(1)}-page.png`, {
         fullPage: true,
       });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(page).toHaveScreenshot(`${path.slice(1)}-page-mobile.png`, {
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 1440, height: 900 });
     }
   }
 
@@ -248,6 +295,119 @@ test("3ページで共通ヘッダーと情報ページの戻る導線を表示�
   await page.goto("/privacy");
   await page.getByRole("link", { name: "アプリに戻る" }).click();
   await expect(page).toHaveURL(/\/$/);
+});
+
+test("主要画面をHallmarkの4幅で横あふれなく操作できる", async ({ page }) => {
+  for (const width of responsiveWidths) {
+    await page.setViewportSize({ width, height: 844 });
+
+    for (const path of ["/", "/guide", "/privacy"]) {
+      await page.goto(path);
+      await page.evaluate(() => document.fonts.ready);
+      await expectNoHorizontalOverflow(page);
+
+      const header = page.getByRole("banner");
+      for (const target of [
+        header.getByRole("link", { name: "PP2MF ホーム" }),
+        header.getByRole("link", { name: "使い方", exact: true }),
+        header.getByRole("link", { name: "プライバシー", exact: true }),
+      ]) {
+        await expectTextOnOneLine(target);
+        await expectMinTouchTarget(target);
+      }
+
+      const footer = page.getByRole("contentinfo");
+      for (const target of [
+        footer.getByRole("link", { name: "使い方", exact: true }),
+        footer.getByRole("link", { name: "プライバシーについて" }),
+        footer.getByRole("link", { name: "GitHub" }),
+      ]) {
+        await expectTextOnOneLine(target);
+        await expectMinTouchTarget(target);
+      }
+    }
+
+    await page.goto("/");
+    for (const target of [
+      page.getByRole("link", { name: "使い方を見る" }),
+      page.getByRole("button", { name: "CSVを共有して読み込む方法" }),
+    ]) {
+      await expectTextOnOneLine(target);
+      await expectMinTouchTarget(target);
+    }
+    await expectTextOnOneLine(page.locator("#audit-panel-title"));
+
+    await page
+      .getByRole("button", { name: "CSVを共有して読み込む方法" })
+      .click();
+    const shareGuideDialog = page.getByRole("dialog", {
+      name: "CSVを共有して読み込む",
+    });
+    await shareGuideDialog.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      );
+    });
+    await expectMinTouchTarget(shareGuideDialog.getByTitle("閉じる"));
+  }
+});
+
+test("キーボード操作でフォーカス位置を確認できる", async ({ page }) => {
+  await page.keyboard.press("Tab");
+  const homeLink = page.getByRole("link", { name: "PP2MF ホーム" });
+  await expect(homeLink).toBeFocused();
+  expect(
+    await homeLink.evaluate((element) => element.matches(":focus-visible")),
+  ).toBe(true);
+  await expect(homeLink).toHaveCSS("outline-style", "solid");
+  await expect(homeLink).toHaveCSS("outline-width", "2px");
+  await expect(homeLink).toHaveCSS("outline-offset", "2px");
+});
+
+test("動きを減らす設定では読み込み中アイコンを回転させない", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+
+  await dispatchInstallPrompt(page);
+  await page.getByRole("button", { name: "CSVを共有して読み込む方法" }).click();
+  const shareGuideDialog = page.getByRole("dialog", {
+    name: "CSVを共有して読み込む",
+  });
+  await expect(shareGuideDialog).toHaveCSS("animation-name", "dialog-fade");
+  await expect(shareGuideDialog).toHaveCSS("animation-duration", "0.12s");
+  await shareGuideDialog
+    .getByRole("button", { name: "インストールする" })
+    .click();
+  await expect(
+    shareGuideDialog
+      .getByRole("button", { name: "インストール中" })
+      .locator("svg"),
+  ).toHaveCSS("animation-name", "none");
+  await resolveInstallChoice(page, "dismissed");
+  await shareGuideDialog.getByTitle("閉じる").click();
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: () => new Promise<void>(() => undefined),
+    });
+  });
+  await selectPayPayCsv(page);
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+
+  const importDialog = page.getByRole("dialog", {
+    name: "MoneyForward MEに取り込む",
+  });
+  await expect(
+    importDialog
+      .getByRole("button", { name: "共有シートを表示中" })
+      .locator("svg"),
+  ).toHaveCSS("animation-name", "none");
 });
 
 test("CSVを共有して読み込む方法とインストール案内を確認できる", async ({
@@ -426,6 +586,11 @@ test("作成結果と保存確認モーダルを表示できる", async ({ page 
   await expect(page).toHaveScreenshot("conversion-result.png", {
     fullPage: true,
   });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveScreenshot("conversion-result-mobile.png", {
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.evaluate(() => {
     Object.defineProperty(navigator, "canShare", {
@@ -537,12 +702,27 @@ test("口座ごとに現在残高と取り込み後の見込みを管理でき�
     }),
   ).toHaveCount(0);
 
-  await balanceGroup
-    .getByRole("button", { name: "PayPay残高の現在残高を設定" })
-    .click();
+  const setBalanceButton = balanceGroup.getByRole("button", {
+    name: "PayPay残高の現在残高を設定",
+  });
+  await expectMinTouchTarget(setBalanceButton);
+  await setBalanceButton.click();
   const balanceInput = balanceGroup.getByLabel("MoneyForward MEの現在残高");
+  const saveBalanceButton = balanceGroup.getByRole("button", { name: "保存" });
+  const cancelBalanceButton = balanceGroup.getByRole("button", {
+    name: "キャンセル",
+  });
+  for (const target of [balanceInput, saveBalanceButton, cancelBalanceButton]) {
+    await expectMinTouchTarget(target);
+  }
+  await balanceInput.focus();
+  expect(
+    await balanceInput.evaluate((element) => element.matches(":focus-visible")),
+  ).toBe(true);
+  await expect(balanceInput).toHaveCSS("outline-width", "2px");
+  await expect(balanceInput).toHaveCSS("outline-offset", "1px");
   await balanceInput.fill("1.5");
-  await balanceGroup.getByRole("button", { name: "保存" }).click();
+  await saveBalanceButton.click();
   await expect(balanceGroup.getByRole("alert")).toHaveText(
     "残高は整数で入力してください。",
   );
@@ -554,13 +734,20 @@ test("口座ごとに現在残高と取り込み後の見込みを管理でき�
   await expect(page).toHaveScreenshot("account-balances.png", {
     fullPage: true,
   });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveScreenshot("account-balances-mobile.png", {
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await balanceGroup
     .getByRole("button", { name: "PayPay残高の現在残高を編集" })
     .click();
-  await balanceGroup
-    .getByRole("button", { name: "PayPay残高の残高設定を解除" })
-    .click();
+  const clearBalanceButton = balanceGroup.getByRole("button", {
+    name: "PayPay残高の残高設定を解除",
+  });
+  await expectMinTouchTarget(clearBalanceButton);
+  await clearBalanceButton.click();
   await balanceGroup
     .getByRole("button", { name: "PayPay残高の現在残高を設定" })
     .click();
@@ -573,10 +760,12 @@ test("口座ごとに現在残高と取り込み後の見込みを管理でき�
     }),
   ).toHaveCount(0);
 
-  await page.getByRole("button", { name: "取り込む" }).first().click();
+  const importButton = page.getByRole("button", { name: "取り込む" }).first();
+  await expectMinTouchTarget(importButton);
+  await importButton.click();
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
 
-  await expect(balanceGroup.getByText("￥4,493")).toHaveCount(1);
+  await expect(balanceGroup.getByText("￥4,493")).toHaveCount(2);
 
   await page.reload();
   await expect
@@ -976,6 +1165,39 @@ test("重複登録と口座間違いの候補を表示できる", async ({ page 
     page.getByRole("heading", { name: "要確認明細 2件" }),
   ).toBeVisible();
   await expect(page).toHaveScreenshot("audit-candidates.png", {
+    fullPage: true,
+  });
+
+  const table = page.getByRole("table", { name: "要確認明細" });
+  await table.evaluate((element) => {
+    Object.defineProperty(element, "__pp2mfResponsiveTable", {
+      value: true,
+    });
+  });
+  for (const width of responsiveWidths) {
+    await page.setViewportSize({ width, height: 844 });
+    await expectNoHorizontalOverflow(page);
+    await expect(table).toBeVisible();
+    expect(
+      await table.evaluate((element) => "__pp2mfResponsiveTable" in element),
+    ).toBe(true);
+    await expect(table.locator("tbody tr")).toHaveCount(2);
+
+    const firstDateCell = table.locator('td[data-label="日付"]').first();
+    await expect(firstDateCell).toContainText("2025/10/24");
+    if (width < 768) {
+      await expect(table.locator("thead")).toHaveCSS("position", "absolute");
+      await expect(table.getByRole("row")).toHaveCount(3);
+      await expect(firstDateCell).toHaveCSS("display", "grid");
+    } else {
+      await expect(table.locator("thead")).toBeVisible();
+      await expect(table.getByRole("row")).toHaveCount(3);
+      await expect(firstDateCell).toHaveCSS("display", "table-cell");
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveScreenshot("audit-candidates-mobile.png", {
     fullPage: true,
   });
 });
