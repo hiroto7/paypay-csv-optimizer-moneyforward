@@ -135,10 +135,6 @@ export default function Guide() {
               </li>
             </ul>
           </section>
-
-          <div className="border-t border-zinc-200 bg-zinc-50 px-5 py-4 text-sm text-zinc-600 sm:px-7">
-            スマートフォンの共有シートからCSVを直接読み込む方法は、アプリの入力ファイル欄にある「CSVを共有して読み込む方法」から確認できます。
-          </div>
         </div>
       </main>
 
