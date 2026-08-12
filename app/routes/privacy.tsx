@@ -18,15 +18,15 @@ const sections = [
   {
     title: "CSVの処理",
     paragraphs: [
-      "PayPayとMoneyForward MEのCSVは、ブラウザ内で読み込み、照合、変換します。CSVの内容や変換結果をPP2MFのアプリケーションサーバーへ送信する処理はありません。",
+      "PayPayの取引履歴とMoneyForward MEの入出金履歴は、ブラウザ内で読み込み、照合、変換します。内容や変換結果をPP2MFのアプリケーションサーバーへ送信する処理はありません。",
       "生成したCSVは、ダウンロードまたは共有を押したときに、ブラウザの機能を使って端末へ保存・共有します。",
     ],
   },
   {
     title: "端末内への保存",
     paragraphs: [
-      "作業中のPayPay CSVとMoneyForward ME CSVは、再読み込み後も作業を続けられるよう端末のIndexedDBへ保存します。入力欄からファイルの選択を解除するか、ブラウザのサイトデータを削除するまで保持されます。",
-      "「MoneyForward MEで保存した」の記録と、手動で設定した口座残高は端末のlocalStorageへ保存します。MoneyForward MEのCSVを変更すると取り込み記録はリセットされますが、手動で設定した残高は保持されます。",
+      "作業中のPayPayの取引履歴とMoneyForward MEの入出金履歴は、再読み込み後も作業を続けられるよう端末のIndexedDBへ保存します。入力欄からファイルの選択を解除するか、ブラウザのサイトデータを削除するまで保持されます。",
+      "「MoneyForward MEで保存した」の記録と、手動で設定した口座残高は端末のlocalStorageへ保存します。MoneyForward MEの入出金履歴を変更すると取り込み記録はリセットされますが、手動で設定した残高は保持されます。",
     ],
   },
   {

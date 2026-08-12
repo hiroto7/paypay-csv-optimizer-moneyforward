@@ -19,14 +19,14 @@ const steps = [
   {
     title: "PayPayの取引履歴を選ぶ",
     paragraphs: [
-      "PayPayから取引履歴CSVをダウンロードし、そのファイルをPP2MFで選びます。",
+      "PayPayから取引履歴をダウンロードし、そのCSVファイルをPP2MFで選びます。",
     ],
   },
   {
     title: "MoneyForward MEの入出金履歴を追加する（任意）",
     paragraphs: [
-      "MoneyForward MEから書き出した入出金履歴CSVを追加すると、すでに登録されている明細を作成対象から除外します。",
-      "追加しない場合は、PayPayの取引履歴を除外せずに処理します。",
+      "MoneyForward MEから書き出した入出金履歴を追加すると、すでに登録されている明細を作成対象から除外します。",
+      "追加しない場合は、MoneyForward MEの入出金履歴との照合を行いません。",
     ],
   },
   {
@@ -68,7 +68,7 @@ export default function Guide() {
             <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
               <p>
                 MoneyForward
-                MEにはPayPayの取引履歴を自動取得する機能がありません。その代わりとして、PayPayから書き出した取引履歴CSVを読み込み、明細を登録する機能があります。
+                MEにはPayPayの取引履歴を自動取得する機能がありません。その代わりとして、PayPayから書き出した取引履歴のCSVファイルを読み込み、明細を登録する機能があります。
               </p>
               <p>
                 ただし、すでに登録した明細を自動で除外する仕組みはないため、以前取り込んだ期間と重なるCSVを読み込むと、同じ明細を重複して登録する可能性があります。
