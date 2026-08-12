@@ -4,7 +4,6 @@ export default function AppFooter() {
   return (
     <footer className="border-t border-zinc-200 bg-white">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-2 px-4 py-4 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>PP2MF</p>
         <nav aria-label="補足情報" className="flex flex-wrap gap-x-4 gap-y-1">
           <Link
             to="/guide"
