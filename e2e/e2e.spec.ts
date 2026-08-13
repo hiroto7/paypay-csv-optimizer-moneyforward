@@ -216,8 +216,15 @@ test("初期画面をデスクトップとモバイルで表示できる", async
 });
 
 test("3ページで共通ヘッダーと情報ページの戻る導線を表示できる", async ({
+  context,
   page,
 }) => {
+  await page.goto("/");
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+    "content",
+    "width=device-width, initial-scale=1, viewport-fit=cover",
+  );
+
   for (const path of ["/", "/guide", "/privacy"]) {
     await page.goto(path);
     const header = page.getByRole("banner");
@@ -240,6 +247,33 @@ test("3ページで共通ヘッダーと情報ページの戻る導線を表示�
       });
     }
   }
+
+  const client = await context.newCDPSession(page);
+  await client.send("Emulation.setSafeAreaInsetsOverride", {
+    insets: { bottom: 34 },
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ["/", "/guide", "/privacy"]) {
+    await page.goto(path);
+    const footer = page.getByRole("contentinfo");
+    const footerContent = footer.locator(":scope > div");
+
+    await footer.scrollIntoViewIfNeeded();
+    await expect(footerContent).toHaveCSS("padding-bottom", "50px");
+    await expect(footer.getByRole("link", { name: "使い方" })).toBeVisible();
+    await expect(
+      footer.getByRole("link", { name: "プライバシーについて" }),
+    ).toBeVisible();
+    await expect(footer.getByRole("link", { name: "GitHub" })).toBeVisible();
+  }
+
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await page.goto("/");
+  await expect(page.getByRole("contentinfo").locator(":scope > div")).toHaveCSS(
+    "padding-bottom",
+    "16px",
+  );
 
   await page.goto("/guide");
   await page.getByRole("link", { name: "アプリに戻る" }).click();
