@@ -106,6 +106,41 @@ const shareCsvThroughTarget = async (
   await page.waitForURL((url) => !url.searchParams.has("shared-files"));
 };
 
+test("Share Targetでファイルが渡されないと受信段階を表示する", async ({
+  page,
+}) => {
+  await openCleanPage(page);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-hydrated", "true");
+
+  await page.evaluate(() => {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/share-target";
+    form.enctype = "multipart/form-data";
+    const textField = document.createElement("input");
+    textField.name = "text";
+    textField.value = "ファイルなし";
+    form.append(textField);
+    document.body.append(form);
+    form.submit();
+  });
+
+  await expect(page.getByRole("alert")).toContainText("エラーコード: no-file");
+});
+
+test("Share Targetの一時保存エラーを端末で確認できる", async ({ page }) => {
+  await page.goto("/?share-error=storage-write%3AQuotaExceededError");
+  await expect(page.getByRole("alert")).toContainText(
+    "共有ファイルを端末内に一時保存できませんでした。",
+  );
+  await expect(page.getByRole("alert")).toContainText(
+    "エラーコード: storage-write:QuotaExceededError",
+  );
+  await expect(page).toHaveURL("/");
+});
+
 const dispatchInstallPrompt = async (page: Page, trackPrompt = false) => {
   await page.evaluate((shouldTrackPrompt) => {
     let resolveInstallChoice:

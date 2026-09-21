@@ -19,29 +19,26 @@ const openDatabase = () =>
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    request.onblocked = () =>
+      reject(new DOMException("Database upgrade blocked", "VersionError"));
   });
 
-const storeSharedFiles = async (files) => {
+const storeSharedFiles = async (database, files) => {
   const id = crypto.randomUUID();
-  const database = await openDatabase();
-
-  try {
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction(
-        SHARED_FILES_STORE_NAME,
-        "readwrite",
-      );
-      transaction.objectStore(SHARED_FILES_STORE_NAME).put({
-        id,
-        files,
-        receivedAt: Date.now(),
-      });
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      SHARED_FILES_STORE_NAME,
+      "readwrite",
+    );
+    transaction.objectStore(SHARED_FILES_STORE_NAME).put({
+      id,
+      files,
+      receivedAt: Date.now(),
     });
-  } finally {
-    database.close();
-  }
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
 
   return id;
 };
@@ -66,9 +63,24 @@ const getSharedFiles = (formData) => {
   return files;
 };
 
-const errorRedirect = (url, error) => {
+const ERROR_NAMES = new Set([
+  "AbortError",
+  "DataCloneError",
+  "InvalidStateError",
+  "NotAllowedError",
+  "QuotaExceededError",
+  "SecurityError",
+  "UnknownError",
+  "VersionError",
+]);
+
+const errorRedirect = (url, stage, error) => {
   const redirectUrl = new URL("/", url.origin);
-  redirectUrl.searchParams.set("share-error", error);
+  const errorName = error?.name;
+  const code = error
+    ? `${stage}:${ERROR_NAMES.has(errorName) ? errorName : "OtherError"}`
+    : stage;
+  redirectUrl.searchParams.set("share-error", code);
   return Response.redirect(redirectUrl.href, 303);
 };
 
@@ -89,22 +101,37 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     (async () => {
+      let files;
       try {
-        const formData = await event.request.formData();
-        const files = getSharedFiles(formData);
+        files = getSharedFiles(await event.request.formData());
+      } catch (error) {
+        console.error("Failed to parse shared files:", error);
+        return errorRedirect(url, "form-data", error);
+      }
 
-        if (files.length === 0) {
-          return errorRedirect(url, "no-file");
-        }
+      if (files.length === 0) {
+        return errorRedirect(url, "no-file");
+      }
 
-        const id = await storeSharedFiles(files);
+      let database;
+      try {
+        database = await openDatabase();
+      } catch (error) {
+        console.error("Failed to open shared file storage:", error);
+        return errorRedirect(url, "storage-open", error);
+      }
+
+      try {
+        const id = await storeSharedFiles(database, files);
         return Response.redirect(
           new URL(`/?shared-files=${encodeURIComponent(id)}`, url.origin).href,
           303,
         );
       } catch (error) {
-        console.error("Failed to receive shared files:", error);
-        return errorRedirect(url, "receive-failed");
+        console.error("Failed to store shared files:", error);
+        return errorRedirect(url, "storage-write", error);
+      } finally {
+        database.close();
       }
     })(),
   );

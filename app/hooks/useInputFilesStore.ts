@@ -18,6 +18,28 @@ export type SharedFileNotice = {
 
 type InputOperation = (currentFiles: InputFiles) => Promise<void>;
 
+const shareErrorMessage = (code: string): string => {
+  const stage = code.split(":")[0];
+  const description =
+    stage === "no-file"
+      ? "共有からファイルを取得できませんでした。"
+      : stage === "form-data"
+        ? "共有データを解析できませんでした。"
+        : stage === "storage-open"
+          ? "端末内の一時保存先を開けませんでした。"
+          : stage === "storage-write"
+            ? "共有ファイルを端末内に一時保存できませんでした。"
+            : "共有されたCSVを受け取れませんでした。";
+  const safeCode =
+    /^(no-file|(form-data|storage-open|storage-write):(AbortError|DataCloneError|InvalidStateError|NotAllowedError|QuotaExceededError|SecurityError|UnknownError|VersionError|OtherError))$/.test(
+      code,
+    )
+      ? code
+      : "unknown";
+
+  return `${description}通常のファイル選択をお試しください。エラーコード: ${safeCode}`;
+};
+
 const emptyInputFiles = (): InputFiles => ({
   payPayFile: null,
   mfmeFiles: [],
@@ -149,8 +171,7 @@ export function useInputFilesStore({
     if (shareError) {
       setNotice({
         tone: "error",
-        message:
-          "共有されたCSVを受け取れませんでした。通常のファイル選択をお試しください。",
+        message: shareErrorMessage(shareError),
       });
     } else if (sharedFilesId) {
       void enqueue(async (currentFiles) => {
