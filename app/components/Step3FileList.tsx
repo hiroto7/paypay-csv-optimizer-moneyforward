@@ -131,7 +131,7 @@ function FileGroupList({
                     type="button"
                     onClick={() => onImport(filename, chunk.data, name, index)}
                     disabled={chunk.imported || isSharing}
-                    className={`inline-flex min-h-9 w-full items-center justify-center gap-2 px-4 py-2 text-sm font-semibold sm:w-auto ${
+                    className={`inline-flex h-9 w-full items-center justify-center gap-2 px-4 text-sm font-semibold sm:w-auto ${
                       chunk.imported
                         ? "cursor-default bg-zinc-100 text-zinc-500"
                         : isSharing

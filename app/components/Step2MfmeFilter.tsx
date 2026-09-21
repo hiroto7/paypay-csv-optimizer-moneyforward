@@ -1,15 +1,17 @@
-import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { useState } from "react";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import FileStatsSummary from "~/components/FileStatsSummary";
+import type { RejectedInputFile } from "~/hooks/useInputFilesStore";
 import type { FileStats } from "~/services/csv-date";
 
 interface Step2MfmeFilterProps {
   files: File[];
   stats: FileStats | null;
-  error: string;
+  fileStatsByName: ReadonlyMap<string, FileStats>;
+  errors: RejectedInputFile[];
   onFilesAdded: (files: File[]) => void;
-  onFilesCleared: () => void;
+  onFileRemoved: (name: string) => void;
   localImportedStats: FileStats;
 }
 
@@ -30,21 +32,13 @@ const combineStats = (first: FileStats, second: FileStats): FileStats => ({
 export default function Step2MfmeFilter({
   files,
   stats,
-  error,
+  fileStatsByName,
+  errors,
   onFilesAdded,
-  onFilesCleared,
+  onFileRemoved,
   localImportedStats,
 }: Step2MfmeFilterProps) {
-  const [fileInputVersion, setFileInputVersion] = useState(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
-
-  const clearFiles = () => {
-    setFileInputVersion((version) => version + 1);
-    onFilesCleared();
-  };
-
-  const selectedLabel =
-    files.length > 0 ? `${files.length}ファイル` : undefined;
   const mfmeStats = stats ?? {
     count: 0,
     startDate: null,
@@ -71,49 +65,65 @@ export default function Step2MfmeFilter({
         </div>
       </div>
 
-      <CsvFilePicker
-        key={fileInputVersion}
-        id="mfme-csv-input"
-        multiple
-        emptyLabel="入出金履歴を選ぶ"
-        selectedLabel={selectedLabel}
-        selectedMeta={
-          files.length > 0 ? (
-            <>
-              {stats && <FileStatsSummary stats={stats} />}
-              <div className={stats ? "mt-2" : undefined}>
-                <p className="font-semibold">読み込み済みファイル</p>
-                <ul className="mt-1 space-y-0.5">
-                  {files.map((file) => (
-                    <li key={file.name} className="break-words">
-                      {file.name}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          ) : undefined
-        }
-        tone={error ? "error" : "success"}
-        changeLabel="追加する"
-        clearLabel="すべて削除"
-        onFilesSelected={(selectedFiles) => {
-          const nextFiles = Array.from(selectedFiles ?? []);
-          if (nextFiles.length > 0) {
-            setFileInputVersion((version) => version + 1);
-            onFilesAdded(nextFiles);
-          }
-        }}
-        onClear={clearFiles}
-      />
+      {files.length > 0 && (
+        <ul className="space-y-2">
+          {files.map((file) => {
+            const fileStats = fileStatsByName.get(file.name);
+            return (
+              <li
+                key={file.name}
+                className="border border-emerald-200 bg-emerald-50/70 p-2.5"
+              >
+                <div className="flex min-w-0 items-start gap-2">
+                  <p className="min-w-0 flex-1 break-words pt-2 text-sm font-semibold text-emerald-950">
+                    {file.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onFileRemoved(file.name)}
+                    aria-label={`${file.name}を削除`}
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1 px-1 text-xs font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                    削除
+                  </button>
+                </div>
+                {fileStats && (
+                  <div className="mt-0.5 text-xs text-emerald-800">
+                    <FileStatsSummary stats={fileStats} />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
-      {error && (
+      <div className={files.length > 0 ? "mt-2" : undefined}>
+        <CsvFilePicker
+          id="mfme-csv-input"
+          multiple
+          label={files.length > 0 ? "ファイルを追加" : "入出金履歴を選ぶ"}
+          onFilesSelected={(selectedFiles) => {
+            const nextFiles = Array.from(selectedFiles ?? []);
+            if (nextFiles.length > 0) onFilesAdded(nextFiles);
+          }}
+        />
+      </div>
+
+      {errors.length > 0 && (
         <div
           className="mt-3 flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
           role="alert"
         >
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>{error}</p>
+          <ul className="min-w-0 space-y-1">
+            {errors.map(({ name, reason }) => (
+              <li key={`${name}:${reason}`} className="break-words">
+                {name}: {reason}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

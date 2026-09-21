@@ -67,6 +67,34 @@ const selectPayPayCsv = async (page: Page) => {
   ).toBeVisible();
 };
 
+const readStoredInputFileNames = async (page: Page) =>
+  page.evaluate(async (databaseName) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const record = await new Promise<{
+        payPayFile: File | null;
+        mfmeFiles: File[];
+      } | null>((resolve, reject) => {
+        const request = database
+          .transaction("input-files", "readonly")
+          .objectStore("input-files")
+          .get("current");
+        request.onsuccess = () => resolve(request.result ?? null);
+        request.onerror = () => reject(request.error);
+      });
+      return {
+        payPay: record?.payPayFile?.name ?? null,
+        mfme: record?.mfmeFiles.map((file) => file.name) ?? [],
+      };
+    } finally {
+      database.close();
+    }
+  }, SHARED_FILE_DATABASE_NAME);
+
 const shareCsvThroughTarget = async (
   page: Page,
   id: string,
@@ -210,6 +238,11 @@ test("初期画面をデスクトップとモバイルで表示できる", async
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page
+      .locator('label[for="paypay-csv-input"]')
+      .evaluate((element) => element.getBoundingClientRect().height),
+  ).toBe(36);
   await expect(page).toHaveScreenshot("initial-mobile.png", {
     fullPage: true,
   });
@@ -217,13 +250,47 @@ test("初期画面をデスクトップとモバイルで表示できる", async
 
 test("選択済みファイルの操作をモバイルで表示できる", async ({ page }) => {
   await selectPayPayCsv(page);
-  await page.locator("#mfme-csv-input").setInputFiles({
-    name: "moneyforward-history.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(auditMfmeCsv),
-  });
+  await page.locator("#mfme-csv-input").setInputFiles([
+    {
+      name: "収入・支出詳細_2025-01-01_2025-12-31.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        `${mfmeHeader}\n1,2025/01/01,架空商店A,-100,PayPay残高,食費,食費,メモ,,id-2025`,
+      ),
+    },
+    {
+      name: "収入・支出詳細_2026-01-01_2026-12-31.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        `${mfmeHeader}\n1,2026/01/01,架空商店B,-200,PayPay残高,食費,食費,メモ,,id-2026`,
+      ),
+    },
+  ]);
 
+  await expect(page).toHaveScreenshot("selected-files-desktop.png", {
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 390, height: 844 });
+  const payPayRegion = page.getByRole("region", {
+    name: "PayPayから書き出した取引履歴",
+  });
+  const mfmeRegion = page.getByRole("region", {
+    name: "MoneyForward MEから書き出した入出金履歴",
+  });
+  for (const control of [
+    payPayRegion.getByRole("button", { name: "削除" }),
+    mfmeRegion.getByRole("button", {
+      name: "収入・支出詳細_2025-01-01_2025-12-31.csvを削除",
+    }),
+    mfmeRegion.locator('label[for="mfme-csv-input"]'),
+    page.getByRole("button", { name: "取り込む" }).first(),
+  ]) {
+    expect(
+      await control.evaluate(
+        (element) => element.getBoundingClientRect().height,
+      ),
+    ).toBe(36);
+  }
   await expect(page).toHaveScreenshot("selected-files-mobile.png", {
     fullPage: true,
   });
@@ -713,7 +780,7 @@ test("MoneyForward MEの入出金履歴を先に選んでもPayPayの取引履�
   ).toBeVisible();
 });
 
-test("読み込めない任意のMFME CSVを解除して除外なしで進める", async ({
+test("読み込めない入出金履歴は選択済みにせず除外なしで進める", async ({
   page,
 }) => {
   await selectPayPayCsv(page);
@@ -724,17 +791,210 @@ test("読み込めない任意のMFME CSVを解除して除外なしで進める
   });
 
   await expect(page.getByRole("alert")).toContainText(
-    "MoneyForward MEから書き出した入出金履歴を読み込めませんでした",
+    "invalid-moneyforward.csv",
   );
-  await page
-    .getByRole("region", {
-      name: "MoneyForward MEから書き出した入出金履歴",
-    })
-    .getByRole("button", { name: "すべて削除", exact: true })
-    .click();
-
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /invalid-moneyforward.csvを削除/ }),
+  ).toHaveCount(0);
   await expect(page.locator("#mfme-csv-input")).toBeAttached();
+  await page.reload();
+  await expect(page.getByText("invalid-moneyforward.csv")).toHaveCount(0);
+  await expect(page.locator("#mfme-csv-input")).toBeAttached();
+});
+
+test("種類違いの取引履歴を保存せず、正しいファイルを選び直せる", async ({
+  page,
+}) => {
+  await page.locator("#paypay-csv-input").setInputFiles({
+    name: "wrong-paypay.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(auditMfmeCsv),
+  });
+  await expect(
+    page
+      .getByRole("region", { name: "PayPayから書き出した取引履歴" })
+      .getByRole("alert"),
+  ).toContainText("wrong-paypay.csv");
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({
+      payPay: null,
+      mfme: [],
+    });
+
+  await selectPayPayCsv(page);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({
+      payPay: "paypay-history.csv",
+      mfme: [],
+    });
+});
+
+test("入出金履歴のOKとNGを同時選択するとOKだけ保存する", async ({ page }) => {
+  await page.locator("#mfme-csv-input").setInputFiles([
+    {
+      name: "valid-moneyforward.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(auditMfmeCsv),
+    },
+    {
+      name: "wrong-moneyforward.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(payPayCsv),
+    },
+  ]);
+
+  const region = page.getByRole("region", {
+    name: "MoneyForward MEから書き出した入出金履歴",
+  });
+  await expect(
+    region.getByRole("button", { name: "valid-moneyforward.csvを削除" }),
+  ).toBeVisible();
+  await expect(region.getByRole("alert")).toContainText(
+    "wrong-moneyforward.csv",
+  );
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({
+      payPay: null,
+      mfme: ["valid-moneyforward.csv"],
+    });
+
+  await page.reload();
+  await expect(
+    region.getByRole("button", { name: "valid-moneyforward.csvを削除" }),
+  ).toBeVisible();
+  await expect(region.getByRole("alert")).toHaveCount(0);
+});
+
+test("以前に保存されたNGファイルを再読み込み時に除外する", async ({ page }) => {
+  await page.evaluate(
+    async ({ databaseName, payPayContent, mfmeContent }) => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open(databaseName);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const transaction = database.transaction("input-files", "readwrite");
+          transaction.objectStore("input-files").put({
+            id: "current",
+            payPayFile: new File([mfmeContent], "wrong-paypay.csv"),
+            mfmeFiles: [
+              new File([mfmeContent], "valid-moneyforward.csv"),
+              new File([payPayContent], "wrong-moneyforward.csv"),
+            ],
+            updatedAt: Date.now(),
+          });
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+        });
+      } finally {
+        database.close();
+      }
+    },
+    {
+      databaseName: SHARED_FILE_DATABASE_NAME,
+      payPayContent: payPayCsv,
+      mfmeContent: auditMfmeCsv,
+    },
+  );
+
+  await page.reload();
+  await expect(
+    page
+      .getByRole("region", { name: "PayPayから書き出した取引履歴" })
+      .getByRole("alert"),
+  ).toContainText("wrong-paypay.csv");
+  await expect(
+    page
+      .getByRole("region", {
+        name: "MoneyForward MEから書き出した入出金履歴",
+      })
+      .getByRole("button", { name: "valid-moneyforward.csvを削除" }),
+  ).toBeVisible();
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({
+      payPay: null,
+      mfme: ["valid-moneyforward.csv"],
+    });
+});
+
+test("NGの入出金履歴だけを選んでも保存済みの記録を維持する", async ({
+  page,
+}) => {
+  await selectPayPayCsv(page);
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+  await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        localStorage.getItem("paypay-csv-optimizer:local-exclusion-state:v1"),
+      ),
+    )
+    .not.toBeNull();
+
+  await page.locator("#mfme-csv-input").setInputFiles({
+    name: "wrong-moneyforward.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(payPayCsv),
+  });
+  await expect(
+    page
+      .getByRole("region", {
+        name: "MoneyForward MEから書き出した入出金履歴",
+      })
+      .getByRole("alert"),
+  ).toContainText("wrong-moneyforward.csv");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        localStorage.getItem("paypay-csv-optimizer:local-exclusion-state:v1"),
+      ),
+    )
+    .not.toBeNull();
+});
+
+test("入出金履歴をファイルごとに削除して集計を更新する", async ({ page }) => {
+  const firstCsv = `${mfmeHeader}\n1,2025/12/31,架空商店A,-100,PayPay残高,食費,食費,メモ,,id-2025`;
+  const secondCsv = `${mfmeHeader}\n1,2026/01/01,架空商店B,-200,PayPay残高,食費,食費,メモ,,id-2026`;
+  await page.locator("#mfme-csv-input").setInputFiles([
+    {
+      name: "year-2025.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(firstCsv),
+    },
+    {
+      name: "year-2026.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(secondCsv),
+    },
+  ]);
+  const region = page.getByRole("region", {
+    name: "MoneyForward MEから書き出した入出金履歴",
+  });
+  await expect(region.getByText("2025/12/31", { exact: true })).toBeVisible();
+  await expect(region.getByText("2026/01/01", { exact: true })).toBeVisible();
+  await region.getByRole("button", { name: "year-2025.csvを削除" }).click();
+  await expect(
+    region.getByRole("button", { name: "year-2025.csvを削除" }),
+  ).toHaveCount(0);
+  await expect(
+    region.getByRole("button", { name: "year-2026.csvを削除" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("登録済みとして扱う明細").locator("..").getByText("1件"),
+  ).toBeVisible();
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({
+      payPay: null,
+      mfme: ["year-2026.csv"],
+    });
 });
 
 test("画面選択とShare TargetからMFME CSVを年ごとに追加できる", async ({
@@ -789,15 +1049,24 @@ test("画面選択とShare TargetからMFME CSVを年ごとに追加できる", 
     "収入・支出詳細_2026.csv",
     mfme2026Csv,
   );
-  await expect(page.getByText("2ファイル", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "収入・支出詳細_2025.csvを削除" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "収入・支出詳細_2026.csvを削除" }),
+  ).toBeVisible();
 
   await page
     .getByRole("button", { name: "重複登録・口座間違いを確認する" })
     .click();
-  await expect(page.getByText("2ファイル", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "収入・支出詳細_2026.csvを削除" }),
+  ).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText("2ファイル", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "収入・支出詳細_2026.csvを削除" }),
+  ).toBeVisible();
 });
 
 test("PP2MFで作成したCSVの自己共有を拒否する", async ({ page }) => {
@@ -825,6 +1094,23 @@ test("PP2MFで作成したCSVの自己共有を拒否する", async ({ page }) =
       .getByRole("region", { name: "PayPayから書き出した取引履歴" })
       .getByText("paypay-history.csv", { exact: true }),
   ).toBeVisible();
+});
+
+test("Share Targetの明細がない入出金履歴を保存しない", async ({ page }) => {
+  await shareCsvThroughTarget(
+    page,
+    "shared-empty-mfme",
+    "empty-moneyforward.csv",
+    mfmeHeader,
+  );
+
+  await expect(page.getByRole("alert")).toContainText("empty-moneyforward.csv");
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({
+      payPay: null,
+      mfme: [],
+    });
 });
 
 test("Share Target復元中のPayPay選択を上書きしない", async ({ page }) => {
@@ -908,7 +1194,9 @@ test("同名・同内容のMFME CSV追加でも保存済み記録をリセット
     name: "MoneyForward MEから書き出した入出金履歴",
   });
   await expect(
-    mfmeInputRegion.getByText("1ファイル", { exact: true }),
+    mfmeInputRegion.getByRole("button", {
+      name: "moneyforward-history.csvを削除",
+    }),
   ).toBeVisible();
   await expect(page.getByText("moneyforward-history.csv")).toBeVisible();
 });
@@ -939,7 +1227,7 @@ test("別名のMFME CSVは同じ内容でも追加して保存済み記録をリ
       .getByRole("region", {
         name: "MoneyForward MEから書き出した入出金履歴",
       })
-      .getByText("2ファイル", { exact: true }),
+      .getByRole("button", { name: "名前だけ変更.csvを削除" }),
   ).toBeVisible();
   await expect
     .poll(() =>

@@ -1,5 +1,4 @@
-import { AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { AlertCircle, Trash2 } from "lucide-react";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import type { FileStats } from "~/services/csv-date";
@@ -17,15 +16,8 @@ export default function Step1PayPayUpload({
   error,
   onFileSelected,
 }: Step1PayPayUploadProps) {
-  const [fileInputVersion, setFileInputVersion] = useState(0);
-
   const handleFileChange = (files: FileList | null) => {
-    onFileSelected(files?.[0] ?? null);
-  };
-
-  const handleClearFile = () => {
-    setFileInputVersion((version) => version + 1);
-    onFileSelected(null);
+    if (files?.[0]) onFileSelected(files[0]);
   };
 
   return (
@@ -49,16 +41,34 @@ export default function Step1PayPayUpload({
         </div>
       </div>
 
-      <CsvFilePicker
-        key={fileInputVersion}
-        id="paypay-csv-input"
-        selectedLabel={file?.name}
-        selectedMeta={stats ? <FileStatsSummary stats={stats} /> : undefined}
-        tone={error ? "error" : "success"}
-        emptyLabel="取引履歴を選ぶ"
-        onFilesSelected={handleFileChange}
-        onClear={handleClearFile}
-      />
+      {file ? (
+        <div className="border border-emerald-200 bg-emerald-50/70 p-2.5">
+          <div className="flex min-w-0 items-start gap-2">
+            <p className="min-w-0 flex-1 break-words pt-2 text-sm font-semibold text-emerald-950">
+              {file.name}
+            </p>
+            <button
+              type="button"
+              onClick={() => onFileSelected(null)}
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-1 px-1 text-xs font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+              削除
+            </button>
+          </div>
+          {stats && (
+            <div className="mt-0.5 text-xs text-emerald-800">
+              <FileStatsSummary stats={stats} />
+            </div>
+          )}
+        </div>
+      ) : (
+        <CsvFilePicker
+          id="paypay-csv-input"
+          label="取引履歴を選ぶ"
+          onFilesSelected={handleFileChange}
+        />
+      )}
 
       {error && (
         <div

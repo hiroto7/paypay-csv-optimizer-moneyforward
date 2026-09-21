@@ -84,11 +84,12 @@ export default function Home() {
     dismissNotice,
     selectPayPayFile,
     addMfmeFiles,
-    clearMfmeFiles,
+    removeMfmeFile,
     payPayData,
     payPayError,
     mfmeData,
-    mfmeError,
+    mfmeErrors,
+    mfmeFileStatsByName,
   } = useInputWorkspace({
     onPayPayFileChanged: handlePayPayFileChanged,
     onMfmeFilesChanged: handleMfmeFilesChanged,
@@ -224,9 +225,10 @@ export default function Home() {
                 <Step2MfmeFilter
                   files={mfmeFiles}
                   stats={mfmeData?.stats ?? null}
-                  error={mfmeError}
+                  fileStatsByName={mfmeFileStatsByName}
+                  errors={mfmeErrors}
                   onFilesAdded={addMfmeFiles}
-                  onFilesCleared={clearMfmeFiles}
+                  onFileRemoved={removeMfmeFile}
                   localImportedStats={recordStats}
                 />
               </div>
