@@ -157,6 +157,38 @@ test("Share Targetで空ファイルが渡されたことを表示する", async
   );
 });
 
+test("項目がない共有リクエストの本文の有無を区別する", async ({ page }) => {
+  await openCleanPage(page);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-hydrated", "true");
+
+  const codes = await page.evaluate(async () => {
+    const requests = [
+      {
+        body: new URLSearchParams(),
+      },
+      {
+        body: "--boundary--\r\n",
+        headers: { "Content-Type": "multipart/form-data; boundary=boundary" },
+      },
+    ];
+    const responses = await Promise.all(
+      requests.map((request) =>
+        fetch("/share-target", { method: "POST", ...request }),
+      ),
+    );
+    return responses.map((response) =>
+      new URL(response.url).searchParams.get("share-error"),
+    );
+  });
+
+  expect(codes).toEqual([
+    "no-file:no-fields:empty-body:urlencoded",
+    "no-file:no-fields:body-present:multipart",
+  ]);
+});
+
 test("Share Targetの一時保存エラーを端末で確認できる", async ({ page }) => {
   await page.goto("/?share-error=storage-write%3AQuotaExceededError");
   await expect(page.getByRole("alert")).toContainText(

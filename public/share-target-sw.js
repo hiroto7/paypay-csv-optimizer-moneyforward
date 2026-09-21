@@ -84,6 +84,24 @@ const getSharedFiles = (formData) => {
   return { files, emptyReason };
 };
 
+const describeEmptyRequest = async (request) => {
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  const format = contentType.startsWith("multipart/form-data")
+    ? "multipart"
+    : contentType.startsWith("application/x-www-form-urlencoded")
+      ? "urlencoded"
+      : contentType
+        ? "other-type"
+        : "no-type";
+
+  try {
+    const hasBody = (await request.arrayBuffer()).byteLength > 0;
+    return `${hasBody ? "body-present" : "empty-body"}:${format}`;
+  } catch {
+    return `body-read-failed:${format}`;
+  }
+};
+
 const ERROR_NAMES = new Set([
   "AbortError",
   "DataCloneError",
@@ -123,7 +141,9 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     (async () => {
       let sharedFiles;
+      let bodyProbe;
       try {
+        bodyProbe = event.request.clone();
         sharedFiles = getSharedFiles(await event.request.formData());
       } catch (error) {
         console.error("Failed to parse shared files:", error);
@@ -131,7 +151,14 @@ self.addEventListener("fetch", (event) => {
       }
 
       if (sharedFiles.files.length === 0) {
-        return errorRedirect(url, `no-file:${sharedFiles.emptyReason}`);
+        const detail =
+          sharedFiles.emptyReason === "no-fields"
+            ? `:${await describeEmptyRequest(bodyProbe)}`
+            : "";
+        return errorRedirect(
+          url,
+          `no-file:${sharedFiles.emptyReason}${detail}`,
+        );
       }
 
       let database;

@@ -20,6 +20,11 @@ type InputOperation = (currentFiles: InputFiles) => Promise<void>;
 
 const SHARE_ERROR_DESCRIPTIONS: Record<string, string> = {
   "no-file:no-fields": "共有データに項目がありませんでした。",
+  "no-file:no-fields:empty-body": "共有リクエストの本文が空でした。",
+  "no-file:no-fields:body-present":
+    "共有リクエストの本文はありますが、項目を取り出せませんでした。",
+  "no-file:no-fields:body-read-failed":
+    "共有リクエストの本文を確認できませんでした。",
   "no-file:empty-file": "共有されたファイルが空でした。",
   "no-file:text-in-file-field": "ファイル欄に文字列が渡されました。",
   "no-file:text-only": "共有データには文字列だけが渡されました。",
@@ -31,12 +36,14 @@ const SHARE_ERROR_DESCRIPTIONS: Record<string, string> = {
 
 const shareErrorMessage = (code: string): string => {
   const stage = code.split(":")[0] ?? "";
+  const detail = code.split(":").slice(0, 3).join(":");
   const description =
     SHARE_ERROR_DESCRIPTIONS[code] ??
+    SHARE_ERROR_DESCRIPTIONS[detail] ??
     SHARE_ERROR_DESCRIPTIONS[stage] ??
     "共有されたCSVを受け取れませんでした。";
   const safeCode =
-    /^(no-file:(no-fields|empty-file|text-in-file-field|text-only|other-value)|(form-data|storage-open|storage-write):(AbortError|DataCloneError|InvalidStateError|NotAllowedError|QuotaExceededError|SecurityError|UnknownError|VersionError|OtherError))$/.test(
+    /^(no-file:(no-fields:(empty-body|body-present|body-read-failed):(multipart|urlencoded|other-type|no-type)|empty-file|text-in-file-field|text-only|other-value)|(form-data|storage-open|storage-write):(AbortError|DataCloneError|InvalidStateError|NotAllowedError|QuotaExceededError|SecurityError|UnknownError|VersionError|OtherError))$/.test(
       code,
     )
       ? code
