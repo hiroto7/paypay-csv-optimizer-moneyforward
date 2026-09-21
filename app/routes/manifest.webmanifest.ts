@@ -30,10 +30,18 @@ export function loader({ request }: { request: Request }) {
       method: "POST",
       enctype: "multipart/form-data",
       params: {
+        text: "shared-text",
         files: [
           {
             name: "csv",
-            accept: [".csv", "text/csv", "text/comma-separated-values"],
+            accept: [
+              ".csv",
+              "text/csv",
+              "text/comma-separated-values",
+              "text/plain",
+              "application/octet-stream",
+              "application/vnd.ms-excel",
+            ],
           },
         ],
       },
