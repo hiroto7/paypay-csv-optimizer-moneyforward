@@ -215,6 +215,20 @@ test("初期画面をデスクトップとモバイルで表示できる", async
   });
 });
 
+test("選択済みファイルの操作をモバイルで表示できる", async ({ page }) => {
+  await selectPayPayCsv(page);
+  await page.locator("#mfme-csv-input").setInputFiles({
+    name: "moneyforward-history.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(auditMfmeCsv),
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveScreenshot("selected-files-mobile.png", {
+    fullPage: true,
+  });
+});
+
 test("3ページで共通ヘッダーと情報ページの戻る導線を表示できる", async ({
   context,
   page,
