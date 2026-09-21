@@ -30,7 +30,7 @@ const SHARE_ERROR_DESCRIPTIONS: Record<string, string> = {
 };
 
 const shareErrorMessage = (code: string): string => {
-  const stage = code.split(":")[0];
+  const stage = code.split(":")[0] ?? "";
   const description =
     SHARE_ERROR_DESCRIPTIONS[code] ??
     SHARE_ERROR_DESCRIPTIONS[stage] ??
