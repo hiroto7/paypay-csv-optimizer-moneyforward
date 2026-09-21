@@ -185,8 +185,20 @@ test("項目がない共有リクエストの本文の有無を区別する", as
 
   expect(codes).toEqual([
     "no-file:no-fields:empty-body:urlencoded",
-    "no-file:no-fields:body-present:multipart",
+    "no-file:no-fields:body-present:multipart:no-parts",
   ]);
+});
+
+test("本文内にファイルのパートがある診断を表示する", async ({ page }) => {
+  await page.goto(
+    "/?share-error=no-file%3Ano-fields%3Abody-present%3Amultipart%3Afile-part",
+  );
+  await expect(page.getByRole("alert")).toContainText(
+    "本文にファイルのパートはありますが、項目として取り出せませんでした。",
+  );
+  await expect(page.getByRole("alert")).toContainText(
+    "エラーコード: no-file:no-fields:body-present:multipart:file-part",
+  );
 });
 
 test("Share Targetの一時保存エラーを端末で確認できる", async ({ page }) => {

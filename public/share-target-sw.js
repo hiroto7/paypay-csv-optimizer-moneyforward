@@ -84,6 +84,56 @@ const getSharedFiles = (formData) => {
   return { files, emptyReason };
 };
 
+const describeMultipartBody = (contentType, bytes) => {
+  const boundaryMatch = contentType.match(
+    /(?:^|;)\s*boundary=(?:"([^"]+)"|([^;]+))/i,
+  );
+  const boundary = boundaryMatch?.[1] ?? boundaryMatch?.[2];
+  if (!boundary) return "missing-boundary";
+
+  const body = new TextDecoder("latin1").decode(bytes);
+  const marker = `--${boundary.trim()}`;
+  if (!body.startsWith(marker)) return "invalid-boundary";
+
+  let cursor = 0;
+  let partCount = 0;
+  let hasFilePart = false;
+  let hasTextPart = false;
+
+  for (let index = 0; index < 1000; index += 1) {
+    cursor += marker.length;
+    if (body.startsWith("--", cursor)) {
+      return partCount === 0
+        ? "no-parts"
+        : hasFilePart
+          ? "file-part"
+          : hasTextPart
+            ? "text-part"
+            : "other-part";
+    }
+    if (!body.startsWith("\r\n", cursor)) return "malformed";
+    cursor += 2;
+
+    const headerEnd = body.indexOf("\r\n\r\n", cursor);
+    if (headerEnd < 0 || headerEnd - cursor > 8192) return "malformed";
+    const headers = body.slice(cursor, headerEnd);
+    if (
+      /^content-disposition:\s*form-data\b[^\r\n]*filename\s*=/im.test(headers)
+    ) {
+      hasFilePart = true;
+    } else if (/^content-disposition:\s*form-data\b/im.test(headers)) {
+      hasTextPart = true;
+    }
+    partCount += 1;
+
+    const nextBoundary = body.indexOf(`\r\n${marker}`, headerEnd + 4);
+    if (nextBoundary < 0) return "malformed";
+    cursor = nextBoundary + 2;
+  }
+
+  return "too-many-parts";
+};
+
 const describeEmptyRequest = async (request) => {
   const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
   const format = contentType.startsWith("multipart/form-data")
@@ -95,8 +145,13 @@ const describeEmptyRequest = async (request) => {
         : "no-type";
 
   try {
-    const hasBody = (await request.arrayBuffer()).byteLength > 0;
-    return `${hasBody ? "body-present" : "empty-body"}:${format}`;
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength === 0) return `empty-body:${format}`;
+    const detail =
+      format === "multipart"
+        ? `:${describeMultipartBody(contentType, bytes)}`
+        : "";
+    return `body-present:${format}${detail}`;
   } catch {
     return `body-read-failed:${format}`;
   }

@@ -23,6 +23,20 @@ const SHARE_ERROR_DESCRIPTIONS: Record<string, string> = {
   "no-file:no-fields:empty-body": "共有リクエストの本文が空でした。",
   "no-file:no-fields:body-present":
     "共有リクエストの本文はありますが、項目を取り出せませんでした。",
+  "no-file:no-fields:body-present:multipart:no-parts":
+    "共有リクエストの本文には項目のパートがありませんでした。",
+  "no-file:no-fields:body-present:multipart:file-part":
+    "本文にファイルのパートはありますが、項目として取り出せませんでした。",
+  "no-file:no-fields:body-present:multipart:text-part":
+    "本文には文字列のパートだけがあり、項目として取り出せませんでした。",
+  "no-file:no-fields:body-present:multipart:other-part":
+    "本文に項目のパートはありますが、形式を判定できませんでした。",
+  "no-file:no-fields:body-present:multipart:missing-boundary":
+    "共有データの区切り情報がありませんでした。",
+  "no-file:no-fields:body-present:multipart:invalid-boundary":
+    "共有データの区切り情報と本文が一致しませんでした。",
+  "no-file:no-fields:body-present:multipart:malformed":
+    "共有データのパート構造を判定できませんでした。",
   "no-file:no-fields:body-read-failed":
     "共有リクエストの本文を確認できませんでした。",
   "no-file:empty-file": "共有されたファイルが空でした。",
@@ -43,7 +57,7 @@ const shareErrorMessage = (code: string): string => {
     SHARE_ERROR_DESCRIPTIONS[stage] ??
     "共有されたCSVを受け取れませんでした。";
   const safeCode =
-    /^(no-file:(no-fields:(empty-body|body-present|body-read-failed):(multipart|urlencoded|other-type|no-type)|empty-file|text-in-file-field|text-only|other-value)|(form-data|storage-open|storage-write):(AbortError|DataCloneError|InvalidStateError|NotAllowedError|QuotaExceededError|SecurityError|UnknownError|VersionError|OtherError))$/.test(
+    /^(no-file:(no-fields:((empty-body|body-read-failed):(multipart|urlencoded|other-type|no-type)|body-present:(multipart(?::(no-parts|file-part|text-part|other-part|missing-boundary|invalid-boundary|malformed|too-many-parts))?|urlencoded|other-type|no-type))|empty-file|text-in-file-field|text-only|other-value)|(form-data|storage-open|storage-write):(AbortError|DataCloneError|InvalidStateError|NotAllowedError|QuotaExceededError|SecurityError|UnknownError|VersionError|OtherError))$/.test(
       code,
     )
       ? code
