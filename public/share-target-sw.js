@@ -135,10 +135,11 @@ const describeMultipartBody = (contentType, bytes) => {
 };
 
 const describeEmptyRequest = async (request) => {
-  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-  const format = contentType.startsWith("multipart/form-data")
+  const contentType = request.headers.get("content-type") ?? "";
+  const mediaType = contentType.toLowerCase();
+  const format = mediaType.startsWith("multipart/form-data")
     ? "multipart"
-    : contentType.startsWith("application/x-www-form-urlencoded")
+    : mediaType.startsWith("application/x-www-form-urlencoded")
       ? "urlencoded"
       : contentType
         ? "other-type"

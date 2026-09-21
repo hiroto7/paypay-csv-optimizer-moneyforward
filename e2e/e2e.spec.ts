@@ -172,6 +172,10 @@ test("項目がない共有リクエストの本文の有無を区別する", as
         body: "--boundary--\r\n",
         headers: { "Content-Type": "multipart/form-data; boundary=boundary" },
       },
+      {
+        body: "--AaB03x--\r\n",
+        headers: { "Content-Type": "multipart/form-data; boundary=AaB03x" },
+      },
     ];
     const responses = await Promise.all(
       requests.map((request) =>
@@ -185,6 +189,7 @@ test("項目がない共有リクエストの本文の有無を区別する", as
 
   expect(codes).toEqual([
     "no-file:no-fields:empty-body:urlencoded",
+    "no-file:no-fields:body-present:multipart:no-parts",
     "no-file:no-fields:body-present:multipart:no-parts",
   ]);
 });
