@@ -106,9 +106,7 @@ const shareCsvThroughTarget = async (
   await page.waitForURL((url) => !url.searchParams.has("shared-files"));
 };
 
-test("Share Targetでファイルが渡されないと受信段階を表示する", async ({
-  page,
-}) => {
+test("Share Targetで文字列だけが渡されたことを表示する", async ({ page }) => {
   await openCleanPage(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
@@ -127,7 +125,36 @@ test("Share Targetでファイルが渡されないと受信段階を表示す�
     form.submit();
   });
 
-  await expect(page.getByRole("alert")).toContainText("エラーコード: no-file");
+  await expect(page.getByRole("alert")).toContainText(
+    "エラーコード: no-file:text-only",
+  );
+});
+
+test("Share Targetで空ファイルが渡されたことを表示する", async ({ page }) => {
+  await openCleanPage(page);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-hydrated", "true");
+
+  await page.evaluate(() => {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/share-target";
+    form.enctype = "multipart/form-data";
+    const fileField = document.createElement("input");
+    fileField.type = "file";
+    fileField.name = "csv";
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([], "empty.csv", { type: "text/csv" }));
+    fileField.files = transfer.files;
+    form.append(fileField);
+    document.body.append(form);
+    form.submit();
+  });
+
+  await expect(page.getByRole("alert")).toContainText(
+    "エラーコード: no-file:empty-file",
+  );
 });
 
 test("Share Targetの一時保存エラーを端末で確認できる", async ({ page }) => {

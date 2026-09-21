@@ -45,9 +45,20 @@ const storeSharedFiles = async (database, files) => {
 
 const getSharedFiles = (formData) => {
   const files = [];
+  let hasEntries = false;
+  let hasText = false;
+  let hasTextInFileField = false;
+  let hasEmptyFile = false;
 
-  for (const value of formData.values()) {
-    if (!(value instanceof Blob) || value.size === 0) {
+  for (const [name, value] of formData.entries()) {
+    hasEntries = true;
+    if (!(value instanceof Blob)) {
+      hasText = true;
+      hasTextInFileField ||= name === "csv";
+      continue;
+    }
+    if (value.size === 0) {
+      hasEmptyFile = true;
       continue;
     }
 
@@ -60,7 +71,17 @@ const getSharedFiles = (formData) => {
     );
   }
 
-  return files;
+  const emptyReason = hasEmptyFile
+    ? "empty-file"
+    : hasTextInFileField
+      ? "text-in-file-field"
+      : hasText
+        ? "text-only"
+        : hasEntries
+          ? "other-value"
+          : "no-fields";
+
+  return { files, emptyReason };
 };
 
 const ERROR_NAMES = new Set([
@@ -101,16 +122,16 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     (async () => {
-      let files;
+      let sharedFiles;
       try {
-        files = getSharedFiles(await event.request.formData());
+        sharedFiles = getSharedFiles(await event.request.formData());
       } catch (error) {
         console.error("Failed to parse shared files:", error);
         return errorRedirect(url, "form-data", error);
       }
 
-      if (files.length === 0) {
-        return errorRedirect(url, "no-file");
+      if (sharedFiles.files.length === 0) {
+        return errorRedirect(url, `no-file:${sharedFiles.emptyReason}`);
       }
 
       let database;
@@ -122,7 +143,7 @@ self.addEventListener("fetch", (event) => {
       }
 
       try {
-        const id = await storeSharedFiles(database, files);
+        const id = await storeSharedFiles(database, sharedFiles.files);
         return Response.redirect(
           new URL(`/?shared-files=${encodeURIComponent(id)}`, url.origin).href,
           303,
