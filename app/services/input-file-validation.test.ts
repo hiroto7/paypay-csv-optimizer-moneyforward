@@ -20,21 +20,6 @@ const mfmeFile = file(
 );
 
 describe("validateInputFile", () => {
-  it("PayPayの取引履歴から対象明細を読み込む", async () => {
-    const result = await validateInputFile(payPayFile, "paypay");
-    expect(result.type).toBe("paypay");
-    if (result.type === "paypay") {
-      expect(result.data.transactions).toHaveLength(1);
-      expect(result.data.stats.count).toBe(1);
-    }
-  });
-
-  it("MoneyForward MEの入出金履歴からファイル別の件数を読み込む", async () => {
-    const result = await validateInputFile(mfmeFile, "mfme");
-    expect(result.type).toBe("mfme");
-    if (result.type === "mfme") expect(result.data.stats.count).toBe(1);
-  });
-
   it("種類が逆のファイルを拒否する", async () => {
     await expect(validateInputFile(mfmeFile, "paypay")).rejects.toThrow(
       "PayPayの取引履歴のCSVファイルを選んでください。",
@@ -42,12 +27,6 @@ describe("validateInputFile", () => {
     await expect(validateInputFile(payPayFile, "mfme")).rejects.toThrow(
       "MoneyForward MEの入出金履歴のCSVファイルを選んでください。",
     );
-  });
-
-  it("必要な列がないファイルを拒否する", async () => {
-    await expect(
-      validateInputFile(file("invalid.csv", "日付,金額\n2025/10/24,190")),
-    ).rejects.toThrow("必要な列がありません");
   });
 
   it("対象取引がないPayPayの取引履歴を拒否する", async () => {

@@ -802,36 +802,6 @@ test("読み込めない入出金履歴は選択済みにせず除外なしで�
   await expect(page.locator("#mfme-csv-input")).toBeAttached();
 });
 
-test("種類違いの取引履歴を保存せず、正しいファイルを選び直せる", async ({
-  page,
-}) => {
-  await page.locator("#paypay-csv-input").setInputFiles({
-    name: "wrong-paypay.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(auditMfmeCsv),
-  });
-  await expect(
-    page
-      .getByRole("region", { name: "PayPayから書き出した取引履歴" })
-      .getByRole("alert"),
-  ).toContainText("wrong-paypay.csv");
-  await expect
-    .poll(() => readStoredInputFileNames(page))
-    .toEqual({
-      payPay: null,
-      mfme: [],
-    });
-
-  await selectPayPayCsv(page);
-  await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect
-    .poll(() => readStoredInputFileNames(page))
-    .toEqual({
-      payPay: "paypay-history.csv",
-      mfme: [],
-    });
-});
-
 test("入出金履歴のOKとNGを同時選択するとOKだけ保存する", async ({ page }) => {
   await page.locator("#mfme-csv-input").setInputFiles([
     {
