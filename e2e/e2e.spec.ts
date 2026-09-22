@@ -183,7 +183,9 @@ test.beforeEach(async ({ page }) => {
   await openCleanPage(page);
 });
 
-test("初期画面をデスクトップとモバイルで表示できる", async ({ page }) => {
+test("初期画面をデスクトップとモバイルで表示できる", async ({
+  page,
+}, testInfo) => {
   await expect(page).toHaveTitle(pageTitle);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     "content",
@@ -245,6 +247,10 @@ test("初期画面をデスクトップとモバイルで表示できる", async
   ).toBe(36);
   await expect(page).toHaveScreenshot("initial-mobile.png", {
     fullPage: true,
+  });
+  await testInfo.attach("data-url-verification", {
+    path: testInfo.snapshotPath("initial-mobile.png"),
+    contentType: "image/png",
   });
 });
 
