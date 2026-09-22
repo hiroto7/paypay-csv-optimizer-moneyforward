@@ -1,7 +1,6 @@
 import { AlertCircle } from "lucide-react";
-import { useState } from "react";
 import CsvFilePicker from "~/components/CsvFilePicker";
-import FileStatsSummary from "~/components/FileStatsSummary";
+import SelectedFileCard from "~/components/SelectedFileCard";
 import type { FileStats } from "~/services/csv-date";
 
 interface Step1PayPayUploadProps {
@@ -17,15 +16,8 @@ export default function Step1PayPayUpload({
   error,
   onFileSelected,
 }: Step1PayPayUploadProps) {
-  const [fileInputVersion, setFileInputVersion] = useState(0);
-
   const handleFileChange = (files: FileList | null) => {
-    onFileSelected(files?.[0] ?? null);
-  };
-
-  const handleClearFile = () => {
-    setFileInputVersion((version) => version + 1);
-    onFileSelected(null);
+    if (files?.[0]) onFileSelected(files[0]);
   };
 
   return (
@@ -49,16 +41,19 @@ export default function Step1PayPayUpload({
         </div>
       </div>
 
-      <CsvFilePicker
-        key={fileInputVersion}
-        id="paypay-csv-input"
-        selectedLabel={file?.name}
-        selectedMeta={stats ? <FileStatsSummary stats={stats} /> : undefined}
-        tone={error ? "error" : "success"}
-        emptyLabel="取引履歴を選ぶ"
-        onFilesSelected={handleFileChange}
-        onClear={handleClearFile}
-      />
+      {file ? (
+        <SelectedFileCard
+          fileName={file.name}
+          stats={stats}
+          onRemove={() => onFileSelected(null)}
+        />
+      ) : (
+        <CsvFilePicker
+          id="paypay-csv-input"
+          label="取引履歴を選ぶ"
+          onFilesSelected={handleFileChange}
+        />
+      )}
 
       {error && (
         <div

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { detectCsvFileType } from "~/services/csv-file-type";
-import { readFileAsTextAuto } from "~/utils/file-reader";
+import {
+  type PayPayParsedData,
+  type ValidatedInputFile,
+  validateInputFile,
+} from "~/services/input-file-validation";
+import type { MfmeParsedResult } from "~/services/mfme-csv";
 import { isPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
 import {
   clearInputFiles,
@@ -16,11 +20,23 @@ export type SharedFileNotice = {
   message: string;
 };
 
-type InputOperation = (currentFiles: InputFiles) => Promise<void>;
+export type RejectedInputFile = {
+  name: string;
+  reason: string;
+};
 
-const emptyInputFiles = (): InputFiles => ({
-  payPayFile: null,
-  mfmeFiles: [],
+type InputState = {
+  files: InputFiles;
+  payPayData: PayPayParsedData | null;
+  mfmeDataByName: ReadonlyMap<string, MfmeParsedResult>;
+};
+
+type InputOperation = (current: InputState) => Promise<void>;
+
+const emptyInputState = (): InputState => ({
+  files: { payPayFile: null, mfmeFiles: [] },
+  payPayData: null,
+  mfmeDataByName: new Map(),
 });
 
 const persistInputFiles = async (inputFiles: InputFiles): Promise<void> => {
@@ -31,6 +47,42 @@ const persistInputFiles = async (inputFiles: InputFiles): Promise<void> => {
   }
 };
 
+const validationReason = (error: unknown): string =>
+  error instanceof Error
+    ? error.message
+    : "CSVファイルを読み込めませんでした。";
+
+const validateFiles = async (
+  files: readonly File[],
+  expectedType?: "paypay" | "mfme",
+): Promise<{
+  accepted: ValidatedInputFile[];
+  rejected: RejectedInputFile[];
+}> => {
+  const results = await Promise.all(
+    files.map(async (file) => {
+      try {
+        return { accepted: await validateInputFile(file, expectedType) };
+      } catch (error) {
+        return {
+          rejected: { name: file.name, reason: validationReason(error) },
+        };
+      }
+    }),
+  );
+  return {
+    accepted: results.flatMap((result) =>
+      result.accepted ? [result.accepted] : [],
+    ),
+    rejected: results.flatMap((result) =>
+      result.rejected ? [result.rejected] : [],
+    ),
+  };
+};
+
+const describeRejectedFiles = (files: readonly RejectedInputFile[]): string =>
+  files.map(({ name, reason }) => `${name}: ${reason}`).join(" ");
+
 type InputFilesStoreCallbacks = {
   onPayPayFileChanged: () => void;
   onMfmeFilesChanged: () => boolean;
@@ -40,20 +92,22 @@ export function useInputFilesStore({
   onPayPayFileChanged,
   onMfmeFilesChanged,
 }: InputFilesStoreCallbacks) {
-  const [inputFiles, setInputFiles] = useState<InputFiles>(emptyInputFiles);
+  const [inputState, setInputState] = useState<InputState>(emptyInputState);
   const [notice, setNotice] = useState<SharedFileNotice | null>(null);
-  const inputFilesRef = useRef(inputFiles);
+  const [payPayError, setPayPayError] = useState("");
+  const [mfmeErrors, setMfmeErrors] = useState<RejectedInputFile[]>([]);
+  const inputStateRef = useRef(inputState);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const mountedRef = useRef(true);
 
-  const applyInputFiles = useCallback((nextFiles: InputFiles) => {
-    inputFilesRef.current = nextFiles;
-    if (mountedRef.current) setInputFiles(nextFiles);
+  const applyInputState = useCallback((nextState: InputState) => {
+    inputStateRef.current = nextState;
+    if (mountedRef.current) setInputState(nextState);
   }, []);
 
   const enqueue = useCallback((operation: InputOperation) => {
     const nextOperation = operationQueueRef.current.then(() =>
-      operation(inputFilesRef.current),
+      operation(inputStateRef.current),
     );
     operationQueueRef.current = nextOperation.catch(() => undefined);
     return nextOperation;
@@ -64,63 +118,123 @@ export function useInputFilesStore({
     if (mountedRef.current) {
       setNotice({
         tone: "error",
-        message: "選択したCSVの保存に失敗しました。",
+        message: "選択したCSVファイルの保存に失敗しました。",
       });
     }
   }, []);
 
+  const reportMfmeChange = useCallback(() => {
+    const didResetImportedRecords = onMfmeFilesChanged();
+    if (didResetImportedRecords && mountedRef.current) {
+      setNotice({
+        tone: "success",
+        message:
+          "MoneyForward MEの入出金履歴を更新したため、以前の「保存した」記録をリセットしました。",
+      });
+    }
+    return didResetImportedRecords;
+  }, [onMfmeFilesChanged]);
+
   const selectPayPayFile = useCallback(
     (file: File | null) => {
-      void enqueue(async (currentFiles) => {
-        const nextFiles = { ...currentFiles, payPayFile: file };
+      void enqueue(async (current) => {
+        let data: PayPayParsedData | null = null;
+        if (file) {
+          const result = await validateFiles([file], "paypay");
+          if (result.rejected[0]) {
+            if (mountedRef.current) {
+              setPayPayError(describeRejectedFiles(result.rejected));
+            }
+            return;
+          }
+          const accepted = result.accepted[0];
+          if (accepted?.type !== "paypay") return;
+          data = accepted.data;
+        }
+
+        if (!file && !current.files.payPayFile) {
+          if (mountedRef.current) setPayPayError("");
+          return;
+        }
+        const nextFiles = { ...current.files, payPayFile: file };
         try {
           await persistInputFiles(nextFiles);
           onPayPayFileChanged();
-          applyInputFiles(nextFiles);
+          applyInputState({ ...current, files: nextFiles, payPayData: data });
+          if (mountedRef.current) setPayPayError("");
         } catch (error) {
           reportPersistenceError(error);
         }
       });
     },
-    [applyInputFiles, enqueue, onPayPayFileChanged, reportPersistenceError],
-  );
-
-  const changeMfmeFiles = useCallback(
-    (update: (currentFiles: readonly File[]) => File[]) => {
-      void enqueue(async (currentFiles) => {
-        try {
-          const nextFiles = {
-            ...currentFiles,
-            mfmeFiles: update(currentFiles.mfmeFiles),
-          };
-          await persistInputFiles(nextFiles);
-          const didResetImportedRecords = onMfmeFilesChanged();
-          applyInputFiles(nextFiles);
-          if (didResetImportedRecords && mountedRef.current) {
-            setNotice({
-              tone: "success",
-              message:
-                "MoneyForward MEの入出金履歴を更新したため、以前の「保存した」記録をリセットしました。",
-            });
-          }
-        } catch (error) {
-          reportPersistenceError(error);
-        }
-      });
-    },
-    [applyInputFiles, enqueue, onMfmeFilesChanged, reportPersistenceError],
+    [applyInputState, enqueue, onPayPayFileChanged, reportPersistenceError],
   );
 
   const addMfmeFiles = useCallback(
     (files: File[]) => {
-      changeMfmeFiles((currentFiles) => mergeUniqueFiles(currentFiles, files));
+      if (files.length === 0) return;
+      void enqueue(async (current) => {
+        const { accepted, rejected } = await validateFiles(files, "mfme");
+        const valid = accepted.filter((item) => item.type === "mfme");
+        if (valid.length === 0) {
+          if (mountedRef.current) setMfmeErrors(rejected);
+          return;
+        }
+
+        const nextFiles = {
+          ...current.files,
+          mfmeFiles: mergeUniqueFiles(
+            current.files.mfmeFiles,
+            valid.map(({ file }) => file),
+          ),
+        };
+        const nextData = new Map(current.mfmeDataByName);
+        for (const item of valid) nextData.set(item.file.name, item.data);
+        try {
+          await persistInputFiles(nextFiles);
+          reportMfmeChange();
+          applyInputState({
+            ...current,
+            files: nextFiles,
+            mfmeDataByName: nextData,
+          });
+          if (mountedRef.current) setMfmeErrors(rejected);
+        } catch (error) {
+          reportPersistenceError(error);
+        }
+      });
     },
-    [changeMfmeFiles],
+    [applyInputState, enqueue, reportMfmeChange, reportPersistenceError],
   );
 
-  const clearMfmeFiles = useCallback(() => {
-    changeMfmeFiles(() => []);
-  }, [changeMfmeFiles]);
+  const removeMfmeFile = useCallback(
+    (name: string) => {
+      void enqueue(async (current) => {
+        if (!current.files.mfmeFiles.some((file) => file.name === name)) return;
+        const nextFiles = {
+          ...current.files,
+          mfmeFiles: current.files.mfmeFiles.filter(
+            (file) => file.name !== name,
+          ),
+        };
+        const nextData = new Map(current.mfmeDataByName);
+        nextData.delete(name);
+        try {
+          await persistInputFiles(nextFiles);
+          reportMfmeChange();
+          applyInputState({
+            ...current,
+            files: nextFiles,
+            mfmeDataByName: nextData,
+          });
+          if (mountedRef.current) setMfmeErrors([]);
+        } catch (error) {
+          reportPersistenceError(error);
+        }
+      });
+    },
+    [applyInputState, enqueue, reportMfmeChange, reportPersistenceError],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -140,7 +254,41 @@ export function useInputFilesStore({
 
     void enqueue(async () => {
       try {
-        applyInputFiles(await loadInputFiles());
+        const saved = await loadInputFiles();
+        const payPay = saved.payPayFile
+          ? await validateFiles([saved.payPayFile], "paypay")
+          : { accepted: [], rejected: [] };
+        const mfme = await validateFiles(saved.mfmeFiles, "mfme");
+        const validPayPay = payPay.accepted[0];
+        const validMfme = mfme.accepted.filter((item) => item.type === "mfme");
+        const nextFiles: InputFiles = {
+          payPayFile: validPayPay?.type === "paypay" ? validPayPay.file : null,
+          mfmeFiles: validMfme.map(({ file }) => file),
+        };
+        const removedMfme = mfme.rejected.length > 0;
+        if (payPay.rejected.length > 0 || removedMfme) {
+          await persistInputFiles(nextFiles);
+          if (payPay.rejected.length > 0) onPayPayFileChanged();
+          if (removedMfme) reportMfmeChange();
+          if (mountedRef.current) {
+            setNotice({
+              tone: "error",
+              message:
+                "保存済みの入力ファイルに読み込めないものがあったため、除外しました。",
+            });
+          }
+        }
+        applyInputState({
+          files: nextFiles,
+          payPayData: validPayPay?.type === "paypay" ? validPayPay.data : null,
+          mfmeDataByName: new Map(
+            validMfme.map(({ file, data }) => [file.name, data]),
+          ),
+        });
+        if (mountedRef.current) {
+          setPayPayError(describeRejectedFiles(payPay.rejected));
+          setMfmeErrors(mfme.rejected);
+        }
       } catch (error) {
         reportPersistenceError(error);
       }
@@ -150,12 +298,22 @@ export function useInputFilesStore({
       setNotice({
         tone: "error",
         message:
-          "共有されたCSVを受け取れませんでした。通常のファイル選択をお試しください。",
+          "共有されたCSVファイルを受け取れませんでした。通常のファイル選択をお試しください。",
       });
     } else if (sharedFilesId) {
-      void enqueue(async (currentFiles) => {
+      void enqueue(async (current) => {
         try {
           const files = await consumeSharedFiles(sharedFilesId);
+          if (files.length === 0) {
+            if (mountedRef.current) {
+              setNotice({
+                tone: "error",
+                message:
+                  "共有ファイルの一時データが見つかりませんでした。もう一度共有してください。",
+              });
+            }
+            return;
+          }
           if (files.some((file) => isPp2mfOutputFilename(file.name))) {
             if (mountedRef.current) {
               setNotice({
@@ -166,60 +324,52 @@ export function useInputFilesStore({
             }
             return;
           }
-          const classifiedFiles = await Promise.all(
-            files.map(async (file) => ({
-              file,
-              type: detectCsvFileType(await readFileAsTextAuto(file)),
-            })),
-          );
-          const payPayFiles = classifiedFiles.filter(
-            ({ type }) => type === "paypay",
-          );
-          const receivedMfmeFiles = classifiedFiles
-            .filter(({ type }) => type === "mfme")
-            .map(({ file }) => file);
-          const unknownFiles = classifiedFiles.filter(
-            ({ type }) => type === "unknown",
-          );
 
-          const nextFiles = {
-            payPayFile: payPayFiles[0]?.file ?? currentFiles.payPayFile,
+          const { accepted, rejected } = await validateFiles(files);
+          const payPay = accepted.find((item) => item.type === "paypay");
+          const mfme = accepted.filter((item) => item.type === "mfme");
+          const nextFiles: InputFiles = {
+            payPayFile:
+              payPay?.type === "paypay"
+                ? payPay.file
+                : current.files.payPayFile,
             mfmeFiles:
-              receivedMfmeFiles.length > 0
-                ? mergeUniqueFiles(currentFiles.mfmeFiles, receivedMfmeFiles)
-                : currentFiles.mfmeFiles,
+              mfme.length > 0
+                ? mergeUniqueFiles(
+                    current.files.mfmeFiles,
+                    mfme.map(({ file }) => file),
+                  )
+                : current.files.mfmeFiles,
           };
-          await persistInputFiles(nextFiles);
-          const didResetImportedRecords =
-            receivedMfmeFiles.length > 0 && onMfmeFilesChanged();
-          if (payPayFiles.length > 0) {
-            onPayPayFileChanged();
+          let didResetImportedRecords = false;
+          if (payPay || mfme.length > 0) {
+            await persistInputFiles(nextFiles);
+            if (mfme.length > 0) {
+              didResetImportedRecords = onMfmeFilesChanged();
+            }
+            if (payPay) onPayPayFileChanged();
+            const nextData = new Map(current.mfmeDataByName);
+            for (const item of mfme) nextData.set(item.file.name, item.data);
+            applyInputState({
+              files: nextFiles,
+              payPayData:
+                payPay?.type === "paypay" ? payPay.data : current.payPayData,
+              mfmeDataByName: nextData,
+            });
           }
-          applyInputFiles(nextFiles);
 
           if (!mountedRef.current) return;
-          if (files.length === 0) {
-            setNotice({
-              tone: "error",
-              message:
-                "共有ファイルの一時データが見つかりませんでした。もう一度共有してください。",
-            });
-            return;
-          }
-
           const loadedTypes = [
-            payPayFiles.length > 0 ? "PayPayの取引履歴" : null,
-            receivedMfmeFiles.length > 0
-              ? `MoneyForward MEの入出金履歴 ${receivedMfmeFiles.length}件`
+            payPay ? "PayPayの取引履歴" : null,
+            mfme.length > 0
+              ? `MoneyForward MEの入出金履歴 ${mfme.length}件`
               : null,
           ].filter((value): value is string => value !== null);
           setNotice({
-            tone: unknownFiles.length > 0 ? "error" : "success",
+            tone: rejected.length > 0 ? "error" : "success",
             message:
-              unknownFiles.length > 0
-                ? loadedTypes.length > 0
-                  ? `${loadedTypes.join("と")}を読み込みました。形式を判定できないCSV ${unknownFiles.length}件は読み込みませんでした。`
-                  : "PayPayの取引履歴またはMoneyForward MEの入出金履歴として必要な列がないため、共有されたファイルを読み込めませんでした。"
+              rejected.length > 0
+                ? `${loadedTypes.length > 0 ? `${loadedTypes.join("と")}を読み込みました。` : ""}読み込めなかったファイル: ${describeRejectedFiles(rejected)}`
                 : `${loadedTypes.join("と")}を読み込みました。${didResetImportedRecords ? "以前の「保存した」記録はリセットしました。" : ""}`,
           });
         } catch (error) {
@@ -228,7 +378,7 @@ export function useInputFilesStore({
             setNotice({
               tone: "error",
               message:
-                "共有されたCSVの読み込みに失敗しました。通常のファイル選択をお試しください。",
+                "共有されたCSVファイルの読み込みに失敗しました。通常のファイル選択をお試しください。",
             });
           }
         }
@@ -239,20 +389,25 @@ export function useInputFilesStore({
       mountedRef.current = false;
     };
   }, [
-    applyInputFiles,
+    applyInputState,
     enqueue,
     onMfmeFilesChanged,
     onPayPayFileChanged,
+    reportMfmeChange,
     reportPersistenceError,
   ]);
 
   return {
-    payPayFile: inputFiles.payPayFile,
-    mfmeFiles: inputFiles.mfmeFiles,
+    payPayFile: inputState.files.payPayFile,
+    mfmeFiles: inputState.files.mfmeFiles,
+    payPayData: inputState.payPayData,
+    mfmeDataByName: inputState.mfmeDataByName,
+    payPayError,
+    mfmeErrors,
     notice,
     dismissNotice: () => setNotice(null),
     selectPayPayFile,
     addMfmeFiles,
-    clearMfmeFiles,
+    removeMfmeFile,
   };
 }
