@@ -87,7 +87,7 @@ export default function Step2MfmeFilter({
         <CsvFilePicker
           id="mfme-csv-input"
           multiple
-          label={files.length > 0 ? "ファイルを追加" : "入出金履歴を選ぶ"}
+          label="入出金履歴を追加"
           onFilesSelected={(selectedFiles) => {
             const nextFiles = Array.from(selectedFiles ?? []);
             if (nextFiles.length > 0) onFilesAdded(nextFiles);
