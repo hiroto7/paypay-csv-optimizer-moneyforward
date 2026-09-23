@@ -4,7 +4,7 @@ import {
   SHARED_FILE_DATABASE_VERSION,
 } from "../app/utils/shared-file-store";
 
-export const payPayHeader =
+const payPayHeader =
   "取引日,出金金額（円）,入金金額（円）,海外出金金額,通貨,変換レート（円）,利用国,取引内容,取引先,取引方法,支払い区分,利用者,取引番号";
 export const mfmeHeader =
   "計算対象,日付,内容,金額（円）,保有金融機関,大項目,中項目,メモ,振替,ID";

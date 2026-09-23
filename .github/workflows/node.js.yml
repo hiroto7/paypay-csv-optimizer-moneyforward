@@ -21,6 +21,7 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm run lint:ci
+      - run: npm run knip
       - run: npm test
 
   e2e:
