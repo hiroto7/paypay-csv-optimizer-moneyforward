@@ -45,8 +45,8 @@ PayPayの取引履歴とMoneyForward MEの入出金履歴の両方を読み込�
 
 - CSVの読み込み、照合、変換はブラウザ内で行い、内容や変換結果をPP2MFのアプリケーションサーバーへ送信しません。
 - 画面で選択またはShare Targetで読み込んだ作業中のPayPayの取引履歴とMoneyForward MEの入出金履歴は、再読み込み後も作業を続けられるよう端末のIndexedDBへ保存します。
-- 「MoneyForward MEで保存した」の記録、共有したまま保存したかを確認していない明細、手動で設定した口座残高は端末の`localStorage`へ保存します。
-- MoneyForward MEの入出金履歴を変更すると取り込み記録はリセットされますが、確認待ちの明細と手動で設定した残高は保持されます。
+- 「MoneyForward MEで保存した」の記録と、手動で設定した口座残高は端末の`localStorage`へ保存します。
+- MoneyForward MEの入出金履歴を変更すると取り込み記録はリセットされますが、手動で設定した残高は保持されます。
 - 取り込み記録と口座残高は、MoneyForward MEとは自動で同期されません。
 
 詳しくは[プライバシーについて](https://pp2mf.vercel.app/privacy)を参照してください。
