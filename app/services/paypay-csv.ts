@@ -12,13 +12,21 @@ import {
   reconcileMfmeTransactions,
 } from "./mfme-reconciliation";
 
+// 画面に表示する原文の値と、取り込み記録に使う明細キーの組。
+export type ChunkTransaction = {
+  key: string;
+  date: string;
+  content: string;
+  amount: number;
+};
+
 export type ProcessedCsvChunk = {
   data: string;
   count: number;
   balanceDelta: number;
   startDate: Date | null;
   endDate: Date | null;
-  transactionKeys: string[];
+  transactions: ChunkTransaction[];
 };
 
 export type ProcessedResult = {
@@ -232,8 +240,13 @@ export function createChunksFromGroupedTransactions(
         ),
         startDate: minDate,
         endDate: maxDate,
-        transactionKeys: chunkOfTransactions.map(
-          (transaction) => transaction.key,
+        transactions: chunkOfTransactions.map(
+          (transaction): ChunkTransaction => ({
+            key: transaction.key,
+            date: transaction.dateKey,
+            content: transaction.contentKey,
+            amount: Number(transaction.amountKey),
+          }),
         ),
       });
     }

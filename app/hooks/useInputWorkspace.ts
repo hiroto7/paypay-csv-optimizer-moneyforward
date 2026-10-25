@@ -6,15 +6,18 @@ import type { MfmeParsedResult } from "~/services/mfme-csv";
 type InputWorkspaceCallbacks = {
   onPayPayFileChanged: () => void;
   onMfmeFilesChanged: () => boolean;
+  hasPendingImport: () => boolean;
 };
 
 export function useInputWorkspace({
   onPayPayFileChanged,
   onMfmeFilesChanged,
+  hasPendingImport,
 }: InputWorkspaceCallbacks) {
   const files = useInputFilesStore({
     onPayPayFileChanged,
     onMfmeFilesChanged,
+    hasPendingImport,
   });
 
   const mfmeFileStatsByName = useMemo<ReadonlyMap<string, FileStats>>(

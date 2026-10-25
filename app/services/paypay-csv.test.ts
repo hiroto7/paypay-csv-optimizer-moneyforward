@@ -313,7 +313,7 @@ describe("createChunksFromGroupedTransactions", () => {
     expect(data).toContain("00000000000000000001");
   });
 
-  it("トランザクションから作ったチャンクに除外保存用の取引キーを保持すること", () => {
+  it("トランザクションから作ったチャンクに除外保存用の取引キーと表示用の明細を保持すること", () => {
     const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
     const { transactions, headers } =
       extractTransactionsFromPayPayCsv(csvContent);
@@ -324,9 +324,30 @@ describe("createChunksFromGroupedTransactions", () => {
       headers,
     );
 
-    expect(chunks["PayPay残高"]?.[0]?.transactionKeys).toEqual([
-      "2025/10/24_-190_PayPay残高_ダミーストアA",
+    expect(chunks["PayPay残高"]?.[0]?.transactions).toEqual([
+      {
+        key: "2025/10/24_-190_PayPay残高_ダミーストアA",
+        date: "2025/10/24",
+        content: "ダミーストアA",
+        amount: -190,
+      },
     ]);
+  });
+
+  it("表示用の明細では店舗名の引用符を正規化しないこと", () => {
+    const quotedRow =
+      "2025/10/24 10:59:25,190,-,-,-,-,-,支払い,ダミー’ストア,PayPay残高,-,-,00000000000000000001";
+    const csvContent = `${PAYPAY_CSV_HEADER}\n${quotedRow}`;
+    const { transactions, headers } =
+      extractTransactionsFromPayPayCsv(csvContent);
+    const chunks = createChunksFromGroupedTransactions(
+      groupWithoutExclusions(transactions),
+      headers,
+    );
+
+    const [transaction] = chunks["PayPay残高"]?.[0]?.transactions ?? [];
+    expect(transaction?.content).toBe("ダミー’ストア");
+    expect(transaction?.key).toBe("2025/10/24_-190_PayPay残高_ダミー'ストア");
   });
 
   it("支出・入金・併用払いから口座別の残高増減を計算すること", () => {

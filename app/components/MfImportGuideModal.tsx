@@ -4,22 +4,18 @@ import Modal from "~/components/Modal";
 interface MfImportGuideModalProps {
   accountName: string;
   isSharing: boolean;
-  onClose: () => void;
   onImported: () => void;
+  onCancel: () => void;
 }
 
 export default function MfImportGuideModal({
   accountName,
   isSharing,
-  onClose,
   onImported,
+  onCancel,
 }: MfImportGuideModalProps) {
   return (
-    <Modal
-      title="MoneyForward MEに取り込む"
-      description="共有後、MoneyForward MEで口座を指定して保存してください"
-      onClose={onClose}
-    >
+    <Modal title="MoneyForward MEに取り込む" dismissible={false}>
       <ol className="min-h-0 overflow-y-auto divide-y divide-zinc-200 px-5">
         {[
           { instruction: "共有シートでMoneyForward MEを選ぶ" },
@@ -34,9 +30,8 @@ export default function MfImportGuideModal({
           { instruction: "内容を確認して右上の「保存」を押す" },
           {
             instruction:
-              "PP2MFに戻り、この画面の右下の「MoneyForward MEで保存した」を押す",
-            description:
-              "次回PP2MFを使うとき、今回取り込んだ明細は自動的に除外されるようになります",
+              "PP2MFに戻り、この画面の「MoneyForward MEで保存した」を押す",
+            description: "押すと、次回から今回の明細を自動で除外します",
           },
         ].map(({ instruction, description }, index) => {
           const isShareStep = index === 0;
@@ -89,10 +84,15 @@ export default function MfImportGuideModal({
       <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
         <button
           type="button"
-          onClick={onClose}
-          className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
+          onClick={onCancel}
+          disabled={isSharing}
+          className={`inline-flex min-h-10 w-full items-center justify-center border px-4 text-sm font-semibold sm:w-auto ${
+            isSharing
+              ? "cursor-wait border-zinc-200 bg-zinc-100 text-zinc-400"
+              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+          }`}
         >
-          閉じる
+          取り込みをやめる
         </button>
         <button
           type="button"

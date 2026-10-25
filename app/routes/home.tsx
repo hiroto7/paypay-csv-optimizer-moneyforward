@@ -7,6 +7,7 @@ import AppHeader from "~/components/AppHeader";
 import AuditPanel from "~/components/AuditPanel";
 import CsvShareGuide from "~/components/CsvShareGuide";
 import MfImportGuideModal from "~/components/MfImportGuideModal";
+import PendingImportModal from "~/components/PendingImportModal";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
 import Step2MfmeFilter from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
@@ -48,7 +49,8 @@ export default function Home() {
   const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
     () => new Set(),
   );
-  const [modalContext, setModalContext] = useState<{
+  // 保存待ちのうち、今回の作業で共有したもの。再読み込み後は空になり、再訪時の確認として扱う。
+  const [sessionShare, setSessionShare] = useState<{
     name: string;
     index: number;
     isSharing: boolean;
@@ -56,18 +58,21 @@ export default function Home() {
   const {
     conversionCounts,
     accountBalances,
+    pendingImport,
     recordStats,
-    addImportedRecords,
+    startPendingImport,
+    confirmPendingImport,
+    discardPendingImport,
+    hasPendingImport,
     setAccountBalance,
     clearAccountBalance,
     resetImportedRecords,
     refreshConversionCounts,
   } = useLocalImportRecords();
-  const closeModal = useCallback(() => setModalContext(null), []);
   const resetCurrentImportState = useCallback(() => {
     setImportedChunkKeys(new Set());
-    closeModal();
-  }, [closeModal]);
+    setSessionShare(null);
+  }, []);
   const handlePayPayFileChanged = useCallback(() => {
     refreshConversionCounts();
     resetCurrentImportState();
@@ -93,6 +98,7 @@ export default function Home() {
   } = useInputWorkspace({
     onPayPayFileChanged: handlePayPayFileChanged,
     onMfmeFilesChanged: handleMfmeFilesChanged,
+    hasPendingImport,
   });
 
   const conversionResult = useMemo(() => {
@@ -120,39 +126,55 @@ export default function Home() {
 
   const handleImport = useCallback(
     async (filename: string, data: string, name: string, index: number) => {
-      flushSync(() => setModalContext({ name, index, isSharing: true }));
+      const chunk = chunks[name]?.[index];
+      if (!chunk) return;
+
+      // 共有シートからMoneyForward MEへ移っている間にページが破棄されても確認できるよう、共有前に記録する。
+      flushSync(() => {
+        startPendingImport({
+          accountName: name,
+          sharedAt: Date.now(),
+          balanceDelta: chunk.balanceDelta,
+          transactions: chunk.transactions,
+        });
+        setSessionShare({ name, index, isSharing: true });
+      });
       try {
         const shared = await shareCsv(filename, data);
-        setModalContext((currentContext) =>
-          shared && currentContext
-            ? { ...currentContext, isSharing: false }
-            : null,
+        if (!shared) {
+          discardPendingImport();
+          setSessionShare(null);
+          return;
+        }
+        setSessionShare((current) =>
+          current ? { ...current, isSharing: false } : null,
         );
       } catch {
-        setModalContext(null);
+        discardPendingImport();
+        setSessionShare(null);
       }
     },
-    [],
+    [chunks, discardPendingImport, startPendingImport],
   );
 
-  const handleMarkAsImported = () => {
-    if (!modalContext) return;
-    const importedChunk =
-      chunks[modalContext.name]?.[modalContext.index] ?? null;
-    if (importedChunk) {
-      addImportedRecords(
-        importedChunk.transactionKeys,
-        modalContext.name,
-        importedChunk.balanceDelta,
+  const handleConfirmImport = () => {
+    confirmPendingImport();
+    if (sessionShare) {
+      const { name, index } = sessionShare;
+      setImportedChunkKeys((currentKeys) =>
+        new Set(currentKeys).add(`${name}:${index}`),
       );
+    } else {
+      // 前回の作業で共有した明細は、チャンクの区切りが変わるため除外し直して作り直す。
+      setImportedChunkKeys(new Set());
+      refreshConversionCounts();
     }
+    setSessionShare(null);
+  };
 
-    setImportedChunkKeys((currentKeys) => {
-      const nextKeys = new Set(currentKeys);
-      nextKeys.add(`${modalContext.name}:${modalContext.index}`);
-      return nextKeys;
-    });
-    closeModal();
+  const handleDiscardImport = () => {
+    discardPendingImport();
+    setSessionShare(null);
   };
 
   const hasMfmeRecords = Boolean(mfmeData?.records.length);
@@ -272,14 +294,21 @@ export default function Home() {
 
       <AppFooter />
 
-      {modalContext && (
-        <MfImportGuideModal
-          accountName={modalContext.name}
-          isSharing={modalContext.isSharing}
-          onClose={closeModal}
-          onImported={handleMarkAsImported}
-        />
-      )}
+      {pendingImport &&
+        (sessionShare ? (
+          <MfImportGuideModal
+            accountName={pendingImport.accountName}
+            isSharing={sessionShare.isSharing}
+            onImported={handleConfirmImport}
+            onCancel={handleDiscardImport}
+          />
+        ) : (
+          <PendingImportModal
+            pendingImport={pendingImport}
+            onConfirm={handleConfirmImport}
+            onDiscard={handleDiscardImport}
+          />
+        ))}
     </div>
   );
 }

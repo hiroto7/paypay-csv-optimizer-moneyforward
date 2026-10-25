@@ -86,11 +86,14 @@ const describeRejectedFiles = (files: readonly RejectedInputFile[]): string =>
 type InputFilesStoreCallbacks = {
   onPayPayFileChanged: () => void;
   onMfmeFilesChanged: () => boolean;
+  // 保存待ちの確認が終わるまで、Share Targetで受け取ったファイルを読み込まない。
+  hasPendingImport: () => boolean;
 };
 
 export function useInputFilesStore({
   onPayPayFileChanged,
   onMfmeFilesChanged,
+  hasPendingImport,
 }: InputFilesStoreCallbacks) {
   const [inputState, setInputState] = useState<InputState>(emptyInputState);
   const [notice, setNotice] = useState<SharedFileNotice | null>(null);
@@ -325,6 +328,18 @@ export function useInputFilesStore({
             return;
           }
 
+          // 取り込み用CSVをPP2MFへ共有した場合は保存待ちも残るため、共有先の誤りの案内を優先する。
+          if (hasPendingImport()) {
+            if (mountedRef.current) {
+              setNotice({
+                tone: "error",
+                message:
+                  "前回の取り込みの確認が終わっていないため、共有されたファイルを読み込みませんでした。確認したあと、もう一度共有してください。",
+              });
+            }
+            return;
+          }
+
           const { accepted, rejected } = await validateFiles(files);
           const payPay = accepted.find((item) => item.type === "paypay");
           const mfme = accepted.filter((item) => item.type === "mfme");
@@ -391,6 +406,7 @@ export function useInputFilesStore({
   }, [
     applyInputState,
     enqueue,
+    hasPendingImport,
     onMfmeFilesChanged,
     onPayPayFileChanged,
     reportMfmeChange,
