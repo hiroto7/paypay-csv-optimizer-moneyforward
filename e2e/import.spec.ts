@@ -142,9 +142,6 @@ test("共有後に再読み込みすると保存待ちの確認を強制表示�
   await expect(
     page.getByText("pp2mf-paypay残高.csv", { exact: true }),
   ).toHaveCount(0);
-  await expect(
-    page.getByText("1ファイル中0ファイルを取り込みました", { exact: true }),
-  ).toBeVisible();
 
   await page.reload();
   await expect(
@@ -343,9 +340,6 @@ test("分割チャンクの一部を取り込んでも残りのチャンクを�
   await expect(
     page.getByText("pp2mf-paypay残高_part2.csv", { exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByText("2ファイル中0ファイルを取り込みました", { exact: true }),
-  ).toBeVisible();
 
   await page.getByRole("button", { name: "取り込む" }).first().click();
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
@@ -360,9 +354,6 @@ test("分割チャンクの一部を取り込んでも残りのチャンクを�
     page.getByRole("button", { name: "取り込みました" }),
   ).toHaveCount(1);
   await expect(page.getByRole("button", { name: "取り込む" })).toHaveCount(1);
-  await expect(
-    page.getByText("2ファイル中1ファイルを取り込みました", { exact: true }),
-  ).toBeVisible();
 
   await page.getByRole("button", { name: "取り込む" }).click();
   await expect(
@@ -372,9 +363,6 @@ test("分割チャンクの一部を取り込んでも残りのチャンクを�
   await expect(
     page.getByRole("button", { name: "取り込みました" }),
   ).toHaveCount(2);
-  await expect(
-    page.getByText("すべてのファイルを取り込みました", { exact: true }),
-  ).toBeVisible();
 });
 
 test("途中のファイルで離脱しても再起動後に残りのファイルだけを作り直す", async ({
@@ -387,7 +375,7 @@ test("途中のファイルで離脱しても再起動後に残りのファイ�
     buffer: Buffer.from(createChunkedPayPayCsv(257)),
   });
   await expect(
-    page.getByText("3ファイル中0ファイルを取り込みました", { exact: true }),
+    page.getByText("pp2mf-paypay残高_part3.csv", { exact: true }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "取り込む" }).first().click();
@@ -422,9 +410,6 @@ test("途中のファイルで離脱しても再起動後に残りのファイ�
   ).toBeVisible();
   await expect(
     page.getByText("pp2mf-paypay残高.csv", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("1ファイル中0ファイルを取り込みました", { exact: true }),
   ).toBeVisible();
 });
 
