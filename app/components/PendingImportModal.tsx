@@ -1,6 +1,5 @@
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
-import ImportDecisionFooter from "~/components/ImportDecisionFooter";
 import Modal from "~/components/Modal";
 import type { PendingImport } from "~/services/local-exclusion-store";
 
@@ -104,11 +103,23 @@ export default function PendingImportModal({
           </div>
         </div>
       </div>
-      <ImportDecisionFooter
-        discardLabel="保存していない"
-        onDiscard={onDiscard}
-        onConfirm={onConfirm}
-      />
+      <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
+        >
+          保存していない
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="inline-flex min-h-10 w-full items-center justify-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 sm:w-auto"
+        >
+          <Check className="size-4" aria-hidden="true" />
+          MoneyForward MEで保存した
+        </button>
+      </div>
     </Modal>
   );
 }
