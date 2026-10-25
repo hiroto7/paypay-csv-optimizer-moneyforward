@@ -195,6 +195,10 @@ export default function Step3FileList({
   );
   const totalFiles = sum(groups, ({ chunks }) => chunks.length);
   const totalRecords = sum(groups, ({ chunks }) => countRecords(chunks));
+  const importedFiles = sum(
+    groups,
+    ({ chunks }) => chunks.filter((chunk) => chunk.imported).length,
+  );
   const totalExcluded = excludedByMfme + excludedByImportedRecords;
 
   const handleImport = (
@@ -218,6 +222,17 @@ export default function Step3FileList({
           </h2>
           <p className="mt-0.5 text-xs text-zinc-500">
             {totalRecords}件を{totalFiles}ファイルに分割しました
+          </p>
+          <p
+            className={`mt-0.5 text-xs font-semibold ${
+              importedFiles === totalFiles
+                ? "text-emerald-700"
+                : "text-zinc-700"
+            }`}
+          >
+            {importedFiles === totalFiles
+              ? "すべてのファイルを取り込みました"
+              : `${totalFiles}ファイル中${importedFiles}ファイルを取り込みました`}
           </p>
         </div>
         <div className="flex gap-4 text-xs text-zinc-600">

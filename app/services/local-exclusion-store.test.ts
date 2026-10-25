@@ -6,8 +6,32 @@ import {
   createEmptyLocalExclusionState,
   createStatsFromTransactionCounts,
   loadLocalExclusionState,
+  type PendingImport,
+  persistLocalExclusionState,
   saveLocalExclusionState,
 } from "./local-exclusion-store";
+
+const STORE_KEY = "paypay-csv-optimizer:local-exclusion-state:v1";
+
+const pendingImport: PendingImport = {
+  accountName: "PayPay残高",
+  sharedAt: 1234567890,
+  balanceDelta: -290,
+  transactions: [
+    {
+      key: "2025/10/24_-190_PayPay残高_ダミーストアA",
+      date: "2025/10/24",
+      content: "ダミーストアA",
+      amount: -190,
+    },
+    {
+      key: "2025/10/25_-100_PayPay残高_ダミー'ストアB",
+      date: "2025/10/25",
+      content: "ダミー’ストアB",
+      amount: -100,
+    },
+  ],
+};
 
 type MockStorage = {
   getItem: (key: string) => string | null;
@@ -48,6 +72,7 @@ describe("local exclusion store", () => {
       accountBalances: new Map([
         ["PayPay残高", { amount: 12345, updatedAt: 1234567890 }],
       ]),
+      pendingImport: null,
       updatedAt: 1234567890,
     };
 
@@ -103,6 +128,75 @@ describe("local exclusion store", () => {
     expect(loadLocalExclusionState().accountBalances).toEqual(
       new Map([["PayPay残高", { amount: 1000, updatedAt: 1 }]]),
     );
+  });
+
+  it("保存待ちを表示用の原文ごと保存して復元できる", () => {
+    saveLocalExclusionState({
+      ...createEmptyLocalExclusionState(),
+      pendingImport,
+      updatedAt: 1,
+    });
+
+    expect(loadLocalExclusionState().pendingImport).toEqual(pendingImport);
+  });
+
+  it("保存待ちのない既存形式を保存待ちなしとして復元できる", () => {
+    const storage = createMockStorage();
+    storage.setItem(
+      STORE_KEY,
+      '{"localImportedCounts":[["valid",1]],"updatedAt":1}',
+    );
+    vi.stubGlobal("window", { localStorage: storage });
+
+    expect(loadLocalExclusionState().pendingImport).toBeNull();
+  });
+
+  it.each([
+    ["口座名が空", { ...pendingImport, accountName: "" }],
+    ["明細が空", { ...pendingImport, transactions: [] }],
+    [
+      "金額が整数でない明細",
+      {
+        ...pendingImport,
+        transactions: [{ ...pendingImport.transactions[0], amount: 1.5 }],
+      },
+    ],
+    [
+      "明細キーがない明細",
+      {
+        ...pendingImport,
+        transactions: [{ date: "2025/10/24", content: "A", amount: -1 }],
+      },
+    ],
+  ])("破損した保存待ち（%s）を復元しない", (_, value) => {
+    const storage = createMockStorage();
+    storage.setItem(
+      STORE_KEY,
+      JSON.stringify({
+        localImportedCounts: [["valid", 1]],
+        pendingImport: value,
+        updatedAt: 1,
+      }),
+    );
+    vi.stubGlobal("window", { localStorage: storage });
+
+    const state = loadLocalExclusionState();
+    expect(state.pendingImport).toBeNull();
+    expect(state.localImportedCounts).toEqual(new Map([["valid", 1]]));
+  });
+
+  it("記録・残高・保存待ちのどれかがあれば保存し、すべてなければ削除する", () => {
+    const storage = createMockStorage();
+    vi.stubGlobal("window", { localStorage: storage });
+
+    persistLocalExclusionState({
+      ...createEmptyLocalExclusionState(),
+      pendingImport,
+    });
+    expect(storage.getItem(STORE_KEY)).not.toBeNull();
+
+    persistLocalExclusionState(createEmptyLocalExclusionState());
+    expect(storage.getItem(STORE_KEY)).toBeNull();
   });
 });
 
@@ -170,6 +264,7 @@ describe("createEmptyLocalExclusionState", () => {
 
     expect(state.localImportedCounts.size).toBe(0);
     expect(state.accountBalances.size).toBe(0);
+    expect(state.pendingImport).toBeNull();
     expect(state.updatedAt).toBeNull();
   });
 });

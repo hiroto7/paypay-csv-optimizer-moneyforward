@@ -3,6 +3,7 @@ import {
   mfmeHeader,
   openCleanPage,
   payPayCsv,
+  readStoredInputFileNames,
   selectPayPayCsv,
   shareCsvThroughTarget,
 } from "./helpers";
@@ -108,4 +109,60 @@ test("PP2MFで作成したCSVの自己共有を拒否する", async ({ page }) =
       .getByRole("region", { name: "PayPayから書き出した取引履歴" })
       .getByText("paypay-history.csv", { exact: true }),
   ).toBeVisible();
+});
+
+test("保存待ちの確認が終わるまでShare Targetのファイルを読み込まない", async ({
+  page,
+}) => {
+  await selectPayPayCsv(page);
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+  await expect(
+    page.getByRole("dialog", { name: "MoneyForward MEに取り込む" }),
+  ).toBeVisible();
+
+  await shareCsvThroughTarget(
+    page,
+    "shared-while-pending",
+    "収入・支出詳細_2025.csv",
+    [
+      mfmeHeader,
+      "1,2025/12/31,ダミーストア2025,-100,PayPay残高,食費,食費,架空データ,,dummy-2025",
+    ].join("\n"),
+  );
+
+  const resumedDialog = page.getByRole("dialog", {
+    name: "前回の取り込みを保存しましたか？",
+  });
+  await expect(resumedDialog).toBeVisible();
+  await resumedDialog.getByRole("button", { name: "保存していない" }).click();
+
+  await expect(page.getByRole("alert")).toHaveText(
+    "前回の取り込みの確認が終わっていないため、共有されたファイルを読み込みませんでした。確認したあと、もう一度共有してください。",
+  );
+  await expect(page.getByText("収入・支出詳細_2025.csv")).toHaveCount(0);
+  expect(await readStoredInputFileNames(page)).toEqual({
+    payPay: "paypay-history.csv",
+    mfme: [],
+  });
+  expect(
+    await page.evaluate(async () => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("paypay-csv-share-target");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        return await new Promise<number>((resolve, reject) => {
+          const request = database
+            .transaction("shared-files", "readonly")
+            .objectStore("shared-files")
+            .count();
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      } finally {
+        database.close();
+      }
+    }),
+  ).toBe(0);
 });

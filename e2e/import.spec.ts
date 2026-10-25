@@ -66,12 +66,15 @@ test("作成結果と共有・保存確認モーダルを表示できる", async
   await expect(
     page.getByRole("button", { name: "MoneyForward MEで保存した" }),
   ).toBeVisible();
+  const importDialog = page.getByRole("dialog", {
+    name: "MoneyForward MEに取り込む",
+  });
   await expect(
-    page
-      .getByRole("dialog", { name: "MoneyForward MEに取り込む" })
-      .getByRole("button", { name: "閉じる" })
-      .last(),
+    importDialog.getByRole("button", { name: "取り込みをやめる" }),
   ).toBeVisible();
+  await expect(
+    importDialog.getByRole("button", { name: "閉じる" }),
+  ).toHaveCount(0);
   await expect(page).toHaveScreenshot("import-guide-modal.png", {
     fullPage: true,
   });
@@ -81,6 +84,121 @@ test("作成結果と共有・保存確認モーダルを表示できる", async
     fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
+
+  // 連続したEscキーは取り消せないcancelになるため、2回押しても閉じないことを確かめる。
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(importDialog).toBeVisible();
+});
+
+test("共有後に再読み込みすると保存待ちの確認を強制表示する", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2026-07-25T06:00:00.000Z"));
+  await selectPayPayCsv(page);
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+  await expect(
+    page.getByRole("dialog", { name: "MoneyForward MEに取り込む" }),
+  ).toBeVisible();
+
+  await page.reload();
+  const resumedDialog = page.getByRole("dialog", {
+    name: "前回の取り込みを保存しましたか？",
+  });
+  await expect(resumedDialog).toBeVisible();
+  await expect(
+    resumedDialog.getByText(
+      "覚えていない場合は、MoneyForward MEで「PayPay残高」の明細を開き、次の明細があるか確かめてください。",
+    ),
+  ).toBeVisible();
+  await expect(
+    resumedDialog.getByText(
+      "7月25日 15:00に「PayPay残高」の明細2件を共有しましたが、「MoneyForward MEで保存した」が押されていません。",
+    ),
+  ).toBeVisible();
+  const transactionRows = resumedDialog.getByRole("listitem");
+  await expect(transactionRows).toHaveCount(2);
+  await expect(transactionRows.nth(0)).toHaveText(
+    "2025/10/24ダミーストアA-190円",
+  );
+  await expect(transactionRows.nth(1)).toHaveText(
+    "2025/09/29ダミーストアB-317円",
+  );
+  await expect(page).toHaveScreenshot("import-confirmation-resumed.png", {
+    fullPage: true,
+  });
+
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(resumedDialog).toBeVisible();
+
+  await resumedDialog
+    .getByRole("button", { name: "MoneyForward MEで保存した" })
+    .click();
+  await expect(resumedDialog).toHaveCount(0);
+  await expect(
+    page.getByText("このアプリの取り込み記録との一致: 2件", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("pp2mf-paypay残高.csv", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("1ファイル中0ファイルを取り込みました", { exact: true }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByText("このアプリの取り込み記録との一致: 2件", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("「取り込みをやめる」を選ぶと記録せずに出力へ残す", async ({ page }) => {
+  await selectPayPayCsv(page);
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+  await page.getByRole("button", { name: "取り込みをやめる" }).click();
+
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "取り込む" })).toHaveCount(2);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        localStorage.getItem("paypay-csv-optimizer:local-exclusion-state:v1"),
+      ),
+    )
+    .toBeNull();
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "取り込む" })).toHaveCount(2);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("共有シートを閉じると保存待ちを残さない", async ({ page }) => {
+  await selectPayPayCsv(page);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: () =>
+        Promise.reject(new DOMException("Share canceled", "AbortError")),
+    });
+  });
+
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        localStorage.getItem("paypay-csv-optimizer:local-exclusion-state:v1"),
+      ),
+    )
+    .toBeNull();
+  await page.reload();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("保存確認後の取り込み記録を再読み込みして表示できる", async ({ page }) => {
@@ -225,6 +343,9 @@ test("分割チャンクの一部を取り込んでも残りのチャンクを�
   await expect(
     page.getByText("pp2mf-paypay残高_part2.csv", { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByText("2ファイル中0ファイルを取り込みました", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "取り込む" }).first().click();
   await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
@@ -239,6 +360,9 @@ test("分割チャンクの一部を取り込んでも残りのチャンクを�
     page.getByRole("button", { name: "取り込みました" }),
   ).toHaveCount(1);
   await expect(page.getByRole("button", { name: "取り込む" })).toHaveCount(1);
+  await expect(
+    page.getByText("2ファイル中1ファイルを取り込みました", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "取り込む" }).click();
   await expect(
@@ -248,6 +372,60 @@ test("分割チャンクの一部を取り込んでも残りのチャンクを�
   await expect(
     page.getByRole("button", { name: "取り込みました" }),
   ).toHaveCount(2);
+  await expect(
+    page.getByText("すべてのファイルを取り込みました", { exact: true }),
+  ).toBeVisible();
+});
+
+test("途中のファイルで離脱しても再起動後に残りのファイルだけを作り直す", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2026-07-25T06:00:00.000Z"));
+  await page.locator("#paypay-csv-input").setInputFiles({
+    name: "paypay-history-257.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(createChunkedPayPayCsv(257)),
+  });
+  await expect(
+    page.getByText("3ファイル中0ファイルを取り込みました", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+  await page.getByRole("button", { name: "MoneyForward MEで保存した" }).click();
+  await page.getByRole("button", { name: "取り込む" }).first().click();
+  await expect(
+    page.getByRole("dialog", { name: "MoneyForward MEに取り込む" }),
+  ).toBeVisible();
+
+  await page.reload();
+  const resumedDialog = page.getByRole("dialog", {
+    name: "前回の取り込みを保存しましたか？",
+  });
+  await expect(
+    resumedDialog.getByText(
+      "7月25日 15:00に「PayPay残高」の明細100件を共有しましたが、「MoneyForward MEで保存した」が押されていません。",
+    ),
+  ).toBeVisible();
+  // 新しい順の3件だけを示し、残りは同じ一覧の続きとして開く。
+  await expect(resumedDialog.getByRole("listitem")).toHaveCount(3);
+  await expect(page).toHaveScreenshot("import-confirmation-resumed-many.png", {
+    fullPage: true,
+  });
+  await resumedDialog.getByRole("button", { name: "残り97件を表示" }).click();
+  await expect(resumedDialog.getByRole("listitem")).toHaveCount(100);
+  await resumedDialog
+    .getByRole("button", { name: "MoneyForward MEで保存した" })
+    .click();
+
+  await expect(
+    page.getByText("このアプリの取り込み記録との一致: 200件", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("pp2mf-paypay残高.csv", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("1ファイル中0ファイルを取り込みました", { exact: true }),
+  ).toBeVisible();
 });
 
 test("PayPayの取引履歴を先に選んでも実際の除外件数を表示する", async ({

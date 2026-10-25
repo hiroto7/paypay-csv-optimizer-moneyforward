@@ -1,10 +1,12 @@
 import { type FileStats, parseDate, updateDateRange } from "./csv-date";
+import type { ChunkTransaction } from "./paypay-csv";
 
 const STORE_KEY = "paypay-csv-optimizer:local-exclusion-state:v1";
 
 export type LocalExclusionState = {
   localImportedCounts: Map<string, number>;
   accountBalances: Map<string, AccountBalance>;
+  pendingImport: PendingImport | null;
   updatedAt: number | null;
 };
 
@@ -13,15 +15,25 @@ export type AccountBalance = {
   updatedAt: number;
 };
 
+// 共有したが、MoneyForward MEで保存したかをまだ確認していない取り込み用CSV。
+export type PendingImport = {
+  accountName: string;
+  sharedAt: number;
+  balanceDelta: number;
+  transactions: ChunkTransaction[];
+};
+
 type SerializedLocalExclusionState = {
   localImportedCounts: [string, number][];
   accountBalances?: [string, AccountBalance][];
+  pendingImport?: PendingImport | null;
   updatedAt: number | null;
 };
 
 export const createEmptyLocalExclusionState = (): LocalExclusionState => ({
   localImportedCounts: new Map(),
   accountBalances: new Map(),
+  pendingImport: null,
   updatedAt: null,
 });
 
@@ -94,6 +106,45 @@ const normalizeAccountBalanceEntries = (
 
     return [[name, { amount, updatedAt }]];
   });
+};
+
+const isChunkTransaction = (value: unknown): value is ChunkTransaction => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const { key, date, content, amount } = value as Partial<ChunkTransaction>;
+  return (
+    typeof key === "string" &&
+    typeof date === "string" &&
+    typeof content === "string" &&
+    typeof amount === "number" &&
+    Number.isSafeInteger(amount)
+  );
+};
+
+const normalizePendingImport = (value: unknown): PendingImport | null => {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const { accountName, sharedAt, balanceDelta, transactions } =
+    value as Partial<PendingImport>;
+  if (
+    typeof accountName !== "string" ||
+    accountName.length === 0 ||
+    typeof sharedAt !== "number" ||
+    !Number.isFinite(sharedAt) ||
+    typeof balanceDelta !== "number" ||
+    !Number.isSafeInteger(balanceDelta) ||
+    !Array.isArray(transactions) ||
+    transactions.length === 0 ||
+    !transactions.every(isChunkTransaction)
+  ) {
+    return null;
+  }
+
+  return { accountName, sharedAt, balanceDelta, transactions };
 };
 
 export const createCountsFromKeys = (
@@ -180,6 +231,7 @@ export const loadLocalExclusionState = (): LocalExclusionState => {
       accountBalances: new Map(
         normalizeAccountBalanceEntries(parsed.accountBalances),
       ),
+      pendingImport: normalizePendingImport(parsed.pendingImport),
       updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : null,
     };
   } catch {
@@ -195,6 +247,7 @@ export const saveLocalExclusionState = (state: LocalExclusionState): void => {
   const serializedState: SerializedLocalExclusionState = {
     localImportedCounts: [...state.localImportedCounts],
     accountBalances: [...state.accountBalances],
+    pendingImport: state.pendingImport,
     updatedAt: state.updatedAt,
   };
 
@@ -205,7 +258,7 @@ export const saveLocalExclusionState = (state: LocalExclusionState): void => {
   }
 };
 
-export const clearLocalExclusionState = (): void => {
+const clearLocalExclusionState = (): void => {
   if (!isBrowser()) {
     return;
   }
@@ -214,5 +267,20 @@ export const clearLocalExclusionState = (): void => {
     window.localStorage.removeItem(STORE_KEY);
   } catch (error) {
     console.warn("Failed to clear local exclusion state:", error);
+  }
+};
+
+// 記録・残高・保存待ちのどれも残っていなければ、保存値ごと削除する。
+export const persistLocalExclusionState = (
+  state: LocalExclusionState,
+): void => {
+  if (
+    state.localImportedCounts.size === 0 &&
+    state.accountBalances.size === 0 &&
+    state.pendingImport === null
+  ) {
+    clearLocalExclusionState();
+  } else {
+    saveLocalExclusionState(state);
   }
 };
