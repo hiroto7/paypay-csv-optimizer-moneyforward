@@ -6,9 +6,8 @@ import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
 import AuditPanel from "~/components/AuditPanel";
 import CsvShareGuide from "~/components/CsvShareGuide";
-import ImportConfirmationModal, {
-  type ImportConfirmationMode,
-} from "~/components/ImportConfirmationModal";
+import MfImportGuideModal from "~/components/MfImportGuideModal";
+import PendingImportModal from "~/components/PendingImportModal";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
 import Step2MfmeFilter from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
@@ -178,12 +177,6 @@ export default function Home() {
     setSessionShare(null);
   };
 
-  const importConfirmationMode: ImportConfirmationMode = sessionShare
-    ? sessionShare.isSharing
-      ? "sharing"
-      : "shared"
-    : "resumed";
-
   const hasMfmeRecords = Boolean(mfmeData?.records.length);
   const hasOutput = Object.keys(chunks).length > 0;
   const canShowConversion = Boolean(payPayData && hasOutput);
@@ -301,14 +294,21 @@ export default function Home() {
 
       <AppFooter />
 
-      {pendingImport && (
-        <ImportConfirmationModal
-          mode={importConfirmationMode}
-          pendingImport={pendingImport}
-          onConfirm={handleConfirmImport}
-          onDiscard={handleDiscardImport}
-        />
-      )}
+      {pendingImport &&
+        (sessionShare ? (
+          <MfImportGuideModal
+            accountName={pendingImport.accountName}
+            isSharing={sessionShare.isSharing}
+            onImported={handleConfirmImport}
+            onCancel={handleDiscardImport}
+          />
+        ) : (
+          <PendingImportModal
+            pendingImport={pendingImport}
+            onConfirm={handleConfirmImport}
+            onDiscard={handleDiscardImport}
+          />
+        ))}
     </div>
   );
 }
