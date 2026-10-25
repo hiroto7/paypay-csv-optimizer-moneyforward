@@ -19,20 +19,20 @@
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/noto-sans-jp": "^5.3.1",
-    "@react-router/node": "^8.4.0",
-    "@react-router/serve": "^8.4.0",
+    "@react-router/node": "^8.5.0",
+    "@react-router/serve": "^8.5.0",
     "csv-parse": "^7.0.3",
     "csv-stringify": "^6.9.0",
     "isbot": "^5.2.2",
-    "lucide-react": "^1.58.0",
+    "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-router": "^8.4.0"
+    "react-router": "^8.5.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.2",
     "@playwright/test": "1.64.1",
-    "@react-router/dev": "^8.4.0",
+    "@react-router/dev": "^8.5.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tsconfig/strictest": "^2.0.8",
@@ -40,10 +40,10 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/web-app-manifest": "^1.0.9",
-    "knip": "^6.41.0",
+    "knip": "^6.42.1",
     "tailwindcss": "^4.1.13",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }
 }
