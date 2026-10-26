@@ -1,15 +1,20 @@
 import { expect, test } from "@playwright/test";
 import {
+  addMfmeCsvs,
   auditMfmeCsv,
   canonicalUrl,
   dispatchInstallPrompt,
-  heroDescription,
+  importStep,
   mfmeHeader,
   openCleanPage,
   pageDescription,
   pageTitle,
+  payPayStep,
   resolveInstallChoice,
   selectPayPayCsv,
+  shareCsvThroughTarget,
+  startDescription,
+  startHeading,
 } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
@@ -46,24 +51,12 @@ test("初期画面をデスクトップとモバイルで表示できる", async
     "content",
     "summary",
   );
-  await expect(page.getByText(heroDescription)).toBeVisible();
+  await expect(page.getByText(startDescription)).toBeVisible();
   await expect(
-    page.getByText(
-      "選んだ明細を支払い方法ごとに分け、MoneyForward MEに取り込めるファイルを作ります。",
-    ),
+    page.getByText("2回目からは、新しいPayPayの取引履歴を選ぶだけで使えます。"),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      "PayPay残高とPayPayポイントを併用した支払いは、支払い方法ごとの明細に分けて、それぞれ別の口座へ登録できます。",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "明細が多い場合は、取り込み用ファイルを100件ごとに分割します。",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "使い方を見る" }),
+    page.getByRole("main").getByRole("link", { name: "使い方" }),
   ).toHaveAttribute("href", "/guide");
 
   await expect(page).toHaveScreenshot("initial-desktop.png", {
@@ -75,7 +68,7 @@ test("初期画面をデスクトップとモバイルで表示できる", async
     await page
       .locator('label[for="paypay-csv-input"]')
       .evaluate((element) => element.getBoundingClientRect().height),
-  ).toBe(36);
+  ).toBe(48);
   await expect(page).toHaveScreenshot("initial-mobile.png", {
     fullPage: true,
   });
@@ -83,40 +76,33 @@ test("初期画面をデスクトップとモバイルで表示できる", async
 
 test("選択済みファイルの操作をモバイルで表示できる", async ({ page }) => {
   await selectPayPayCsv(page);
-  await page.locator("#mfme-csv-input").setInputFiles([
+  await addMfmeCsvs(page, [
     {
       name: "収入・支出詳細_2025-01-01_2025-12-31.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(
-        `${mfmeHeader}\n1,2025/01/01,架空商店A,-100,PayPay残高,食費,食費,メモ,,id-2025`,
-      ),
+      csv: `${mfmeHeader}\n1,2025/01/01,架空商店A,-100,PayPay残高,食費,食費,メモ,,id-2025`,
     },
     {
       name: "収入・支出詳細_2026-01-01_2026-12-31.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(
-        `${mfmeHeader}\n1,2026/01/01,架空商店B,-200,PayPay残高,食費,食費,メモ,,id-2026`,
-      ),
+      csv: `${mfmeHeader}\n1,2026/01/01,架空商店B,-200,PayPay残高,食費,食費,メモ,,id-2026`,
     },
   ]);
+  const registeredStep = page.getByRole("region", { name: "登録済みの明細" });
+  await registeredStep.getByRole("button", { name: "管理" }).click();
 
   await expect(page).toHaveScreenshot("selected-files-desktop.png", {
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  const payPayRegion = page.getByRole("region", {
-    name: "PayPayから書き出した取引履歴",
-  });
-  const mfmeRegion = page.getByRole("region", {
-    name: "MoneyForward MEから書き出した入出金履歴",
-  });
   for (const control of [
-    payPayRegion.getByRole("button", { name: "削除" }),
-    mfmeRegion.getByRole("button", {
+    payPayStep(page).getByRole("button", { name: "paypay-history.csvを削除" }),
+    payPayStep(page).locator('label[for="paypay-csv-input"]'),
+    registeredStep.getByRole("button", {
       name: "収入・支出詳細_2025-01-01_2025-12-31.csvを削除",
     }),
-    mfmeRegion.locator('label[for="mfme-csv-input"]'),
-    page.getByRole("button", { name: "取り込む" }).first(),
+    registeredStep.locator('label[for="mfme-csv-input"]'),
+    importStep(page)
+      .getByRole("button", { name: /を取り込む$/ })
+      .first(),
   ]) {
     expect(
       await control.evaluate(
@@ -373,50 +359,44 @@ test("インストール案内は承認結果と実際の登録状態を反映�
   await expect(dialog.getByText("PP2MFはインストール済みです")).toBeVisible();
 });
 
-test("MoneyForward MEの入出金履歴を先に選んでもPayPayの取引履歴を案内する", async ({
+test("MoneyForward MEの入出金履歴を先に受け取ってもPayPayの取引履歴を案内する", async ({
   page,
 }) => {
-  await page.locator("#mfme-csv-input").setInputFiles({
-    name: "moneyforward-history.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(auditMfmeCsv),
-  });
+  await shareCsvThroughTarget(
+    page,
+    "shared-mfme-first",
+    "moneyforward-history.csv",
+    auditMfmeCsv,
+  );
 
-  await expect(page.getByText("moneyforward-history.csv")).toBeVisible();
-  await expect(
-    page.getByRole("heading", {
-      name: "PayPayから書き出した取引履歴を選んでください",
-    }),
-  ).toBeVisible();
-  await expect(page.getByText("登録済みとして扱う明細")).toBeVisible();
+  const loadedNotice = page.getByText(
+    "MoneyForward MEの入出金履歴は1ファイルを読み込み済みです。",
+  );
+  await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
+  await expect(loadedNotice).toBeVisible();
   await expect(page).toHaveScreenshot("mfme-loaded-before-paypay.png", {
     fullPage: true,
   });
 
   await page.reload();
 
-  await expect(page.getByText("moneyforward-history.csv")).toBeVisible();
-  await expect(
-    page.getByRole("heading", {
-      name: "PayPayから書き出した取引履歴を選んでください",
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
+  await expect(loadedNotice).toBeVisible();
 });
 
 test("重複登録と口座間違いの候補を表示できる", async ({ page }) => {
-  await page
-    .getByRole("button", { name: "重複登録・口座間違いを確認する" })
-    .click();
   await selectPayPayCsv(page);
-  await page.locator("#mfme-csv-input").setInputFiles({
-    name: "moneyforward-history.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(auditMfmeCsv),
-  });
+  await addMfmeCsvs(page, [
+    { name: "moneyforward-history.csv", csv: auditMfmeCsv },
+  ]);
 
-  await expect(
-    page.getByRole("heading", { name: "要確認明細 2件" }),
-  ).toBeVisible();
+  const candidatesButton = page.getByRole("button", {
+    name: /要確認の明細が2件あります/,
+  });
+  await candidatesButton.click();
+  const candidates = page.locator("#review-candidates-content");
+  await expect(candidates.getByRole("listitem")).toHaveCount(5);
+  await expect(candidates).toContainText("口座：別の口座");
   await expect(page).toHaveScreenshot("audit-candidates.png", {
     fullPage: true,
   });

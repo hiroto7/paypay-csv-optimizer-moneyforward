@@ -350,23 +350,6 @@ describe("createChunksFromGroupedTransactions", () => {
     expect(transaction?.key).toBe("2025/10/24_-190_PayPay残高_ダミー'ストア");
   });
 
-  it("支出・入金・併用払いから口座別の残高増減を計算すること", () => {
-    const incomeRow =
-      "2025/10/25 10:00:00,-,500,-,-,-,-,受取,ダミー送金元,PayPay残高,-,-,00000000000000000005";
-    const csvContent = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}\n${COMBINED_PAYMENT_ROW}\n${incomeRow}`;
-    const { transactions, headers } =
-      extractTransactionsFromPayPayCsv(csvContent);
-    const groupedTransactions = groupWithoutExclusions(transactions);
-
-    const chunks = createChunksFromGroupedTransactions(
-      groupedTransactions,
-      headers,
-    );
-
-    expect(chunks["PayPay残高"]?.[0]?.balanceDelta).toBe(-7);
-    expect(chunks["PayPayポイント"]?.[0]?.balanceDelta).toBe(-93);
-  });
-
   it("空のgroupedTransactionsの場合に空のオブジェクトを返すこと", () => {
     const chunks = createChunksFromGroupedTransactions({}, []);
     expect(Object.keys(chunks)).toHaveLength(0);

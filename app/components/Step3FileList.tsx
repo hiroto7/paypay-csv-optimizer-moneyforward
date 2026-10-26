@@ -1,270 +1,154 @@
-import {
-  Check,
-  Download,
-  FileSpreadsheet,
-  LoaderCircle,
-  Rows3,
-} from "lucide-react";
 import { useState } from "react";
-import AccountBalanceControl from "~/components/AccountBalanceControl";
-import FileStatsSummary from "~/components/FileStatsSummary";
-import type { AccountBalance } from "~/services/local-exclusion-store";
-import type { ProcessedCsvChunk, ProcessedResult } from "~/services/paypay-csv";
-import { sum } from "~/utils/array";
-import { createPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
+import AccountImportCard from "~/components/AccountImportCard";
+import ExclusionBreakdown from "~/components/ExclusionBreakdown";
+import ImportCompletionCard from "~/components/ImportCompletionCard";
+import StepCard from "~/components/StepCard";
+import type { ImportProgress } from "~/services/import-progress";
+import { createUniqueFilenameBases } from "~/utils/pp2mf-output-filename";
 
-interface Step3FileListProps {
-  chunks: ProcessedResult;
-  importedChunkKeys: ReadonlySet<string>;
-  hasMfmeData: boolean;
-  excludedByMfme: number;
-  excludedByImportedRecords: number;
-  onImport: (
-    filename: string,
-    data: string,
-    name: string,
-    index: number,
-  ) => Promise<void>;
-  accountBalances: ReadonlyMap<string, AccountBalance>;
-  onSetBalance: (accountName: string, amount: number) => void;
-  onClearBalance: (accountName: string) => void;
-}
+type Step3FileListProps =
+  | { lockedReason: string }
+  | {
+      lockedReason: null;
+      progress: ImportProgress;
+      totalCount: number;
+      savedBeforeCount: number;
+      mfmeMatchedCount: number;
+      recordedCount: number;
+      onImport: (
+        filename: string,
+        accountName: string,
+        index: number,
+      ) => Promise<void>;
+      onNewFileSelected: (file: File) => void;
+    };
 
-type DisplayChunk = ProcessedCsvChunk & { imported: boolean };
+const TITLE = "MoneyForward MEへ取り込む";
 
-type FileGroup = {
-  name: string;
-  chunks: DisplayChunk[];
-  filenameBase: string;
-};
+export default function Step3FileList(props: Step3FileListProps) {
+  const [sharingFilename, setSharingFilename] = useState<string | null>(null);
 
-const createUniqueFilenameBases = (names: string[]) => {
-  const usedBases = new Set<string>();
+  if (props.lockedReason !== null) {
+    return (
+      <StepCard
+        number={3}
+        title={TITLE}
+        status="locked"
+        summary={props.lockedReason}
+      />
+    );
+  }
 
-  return names.map((name) => {
-    const normalizedName =
-      name
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}]+/gu, "-")
-        .replace(/^-|-$/g, "") || "transactions";
-    let filenameBase = normalizedName;
-    let suffix = 2;
+  const {
+    progress,
+    totalCount,
+    savedBeforeCount,
+    mfmeMatchedCount,
+    recordedCount,
+    onImport,
+    onNewFileSelected,
+  } = props;
+  const { accounts, savedAccountCount, importedCount, isComplete } = progress;
+  const breakdown = (
+    <ExclusionBreakdown
+      totalCount={totalCount}
+      savedBeforeCount={savedBeforeCount}
+      mfmeMatchedCount={mfmeMatchedCount}
+    />
+  );
 
-    while (usedBases.has(filenameBase)) {
-      filenameBase = `${normalizedName}-${suffix}`;
-      suffix++;
-    }
+  if (accounts.length === 0 || isComplete) {
+    return (
+      <StepCard
+        number={3}
+        title={TITLE}
+        status="done"
+        summary={
+          accounts.length === 0
+            ? "この取引履歴の明細は、すべて登録済みです"
+            : `${savedAccountCount} / ${accounts.length} 口座を保存しました`
+        }
+      >
+        <ImportCompletionCard
+          title={
+            accounts.length === 0
+              ? "取り込む明細はありません"
+              : "取り込みが完了しました"
+          }
+          importedCount={importedCount}
+          excludedCount={savedBeforeCount + mfmeMatchedCount}
+          recordedCount={recordedCount}
+          onNewFileSelected={onNewFileSelected}
+        />
+      </StepCard>
+    );
+  }
 
-    usedBases.add(filenameBase);
-    return filenameBase;
-  });
-};
-
-const countRecords = (chunks: ProcessedCsvChunk[]) =>
-  sum(chunks, (chunk) => chunk.count);
-
-function FileGroupList({
-  groups,
-  sharingFilename,
-  onImport,
-  accountBalances,
-  onSetBalance,
-  onClearBalance,
-}: {
-  groups: FileGroup[];
-  sharingFilename: string | null;
-  onImport: (
-    filename: string,
-    data: string,
-    name: string,
-    index: number,
-  ) => void;
-  accountBalances: ReadonlyMap<string, AccountBalance>;
-  onSetBalance: (accountName: string, amount: number) => void;
-  onClearBalance: (accountName: string) => void;
-}) {
-  const isSharing = sharingFilename !== null;
+  const filenameBases = createUniqueFilenameBases(
+    accounts.map(({ name }) => name),
+  );
+  const nextAccountIndex = accounts.findIndex(({ saved }) => !saved);
 
   return (
-    <div className="divide-y divide-zinc-200">
-      {groups.map(({ name, chunks, filenameBase }) => (
-        <div key={name} className="px-5 py-5">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
-              <h3 className="text-sm font-bold text-zinc-950">{name}</h3>
-              <span className="text-xs text-zinc-500">
-                {countRecords(chunks)}件
-              </span>
-            </div>
-            <AccountBalanceControl
-              accountName={name}
-              pendingDelta={sum(chunks, (chunk) =>
-                chunk.imported ? 0 : chunk.balanceDelta,
-              )}
-              balance={accountBalances.get(name)}
-              onSetBalance={onSetBalance}
-              onClearBalance={onClearBalance}
+    <StepCard
+      number={3}
+      title={TITLE}
+      status="current"
+      summary={
+        <div className="mt-1 flex items-center gap-2">
+          <div
+            className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200"
+            role="progressbar"
+            aria-label="保存した口座"
+            aria-valuemin={0}
+            aria-valuemax={accounts.length}
+            aria-valuenow={savedAccountCount}
+          >
+            <div
+              className="h-full bg-emerald-600"
+              style={{
+                width: `${(savedAccountCount / accounts.length) * 100}%`,
+              }}
             />
           </div>
-
-          <div className="divide-y divide-zinc-200 border-y border-zinc-200">
-            {chunks.map((chunk, index) => {
-              const filename = createPp2mfOutputFilename(
-                filenameBase,
-                index,
-                chunks.length,
-              );
-              return (
-                <div
-                  key={filename}
-                  className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                >
-                  <div className={chunk.imported ? "opacity-55" : ""}>
-                    <p className="break-all text-sm font-semibold text-zinc-800">
-                      {filename}
-                    </p>
-                    <div className="mt-1 text-xs text-zinc-500">
-                      <FileStatsSummary stats={chunk} />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onImport(filename, chunk.data, name, index)}
-                    disabled={chunk.imported || isSharing}
-                    className={`inline-flex h-9 w-full items-center justify-center gap-2 px-4 text-sm font-semibold sm:w-auto ${
-                      chunk.imported
-                        ? "cursor-default bg-zinc-100 text-zinc-500"
-                        : isSharing
-                          ? "cursor-wait bg-zinc-200 text-zinc-500"
-                          : "bg-zinc-900 text-white hover:bg-zinc-700"
-                    }`}
-                  >
-                    {chunk.imported ? (
-                      <Check className="size-4" aria-hidden="true" />
-                    ) : sharingFilename === filename ? (
-                      <LoaderCircle
-                        className="size-4 animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <Download className="size-4" aria-hidden="true" />
-                    )}
-                    {chunk.imported
-                      ? "取り込みました"
-                      : sharingFilename === filename
-                        ? "共有シートを表示中"
-                        : "取り込む"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export default function Step3FileList({
-  chunks,
-  importedChunkKeys,
-  hasMfmeData,
-  excludedByMfme,
-  excludedByImportedRecords,
-  onImport,
-  accountBalances,
-  onSetBalance,
-  onClearBalance,
-}: Step3FileListProps) {
-  const [sharingFilename, setSharingFilename] = useState<string | null>(null);
-  const groupEntries = Object.entries(chunks).filter(
-    ([, chunks]) => chunks.length > 0,
-  );
-  const uniqueFilenameBases = createUniqueFilenameBases(
-    groupEntries.map(([name]) => name),
-  );
-  const groups = groupEntries.map(
-    ([name, chunks], index): FileGroup => ({
-      name,
-      chunks: chunks.map((chunk, chunkIndex) => ({
-        ...chunk,
-        imported: importedChunkKeys.has(`${name}:${chunkIndex}`),
-      })),
-      filenameBase: uniqueFilenameBases[index] ?? name,
-    }),
-  );
-  const totalFiles = sum(groups, ({ chunks }) => chunks.length);
-  const totalRecords = sum(groups, ({ chunks }) => countRecords(chunks));
-  const totalExcluded = excludedByMfme + excludedByImportedRecords;
-
-  const handleImport = (
-    filename: string,
-    data: string,
-    name: string,
-    index: number,
-  ) => {
-    setSharingFilename(filename);
-    void onImport(filename, data, name, index)
-      .catch(() => undefined)
-      .finally(() => setSharingFilename(null));
-  };
-
-  return (
-    <section aria-labelledby="output-title">
-      <div className="flex flex-col gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 id="output-title" className="text-base font-bold text-zinc-950">
-            作成したファイル
-          </h2>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            {totalRecords}件を{totalFiles}ファイルに分割しました
-          </p>
-        </div>
-        <div className="flex gap-4 text-xs text-zinc-600">
-          <span className="inline-flex items-center gap-1.5">
-            <Rows3 className="size-3.5" aria-hidden="true" />
-            {groups.length}口座
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <FileSpreadsheet className="size-3.5" aria-hidden="true" />
-            {totalFiles}ファイル
+          <span className="shrink-0 font-bold text-zinc-800">
+            {savedAccountCount} / {accounts.length} 口座
           </span>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        {breakdown}
+        <ul className="space-y-2">
+          {accounts.map((account, accountIndex) => {
+            const nextChunkIndex =
+              accountIndex === nextAccountIndex
+                ? account.chunks.findIndex(({ saved }) => !saved)
+                : null;
+            const filenameBase = filenameBases[accountIndex] ?? account.name;
+            return (
+              <li key={account.name}>
+                <AccountImportCard
+                  account={account}
+                  filenameBase={filenameBase}
+                  nextChunkIndex={nextChunkIndex}
+                  sharingFilename={sharingFilename}
+                  onImport={(filename, index) => {
+                    setSharingFilename(filename);
+                    void onImport(filename, account.name, index)
+                      .catch(() => undefined)
+                      .finally(() => setSharingFilename(null));
+                  }}
+                />
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-xs leading-5 text-zinc-500">
+          取り込んだら「MoneyForward
+          MEで保存した」を押してください。押した明細はこの端末に記録し、次回から自動で除外します。
+        </p>
       </div>
-
-      {!hasMfmeData && (
-        <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-950">
-          MoneyForward
-          MEの入出金履歴を読み込んでいないため、PayPayの取引をすべて出力しています。
-        </div>
-      )}
-
-      {totalExcluded > 0 && (
-        <div className="border-b border-zinc-200 bg-zinc-50 px-5 py-3">
-          <p className="text-xs font-semibold text-zinc-800">
-            登録済みの明細 {totalExcluded}件を除外しました
-          </p>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
-            {excludedByMfme > 0 && (
-              <span>入出金履歴との一致: {excludedByMfme}件</span>
-            )}
-            {excludedByImportedRecords > 0 && (
-              <span>
-                このアプリの取り込み記録との一致: {excludedByImportedRecords}件
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <FileGroupList
-        groups={groups}
-        sharingFilename={sharingFilename}
-        onImport={handleImport}
-        accountBalances={accountBalances}
-        onSetBalance={onSetBalance}
-        onClearBalance={onClearBalance}
-      />
-    </section>
+    </StepCard>
   );
 }
