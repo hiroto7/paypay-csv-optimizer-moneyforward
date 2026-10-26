@@ -46,3 +46,33 @@ export const parseMfmeCsvs = (mfmeCsvs: string[]): MfmeParsedResult => {
     records: allRecords,
   };
 };
+
+// 選択中のファイル順に、ファイルごとの解析結果をまとめる。
+export const combineMfmeData = (
+  files: readonly File[],
+  dataByName: ReadonlyMap<string, MfmeParsedResult>,
+): MfmeParsedResult | null => {
+  const values = files.flatMap((file) => {
+    const data = dataByName.get(file.name);
+    return data ? [data] : [];
+  });
+  if (values.length === 0) return null;
+
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+  for (const { stats } of values) {
+    for (const date of [stats.startDate, stats.endDate]) {
+      if (date)
+        [startDate, endDate] = updateDateRange(date, startDate, endDate);
+    }
+  }
+
+  return {
+    records: values.flatMap(({ records }) => records),
+    stats: {
+      count: values.reduce((total, { stats }) => total + stats.count, 0),
+      startDate,
+      endDate,
+    },
+  };
+};

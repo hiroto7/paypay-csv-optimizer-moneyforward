@@ -59,26 +59,48 @@ export const mergeUniqueFiles = (
   return [...filesByName.values()];
 };
 
-export const consumeSharedFiles = async (id: string): Promise<File[]> => {
+// 確認画面で答えるまで、またはリロードしても読み込めるよう、読むだけで削除しない。
+export const readSharedFiles = async (id: string): Promise<File[]> => {
   const database = await openDatabase();
 
   try {
     return await new Promise((resolve, reject) => {
+      const request = database
+        .transaction(SHARED_FILES_STORE_NAME, "readonly")
+        .objectStore(SHARED_FILES_STORE_NAME)
+        .get(id);
+
+      request.onsuccess = () =>
+        resolve((request.result as SharedFileRecord | undefined)?.files ?? []);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    database.close();
+  }
+};
+
+// 受け取ったファイルのうち、keepIdのもの以外を削除する。keepIdがnullならすべて削除する。
+export const deleteSharedFilesExcept = async (
+  keepId: string | null,
+): Promise<void> => {
+  const database = await openDatabase();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(
         SHARED_FILES_STORE_NAME,
         "readwrite",
       );
       const store = transaction.objectStore(SHARED_FILES_STORE_NAME);
-      const request = store.get(id);
-      let files: File[] = [];
+      const request = store.getAllKeys();
 
       request.onsuccess = () => {
-        const record = request.result as SharedFileRecord | undefined;
-        files = record?.files ?? [];
-        store.delete(id);
+        for (const key of request.result) {
+          if (key !== keepId) store.delete(key);
+        }
       };
       request.onerror = () => reject(request.error);
-      transaction.oncomplete = () => resolve(files);
+      transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
   } finally {

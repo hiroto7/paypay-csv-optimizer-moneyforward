@@ -5,7 +5,10 @@ import {
   SINGLE_PAYMENT_ROW,
   VISA_PAYMENT_ROW,
 } from "./csv-test-fixtures";
-import { validateInputFile } from "./input-file-validation";
+import {
+  selectLatestPayPayFile,
+  validateInputFile,
+} from "./input-file-validation";
 
 const file = (name: string, content: string) =>
   new File([content], name, { type: "text/csv" });
@@ -48,5 +51,55 @@ describe("validateInputFile", () => {
         "mfme",
       ),
     ).rejects.toThrow("有効な入出金明細がありません");
+  });
+});
+
+describe("PayPayの取引履歴の判定値", () => {
+  it("同じ内容のファイルは名前が違っても同じ判定値になる", async () => {
+    const content = `${PAYPAY_CSV_HEADER}\n${SINGLE_PAYMENT_ROW}`;
+    const first = await validateInputFile(file("a.csv", content), "paypay");
+    const second = await validateInputFile(file("b.csv", content), "paypay");
+    const other = await validateInputFile(
+      file(
+        "c.csv",
+        `${content}\n${SINGLE_PAYMENT_ROW.replace("0001", "0009")}`,
+      ),
+      "paypay",
+    );
+
+    if (
+      first.type !== "paypay" ||
+      second.type !== "paypay" ||
+      other.type !== "paypay"
+    ) {
+      throw new Error("PayPayの取引履歴として読み込めませんでした");
+    }
+    expect(first.data.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(second.data.fingerprint).toBe(first.data.fingerprint);
+    expect(other.data.fingerprint).not.toBe(first.data.fingerprint);
+  });
+});
+
+describe("selectLatestPayPayFile", () => {
+  const withEndDate = (name: string, endDate: string | null) => ({
+    name,
+    data: {
+      stats: {
+        count: 1,
+        startDate: null,
+        endDate: endDate ? new Date(endDate) : null,
+      },
+    },
+  });
+
+  it("明細の最終日が最も新しいファイルを選び、同じなら先のファイルを選ぶ", () => {
+    expect(
+      selectLatestPayPayFile([
+        withEndDate("old", "2025-10-24"),
+        withEndDate("new", "2025-11-24"),
+        withEndDate("same", "2025-11-24"),
+      ])?.name,
+    ).toBe("new");
+    expect(selectLatestPayPayFile([])).toBeNull();
   });
 });

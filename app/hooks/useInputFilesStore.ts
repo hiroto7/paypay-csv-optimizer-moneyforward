@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FileStats } from "~/services/csv-date";
+import type { CsvRecord } from "~/services/csv-schema";
 import {
   type PayPayParsedData,
+  selectLatestPayPayFile,
   type ValidatedInputFile,
   validateInputFile,
 } from "~/services/input-file-validation";
-import type { MfmeParsedResult } from "~/services/mfme-csv";
+import { combineMfmeData, type MfmeParsedResult } from "~/services/mfme-csv";
 import { isPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
 import {
   clearInputFiles,
-  consumeSharedFiles,
+  deleteSharedFilesExcept,
   type InputFiles,
   loadInputFiles,
   mergeUniqueFiles,
+  readSharedFiles,
   saveInputFiles,
 } from "~/utils/shared-file-store";
 
@@ -25,6 +29,29 @@ export type RejectedInputFile = {
   reason: string;
 };
 
+// 入出金履歴を変更する前に、取り込み記録のリセットを確認するための内容。
+export type MfmeChangePreview = {
+  kind: "add" | "remove";
+  files: { name: string; stats: FileStats | null }[];
+  nextRecords: CsvRecord[];
+};
+
+// 共有で受け取ったファイルを読み込む前に、ファイルごとの扱いを確認するための内容。
+export type SharedFilesPreview = {
+  fileCount: number;
+  payPay: { file: File; data: PayPayParsedData } | null;
+  currentPayPayFile: File | null;
+  unusedPayPayFiles: File[];
+  mfme: { file: File; data: MfmeParsedResult; replaces: boolean }[];
+  nextMfmeRecords: CsvRecord[];
+  rejected: RejectedInputFile[];
+};
+
+// 保存待ちの確認が終わるまで読み込みを後回しにしている、共有で受け取ったファイル。
+export type DeferredShare =
+  | { kind: "pending"; fileNames: string[] }
+  | { kind: "pp2mf-output"; file: File };
+
 type InputState = {
   files: InputFiles;
   payPayData: PayPayParsedData | null;
@@ -32,6 +59,10 @@ type InputState = {
 };
 
 type InputOperation = (current: InputState) => Promise<void>;
+
+const SHARED_FILES_PARAM = "shared-files";
+const PP2MF_OUTPUT_REASON =
+  "PP2MFで作成した取り込み用CSVです。共有シートではMoneyForward MEを選んでください。";
 
 const emptyInputState = (): InputState => ({
   files: { payPayFile: null, mfmeFiles: [] },
@@ -83,25 +114,42 @@ const validateFiles = async (
 const describeRejectedFiles = (files: readonly RejectedInputFile[]): string =>
   files.map(({ name, reason }) => `${name}: ${reason}`).join(" ");
 
-type InputFilesStoreCallbacks = {
-  onPayPayFileChanged: () => void;
-  onMfmeFilesChanged: () => boolean;
-  // 保存待ちの確認が終わるまで、Share Targetで受け取ったファイルを読み込まない。
-  hasPendingImport: () => boolean;
+const removeUrlParams = (names: readonly string[]) => {
+  const params = new URLSearchParams(window.location.search);
+  if (!names.some((name) => params.has(name))) return;
+  for (const name of names) params.delete(name);
+  const cleanUrl = `${window.location.pathname}${
+    params.size > 0 ? `?${params.toString()}` : ""
+  }${window.location.hash}`;
+  window.history.replaceState(window.history.state, "", cleanUrl);
 };
 
-export function useInputFilesStore({
-  onPayPayFileChanged,
-  onMfmeFilesChanged,
-  hasPendingImport,
-}: InputFilesStoreCallbacks) {
+type InputFilesStoreCallbacks = {
+  onPayPayFileChanged: (fingerprint: string | null) => void;
+  // 取り込み記録をリセットした場合はtrueを返す。
+  onMfmeFilesChanged: () => boolean;
+  hasPendingImport: () => boolean;
+  confirmMfmeChange: (preview: MfmeChangePreview) => Promise<boolean>;
+  confirmSharedFiles: (preview: SharedFilesPreview) => Promise<boolean>;
+};
+
+export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
   const [inputState, setInputState] = useState<InputState>(emptyInputState);
+  const [isReady, setIsReady] = useState(false);
   const [notice, setNotice] = useState<SharedFileNotice | null>(null);
   const [payPayError, setPayPayError] = useState("");
   const [mfmeErrors, setMfmeErrors] = useState<RejectedInputFile[]>([]);
+  const [deferredShare, setDeferredShare] = useState<DeferredShare | null>(
+    null,
+  );
   const inputStateRef = useRef(inputState);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const mountedRef = useRef(true);
+  const initializedRef = useRef(false);
+  const deferredShareIdRef = useRef<string | null>(null);
+  // 確認画面などの呼び出し側の状態が変わっても、実行中の処理から最新の関数を呼べるようにする。
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
 
   const applyInputState = useCallback((nextState: InputState) => {
     inputStateRef.current = nextState;
@@ -116,27 +164,32 @@ export function useInputFilesStore({
     return nextOperation;
   }, []);
 
-  const reportPersistenceError = useCallback((error: unknown) => {
-    console.error("Failed to save input files:", error);
-    if (mountedRef.current) {
-      setNotice({
+  const showNotice = useCallback((nextNotice: SharedFileNotice) => {
+    if (mountedRef.current) setNotice(nextNotice);
+  }, []);
+
+  const reportPersistenceError = useCallback(
+    (error: unknown) => {
+      console.error("Failed to save input files:", error);
+      showNotice({
         tone: "error",
         message: "選択したCSVファイルの保存に失敗しました。",
       });
-    }
-  }, []);
+    },
+    [showNotice],
+  );
 
   const reportMfmeChange = useCallback(() => {
-    const didResetImportedRecords = onMfmeFilesChanged();
-    if (didResetImportedRecords && mountedRef.current) {
-      setNotice({
+    const didResetImportedRecords = callbacksRef.current.onMfmeFilesChanged();
+    if (didResetImportedRecords) {
+      showNotice({
         tone: "success",
         message:
-          "MoneyForward MEの入出金履歴を更新したため、以前の「保存した」記録をリセットしました。",
+          "MoneyForward MEの入出金履歴を変更したため、以前の「保存した」記録をリセットしました。",
       });
     }
     return didResetImportedRecords;
-  }, [onMfmeFilesChanged]);
+  }, [showNotice]);
 
   const selectPayPayFile = useCallback(
     (file: File | null) => {
@@ -162,7 +215,7 @@ export function useInputFilesStore({
         const nextFiles = { ...current.files, payPayFile: file };
         try {
           await persistInputFiles(nextFiles);
-          onPayPayFileChanged();
+          callbacksRef.current.onPayPayFileChanged(data?.fingerprint ?? null);
           applyInputState({ ...current, files: nextFiles, payPayData: data });
           if (mountedRef.current) setPayPayError("");
         } catch (error) {
@@ -170,7 +223,7 @@ export function useInputFilesStore({
         }
       });
     },
-    [applyInputState, enqueue, onPayPayFileChanged, reportPersistenceError],
+    [applyInputState, enqueue, reportPersistenceError],
   );
 
   const addMfmeFiles = useCallback(
@@ -178,7 +231,9 @@ export function useInputFilesStore({
       if (files.length === 0) return;
       void enqueue(async (current) => {
         const { accepted, rejected } = await validateFiles(files, "mfme");
-        const valid = accepted.filter((item) => item.type === "mfme");
+        const valid = accepted.flatMap((item) =>
+          item.type === "mfme" ? [item] : [],
+        );
         if (valid.length === 0) {
           if (mountedRef.current) setMfmeErrors(rejected);
           return;
@@ -193,6 +248,20 @@ export function useInputFilesStore({
         };
         const nextData = new Map(current.mfmeDataByName);
         for (const item of valid) nextData.set(item.file.name, item.data);
+        const confirmed = await callbacksRef.current.confirmMfmeChange({
+          kind: "add",
+          files: valid.map(({ file, data }) => ({
+            name: file.name,
+            stats: data.stats,
+          })),
+          nextRecords:
+            combineMfmeData(nextFiles.mfmeFiles, nextData)?.records ?? [],
+        });
+        if (!confirmed) {
+          if (mountedRef.current) setMfmeErrors(rejected);
+          return;
+        }
+
         try {
           await persistInputFiles(nextFiles);
           reportMfmeChange();
@@ -222,6 +291,16 @@ export function useInputFilesStore({
         };
         const nextData = new Map(current.mfmeDataByName);
         nextData.delete(name);
+        const confirmed = await callbacksRef.current.confirmMfmeChange({
+          kind: "remove",
+          files: [
+            { name, stats: current.mfmeDataByName.get(name)?.stats ?? null },
+          ],
+          nextRecords:
+            combineMfmeData(nextFiles.mfmeFiles, nextData)?.records ?? [],
+        });
+        if (!confirmed) return;
+
         try {
           await persistInputFiles(nextFiles);
           reportMfmeChange();
@@ -239,21 +318,167 @@ export function useInputFilesStore({
     [applyInputState, enqueue, reportMfmeChange, reportPersistenceError],
   );
 
+  const finishSharedFiles = useCallback(async () => {
+    deferredShareIdRef.current = null;
+    if (mountedRef.current) setDeferredShare(null);
+    removeUrlParams([SHARED_FILES_PARAM]);
+    try {
+      await deleteSharedFilesExcept(null);
+    } catch (error) {
+      console.warn("Failed to delete shared files:", error);
+    }
+  }, []);
+
+  const processSharedFiles = useCallback(
+    async (id: string, current: InputState) => {
+      const files = await readSharedFiles(id);
+      if (files.length === 0) {
+        showNotice({
+          tone: "error",
+          message:
+            "共有ファイルの一時データが見つかりませんでした。もう一度共有してください。",
+        });
+        await finishSharedFiles();
+        return;
+      }
+
+      // 保存待ちの確認が終わるまで、受け取ったファイルはURLと一時データに残しておく。
+      if (callbacksRef.current.hasPendingImport()) {
+        const pp2mfOutput = files.find((file) =>
+          isPp2mfOutputFilename(file.name),
+        );
+        deferredShareIdRef.current = id;
+        if (mountedRef.current) {
+          setDeferredShare(
+            pp2mfOutput
+              ? { kind: "pp2mf-output", file: pp2mfOutput }
+              : {
+                  kind: "pending",
+                  fileNames: files.map((file) => file.name),
+                },
+          );
+        }
+        return;
+      }
+
+      const pp2mfOutputs = files.filter((file) =>
+        isPp2mfOutputFilename(file.name),
+      );
+      const { accepted, rejected } = await validateFiles(
+        files.filter((file) => !isPp2mfOutputFilename(file.name)),
+      );
+      const payPayFiles = accepted.flatMap((item) =>
+        item.type === "paypay" ? [item] : [],
+      );
+      const mfme = accepted.flatMap((item) =>
+        item.type === "mfme" ? [item] : [],
+      );
+      const payPay = selectLatestPayPayFile(payPayFiles);
+      const nextMfmeFiles =
+        mfme.length > 0
+          ? mergeUniqueFiles(
+              current.files.mfmeFiles,
+              mfme.map(({ file }) => file),
+            )
+          : current.files.mfmeFiles;
+      const nextMfmeData = new Map(current.mfmeDataByName);
+      for (const item of mfme) nextMfmeData.set(item.file.name, item.data);
+
+      const confirmed = await callbacksRef.current.confirmSharedFiles({
+        fileCount: files.length,
+        payPay: payPay && { file: payPay.file, data: payPay.data },
+        currentPayPayFile: current.files.payPayFile,
+        unusedPayPayFiles: payPayFiles
+          .filter((item) => item !== payPay)
+          .map(({ file }) => file),
+        mfme: mfme.map(({ file, data }) => ({
+          file,
+          data,
+          replaces: current.files.mfmeFiles.some(
+            (currentFile) => currentFile.name === file.name,
+          ),
+        })),
+        nextMfmeRecords:
+          combineMfmeData(nextMfmeFiles, nextMfmeData)?.records ?? [],
+        rejected: [
+          ...pp2mfOutputs.map((file) => ({
+            name: file.name,
+            reason: PP2MF_OUTPUT_REASON,
+          })),
+          ...rejected,
+        ],
+      });
+
+      if (confirmed && (payPay || mfme.length > 0)) {
+        const nextFiles: InputFiles = {
+          payPayFile: payPay?.file ?? current.files.payPayFile,
+          mfmeFiles: nextMfmeFiles,
+        };
+        try {
+          await persistInputFiles(nextFiles);
+          // 入出金履歴を変えると記録をリセットすることは、確認画面で伝えている。
+          if (mfme.length > 0) callbacksRef.current.onMfmeFilesChanged();
+          if (payPay) {
+            callbacksRef.current.onPayPayFileChanged(payPay.data.fingerprint);
+            if (mountedRef.current) setPayPayError("");
+          }
+          applyInputState({
+            files: nextFiles,
+            payPayData: payPay?.data ?? current.payPayData,
+            mfmeDataByName: nextMfmeData,
+          });
+          showNotice({
+            tone: "success",
+            message: "共有されたファイルを読み込みました。",
+          });
+        } catch (error) {
+          reportPersistenceError(error);
+        }
+      }
+
+      await finishSharedFiles();
+    },
+    [applyInputState, finishSharedFiles, reportPersistenceError, showNotice],
+  );
+
+  const resumeDeferredShare = useCallback(() => {
+    const id = deferredShareIdRef.current;
+    if (!id) return;
+    deferredShareIdRef.current = null;
+    setDeferredShare(null);
+    void enqueue(async (current) => {
+      try {
+        await processSharedFiles(id, current);
+      } catch (error) {
+        console.error("Failed to load shared files:", error);
+        showNotice({
+          tone: "error",
+          message:
+            "共有されたCSVファイルの読み込みに失敗しました。通常のファイル選択をお試しください。",
+        });
+        await finishSharedFiles();
+      }
+    });
+  }, [enqueue, finishSharedFiles, processSharedFiles, showNotice]);
+
+  const discardDeferredShare = useCallback(() => {
+    void enqueue(finishSharedFiles);
+  }, [enqueue, finishSharedFiles]);
+
   useEffect(() => {
     mountedRef.current = true;
-    const params = new URLSearchParams(window.location.search);
-    const sharedFilesId = params.get("shared-files");
-    const shareError = params.get("share-error");
-
-    if (sharedFilesId || shareError || params.has("share-debug")) {
-      params.delete("shared-files");
-      params.delete("share-error");
-      params.delete("share-debug");
-      const cleanUrl = `${window.location.pathname}${
-        params.size > 0 ? `?${params.toString()}` : ""
-      }${window.location.hash}`;
-      window.history.replaceState(null, "", cleanUrl);
+    if (initializedRef.current) {
+      return () => {
+        mountedRef.current = false;
+      };
     }
+    initializedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const sharedFilesId = params.get(SHARED_FILES_PARAM);
+    const shareError = params.get("share-error");
+    // 受け取ったファイルのIDは、読み込みが終わるまでリロードに備えてURLに残す。
+    removeUrlParams(["share-error", "share-debug"]);
 
     void enqueue(async () => {
       try {
@@ -263,7 +488,9 @@ export function useInputFilesStore({
           : { accepted: [], rejected: [] };
         const mfme = await validateFiles(saved.mfmeFiles, "mfme");
         const validPayPay = payPay.accepted[0];
-        const validMfme = mfme.accepted.filter((item) => item.type === "mfme");
+        const validMfme = mfme.accepted.flatMap((item) =>
+          item.type === "mfme" ? [item] : [],
+        );
         const nextFiles: InputFiles = {
           payPayFile: validPayPay?.type === "paypay" ? validPayPay.file : null,
           mfmeFiles: validMfme.map(({ file }) => file),
@@ -271,15 +498,15 @@ export function useInputFilesStore({
         const removedMfme = mfme.rejected.length > 0;
         if (payPay.rejected.length > 0 || removedMfme) {
           await persistInputFiles(nextFiles);
-          if (payPay.rejected.length > 0) onPayPayFileChanged();
-          if (removedMfme) reportMfmeChange();
-          if (mountedRef.current) {
-            setNotice({
-              tone: "error",
-              message:
-                "保存済みの入力ファイルに読み込めないものがあったため、除外しました。",
-            });
+          if (payPay.rejected.length > 0) {
+            callbacksRef.current.onPayPayFileChanged(null);
           }
+          if (removedMfme) reportMfmeChange();
+          showNotice({
+            tone: "error",
+            message:
+              "保存済みの入力ファイルに読み込めないものがあったため、除外しました。",
+          });
         }
         applyInputState({
           files: nextFiles,
@@ -294,11 +521,18 @@ export function useInputFilesStore({
         }
       } catch (error) {
         reportPersistenceError(error);
+      } finally {
+        if (mountedRef.current) setIsReady(true);
       }
     });
 
+    // 読み込みが終わらないまま残った、以前に受け取ったファイルを削除する。
+    void deleteSharedFilesExcept(sharedFilesId).catch((error: unknown) => {
+      console.warn("Failed to delete stale shared files:", error);
+    });
+
     if (shareError) {
-      setNotice({
+      showNotice({
         tone: "error",
         message:
           "共有されたCSVファイルを受け取れませんでした。通常のファイル選択をお試しください。",
@@ -306,96 +540,15 @@ export function useInputFilesStore({
     } else if (sharedFilesId) {
       void enqueue(async (current) => {
         try {
-          const files = await consumeSharedFiles(sharedFilesId);
-          if (files.length === 0) {
-            if (mountedRef.current) {
-              setNotice({
-                tone: "error",
-                message:
-                  "共有ファイルの一時データが見つかりませんでした。もう一度共有してください。",
-              });
-            }
-            return;
-          }
-          if (files.some((file) => isPp2mfOutputFilename(file.name))) {
-            if (mountedRef.current) {
-              setNotice({
-                tone: "error",
-                message:
-                  "PP2MFで作成したCSVは読み込みませんでした。共有先にはPP2MFではなくMoneyForward MEを選択してください。",
-              });
-            }
-            return;
-          }
-
-          // 取り込み用CSVをPP2MFへ共有した場合は保存待ちも残るため、共有先の誤りの案内を優先する。
-          if (hasPendingImport()) {
-            if (mountedRef.current) {
-              setNotice({
-                tone: "error",
-                message:
-                  "前回の取り込みの確認が終わっていないため、共有されたファイルを読み込みませんでした。確認したあと、もう一度共有してください。",
-              });
-            }
-            return;
-          }
-
-          const { accepted, rejected } = await validateFiles(files);
-          const payPay = accepted.find((item) => item.type === "paypay");
-          const mfme = accepted.filter((item) => item.type === "mfme");
-          const nextFiles: InputFiles = {
-            payPayFile:
-              payPay?.type === "paypay"
-                ? payPay.file
-                : current.files.payPayFile,
-            mfmeFiles:
-              mfme.length > 0
-                ? mergeUniqueFiles(
-                    current.files.mfmeFiles,
-                    mfme.map(({ file }) => file),
-                  )
-                : current.files.mfmeFiles,
-          };
-          let didResetImportedRecords = false;
-          if (payPay || mfme.length > 0) {
-            await persistInputFiles(nextFiles);
-            if (mfme.length > 0) {
-              didResetImportedRecords = onMfmeFilesChanged();
-            }
-            if (payPay) onPayPayFileChanged();
-            const nextData = new Map(current.mfmeDataByName);
-            for (const item of mfme) nextData.set(item.file.name, item.data);
-            applyInputState({
-              files: nextFiles,
-              payPayData:
-                payPay?.type === "paypay" ? payPay.data : current.payPayData,
-              mfmeDataByName: nextData,
-            });
-          }
-
-          if (!mountedRef.current) return;
-          const loadedTypes = [
-            payPay ? "PayPayの取引履歴" : null,
-            mfme.length > 0
-              ? `MoneyForward MEの入出金履歴 ${mfme.length}件`
-              : null,
-          ].filter((value): value is string => value !== null);
-          setNotice({
-            tone: rejected.length > 0 ? "error" : "success",
-            message:
-              rejected.length > 0
-                ? `${loadedTypes.length > 0 ? `${loadedTypes.join("と")}を読み込みました。` : ""}読み込めなかったファイル: ${describeRejectedFiles(rejected)}`
-                : `${loadedTypes.join("と")}を読み込みました。${didResetImportedRecords ? "以前の「保存した」記録はリセットしました。" : ""}`,
-          });
+          await processSharedFiles(sharedFilesId, current);
         } catch (error) {
           console.error("Failed to load shared files:", error);
-          if (mountedRef.current) {
-            setNotice({
-              tone: "error",
-              message:
-                "共有されたCSVファイルの読み込みに失敗しました。通常のファイル選択をお試しください。",
-            });
-          }
+          showNotice({
+            tone: "error",
+            message:
+              "共有されたCSVファイルの読み込みに失敗しました。通常のファイル選択をお試しください。",
+          });
+          await finishSharedFiles();
         }
       });
     }
@@ -406,22 +559,33 @@ export function useInputFilesStore({
   }, [
     applyInputState,
     enqueue,
-    hasPendingImport,
-    onMfmeFilesChanged,
-    onPayPayFileChanged,
+    finishSharedFiles,
+    processSharedFiles,
     reportMfmeChange,
     reportPersistenceError,
+    showNotice,
   ]);
 
+  const mfmeData = useMemo(
+    () =>
+      combineMfmeData(inputState.files.mfmeFiles, inputState.mfmeDataByName),
+    [inputState.files.mfmeFiles, inputState.mfmeDataByName],
+  );
+
   return {
+    isReady,
     payPayFile: inputState.files.payPayFile,
     mfmeFiles: inputState.files.mfmeFiles,
     payPayData: inputState.payPayData,
+    mfmeData,
     mfmeDataByName: inputState.mfmeDataByName,
     payPayError,
     mfmeErrors,
     notice,
     dismissNotice: () => setNotice(null),
+    deferredShare,
+    resumeDeferredShare,
+    discardDeferredShare,
     selectPayPayFile,
     addMfmeFiles,
     removeMfmeFile,

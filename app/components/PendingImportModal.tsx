@@ -1,10 +1,12 @@
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Share2 } from "lucide-react";
 import { useState } from "react";
 import Modal from "~/components/Modal";
 import type { PendingImport } from "~/services/local-exclusion-store";
 
 interface PendingImportModalProps {
   pendingImport: PendingImport;
+  // 確認が終わるまで読み込みを後回しにしている、共有で受け取ったファイル。
+  deferredFileNames?: string[];
   onConfirm: () => void;
   onDiscard: () => void;
 }
@@ -76,6 +78,7 @@ function TransactionList({
 
 export default function PendingImportModal({
   pendingImport,
+  deferredFileNames = [],
   onConfirm,
   onDiscard,
 }: PendingImportModalProps) {
@@ -101,6 +104,15 @@ export default function PendingImportModal({
             </p>
             <TransactionList transactions={newestFirst} />
           </div>
+          {deferredFileNames.length > 0 && (
+            <p className="flex gap-2 border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs leading-5 text-zinc-600">
+              <Share2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>
+                共有されたファイル（{deferredFileNames.join("、")}
+                ）は、この確認のあとで読み込みます。
+              </span>
+            </p>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
