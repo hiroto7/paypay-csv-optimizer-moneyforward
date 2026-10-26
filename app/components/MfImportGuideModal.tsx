@@ -1,8 +1,9 @@
-import { Check, LoaderCircle } from "lucide-react";
+import { Check, History, LoaderCircle } from "lucide-react";
 import Modal from "~/components/Modal";
 
 interface MfImportGuideModalProps {
   accountName: string;
+  transactionCount: number;
   isSharing: boolean;
   onImported: () => void;
   onCancel: () => void;
@@ -10,6 +11,7 @@ interface MfImportGuideModalProps {
 
 export default function MfImportGuideModal({
   accountName,
+  transactionCount,
   isSharing,
   onImported,
   onCancel,
@@ -28,11 +30,6 @@ export default function MfImportGuideModal({
             instruction: `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
           },
           { instruction: "内容を確認して右上の「保存」を押す" },
-          {
-            instruction:
-              "PP2MFに戻り、この画面の「MoneyForward MEで保存した」を押す",
-            description: "押すと、次回から今回の明細を自動で除外します",
-          },
         ].map(({ instruction, description }, index) => {
           const isShareStep = index === 0;
           return (
@@ -80,6 +77,17 @@ export default function MfImportGuideModal({
           );
         })}
       </ol>
+
+      <div className="mx-5 mb-4 shrink-0 border border-blue-200 bg-blue-50 px-4 py-3">
+        <p className="flex items-center gap-1.5 text-sm font-bold text-blue-950">
+          <History className="size-4 shrink-0" aria-hidden="true" />
+          保存したら、PP2MFに戻って下のボタンを押してください
+        </p>
+        <p className="mt-1 text-xs leading-5 text-zinc-700">
+          この{transactionCount}
+          件をこの端末に記録し、次回からは自動で除外します。押さないと、次回も取り込み用CSVに含まれます。
+        </p>
+      </div>
 
       <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
         <button

@@ -5,12 +5,14 @@ import {
   extractTransactionsFromPayPayCsv,
   type PayPayTransaction,
 } from "~/services/paypay-csv";
+import { createFileFingerprint } from "~/utils/file-fingerprint";
 import { readFileAsTextAuto } from "~/utils/file-reader";
 
 export type PayPayParsedData = {
   transactions: PayPayTransaction[];
   stats: FileStats;
   headers: string[];
+  fingerprint: string;
 };
 
 export type ValidatedInputFile =
@@ -43,16 +45,20 @@ export const validateInputFile = async (
   }
 
   if (type === "paypay") {
-    let data: PayPayParsedData;
+    let extracted: ReturnType<typeof extractTransactionsFromPayPayCsv>;
     try {
-      data = extractTransactionsFromPayPayCsv(content);
+      extracted = extractTransactionsFromPayPayCsv(content);
     } catch {
       throw new Error("PayPayの取引履歴の明細を読み込めませんでした。");
     }
-    if (data.transactions.length === 0) {
+    if (extracted.transactions.length === 0) {
       throw new Error("PayPay残高・PayPayポイントなどの対象取引がありません。");
     }
-    return { type, file, data };
+    return {
+      type,
+      file,
+      data: { ...extracted, fingerprint: await createFileFingerprint(file) },
+    };
   }
 
   let data: MfmeParsedResult;
@@ -68,3 +74,16 @@ export const validateInputFile = async (
   }
   return { type, file, data };
 };
+
+// PayPayの取引履歴は1つだけ使うため、複数あるときは明細の最終日が最も新しいものを選ぶ。
+export const selectLatestPayPayFile = <
+  T extends { data: Pick<PayPayParsedData, "stats"> },
+>(
+  files: readonly T[],
+): T | null =>
+  files.reduce<T | null>((latest, current) => {
+    if (!latest) return current;
+    const latestEnd = latest.data.stats.endDate?.getTime() ?? 0;
+    const currentEnd = current.data.stats.endDate?.getTime() ?? 0;
+    return currentEnd > latestEnd ? current : latest;
+  }, null);

@@ -1,32 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  addCounts,
-  createCountsFromKeys,
+  applyConfirmedImport,
   createEmptyLocalExclusionState,
-  createStatsFromTransactionCounts,
+  forgetOtherFileWork,
   type LocalExclusionState,
   loadLocalExclusionState,
   type PendingImport,
   persistLocalExclusionState,
+  resetImportedRecords as resetRecords,
 } from "~/services/local-exclusion-store";
 
 export function useLocalImportRecords() {
   const [state, setState] = useState<LocalExclusionState>(() =>
     createEmptyLocalExclusionState(),
   );
-  const [conversionCounts, setConversionCounts] = useState<Map<string, number>>(
-    () => new Map(),
-  );
+  const [isLoaded, setIsLoaded] = useState(false);
   const stateRef = useRef(state);
 
   useEffect(() => {
     const savedState = loadLocalExclusionState();
     stateRef.current = savedState;
     setState(savedState);
-    setConversionCounts(new Map(savedState.localImportedCounts));
+    setIsLoaded(true);
   }, []);
 
   const commit = useCallback((nextState: LocalExclusionState) => {
+    if (nextState === stateRef.current) return;
     stateRef.current = nextState;
     setState(nextState);
     persistLocalExclusionState(nextState);
@@ -40,28 +39,7 @@ export function useLocalImportRecords() {
   );
 
   const confirmPendingImport = useCallback(() => {
-    const { pendingImport } = stateRef.current;
-    if (!pendingImport) return;
-
-    const now = Date.now();
-    const accountBalances = new Map(stateRef.current.accountBalances);
-    const currentBalance = accountBalances.get(pendingImport.accountName);
-    if (currentBalance) {
-      accountBalances.set(pendingImport.accountName, {
-        amount: currentBalance.amount + pendingImport.balanceDelta,
-        updatedAt: now,
-      });
-    }
-
-    commit({
-      localImportedCounts: addCounts(
-        stateRef.current.localImportedCounts,
-        createCountsFromKeys(pendingImport.transactions.map(({ key }) => key)),
-      ),
-      accountBalances,
-      pendingImport: null,
-      updatedAt: now,
-    });
+    commit(applyConfirmedImport(stateRef.current, Date.now()));
   }, [commit]);
 
   const discardPendingImport = useCallback(() => {
@@ -74,57 +52,44 @@ export function useLocalImportRecords() {
     [],
   );
 
-  const setAccountBalance = useCallback(
-    (accountName: string, amount: number) => {
-      const now = Date.now();
-      const accountBalances = new Map(stateRef.current.accountBalances);
-      accountBalances.set(accountName, { amount, updatedAt: now });
-      commit({ ...stateRef.current, accountBalances, updatedAt: now });
-    },
-    [commit],
-  );
-
-  const clearAccountBalance = useCallback(
-    (accountName: string) => {
-      const accountBalances = new Map(stateRef.current.accountBalances);
-      accountBalances.delete(accountName);
-      commit({ ...stateRef.current, accountBalances, updatedAt: Date.now() });
-    },
-    [commit],
+  const hasImportedRecords = useCallback(
+    () => stateRef.current.localImportedCounts.size > 0,
+    [],
   );
 
   const resetImportedRecords = useCallback((): boolean => {
     const hadRecords = stateRef.current.localImportedCounts.size > 0;
-    // 保存待ちはMoneyForward MEの入出金履歴からは確定できないため、記録だけをリセットする。
-    commit({
-      ...stateRef.current,
-      localImportedCounts: new Map<string, number>(),
-      updatedAt: Date.now(),
-    });
-    setConversionCounts(new Map());
+    commit(resetRecords(stateRef.current, Date.now()));
     return hadRecords;
   }, [commit]);
 
-  const refreshConversionCounts = useCallback(() => {
-    setConversionCounts(new Map(stateRef.current.localImportedCounts));
-  }, []);
+  const changePayPayFile = useCallback(
+    (payPayFingerprint: string | null) => {
+      commit(
+        forgetOtherFileWork(stateRef.current, payPayFingerprint, Date.now()),
+      );
+    },
+    [commit],
+  );
 
-  const recordStats = createStatsFromTransactionCounts(
-    state.localImportedCounts,
+  const setHasNoMfmeHistory = useCallback(
+    (hasNoMfmeHistory: boolean) => {
+      if (stateRef.current.hasNoMfmeHistory === hasNoMfmeHistory) return;
+      commit({ ...stateRef.current, hasNoMfmeHistory, updatedAt: Date.now() });
+    },
+    [commit],
   );
 
   return {
-    conversionCounts,
-    accountBalances: state.accountBalances,
-    pendingImport: state.pendingImport,
-    recordStats,
+    state,
+    isLoaded,
     startPendingImport,
     confirmPendingImport,
     discardPendingImport,
     hasPendingImport,
-    setAccountBalance,
-    clearAccountBalance,
+    hasImportedRecords,
     resetImportedRecords,
-    refreshConversionCounts,
+    changePayPayFile,
+    setHasNoMfmeHistory,
   };
 }
