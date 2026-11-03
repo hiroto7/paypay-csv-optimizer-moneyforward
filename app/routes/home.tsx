@@ -9,7 +9,7 @@ import MfmeChangeConfirmModal from "~/components/MfmeChangeConfirmModal";
 import PendingImportModal from "~/components/PendingImportModal";
 import Pp2mfShareTargetModal from "~/components/Pp2mfShareTargetModal";
 import type { RecordCoverage } from "~/components/RecordCoverageNotice";
-import ReviewCandidates from "~/components/ReviewCandidates";
+import ReviewLink from "~/components/ReviewLink";
 import SharedFilesConfirmModal from "~/components/SharedFilesConfirmModal";
 import StartScreen from "~/components/StartScreen";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
@@ -94,8 +94,20 @@ export default function Home() {
     [],
   );
 
+  // この画面を開いてから作業画面を表示したか。開いた時点ですべて保存済みなら最初の画面を表示するが、
+  // ファイルを選んだり保存したりしたあとは、完了しても作業画面のまま結果を見せる。
+  const [hasEnteredWork, setHasEnteredWork] = useState(false);
+  const { changePayPayFile } = records;
+  const handlePayPayFileChanged = useCallback(
+    (payPayFingerprint: string | null) => {
+      changePayPayFile(payPayFingerprint);
+      if (payPayFingerprint !== null) setHasEnteredWork(true);
+    },
+    [changePayPayFile],
+  );
+
   const inputs = useInputFilesStore({
-    onPayPayFileChanged: records.changePayPayFile,
+    onPayPayFileChanged: handlePayPayFileChanged,
     onMfmeFilesChanged: records.resetImportedRecords,
     hasPendingImport: records.hasPendingImport,
     confirmMfmeChange,
@@ -216,6 +228,7 @@ export default function Home() {
   const handleConfirmImport = () => {
     records.confirmPendingImport();
     setSessionShare(null);
+    setHasEnteredWork(true);
   };
 
   const handleDiscardImport = () => {
@@ -224,6 +237,19 @@ export default function Home() {
   };
 
   const isReady = records.isLoaded && inputs.isReady;
+  const isFinished = progress.accounts.length === 0 || progress.isComplete;
+  const showsWorkScreen =
+    Boolean(payPayFile && payPayData && conversion) &&
+    (hasEnteredWork || !isFinished);
+  const reviewCandidateCount =
+    payPayData && mfmeData && conversion
+      ? conversion.mfmeCandidates.length
+      : null;
+
+  // 作業画面を一度表示したら、完了しても最初の画面へ戻さない。
+  useEffect(() => {
+    if (showsWorkScreen) setHasEnteredWork(true);
+  }, [showsWorkScreen]);
   const hasRecords = recordStats.count > 0;
   const isStep2Done =
     hasRecords || inputs.mfmeFiles.length > 0 || state.hasNoMfmeHistory;
@@ -335,13 +361,14 @@ export default function Home() {
         {!isReady ? (
           <div className="min-h-96" aria-busy="true">
             <h1 className="sr-only">
-              PayPayの明細を、MoneyForward MEへ重複なく取り込みます
+              PayPayの決済を、MoneyForward MEにストレスなく取り込み。
             </h1>
           </div>
-        ) : !payPayFile || !payPayData || !conversion ? (
+        ) : !showsWorkScreen || !payPayFile || !payPayData || !conversion ? (
           <StartScreen
             error={inputs.payPayError}
-            mfmeFileCount={inputs.mfmeFiles.length}
+            recordStats={recordStats}
+            reviewCandidateCount={reviewCandidateCount}
             onFileSelected={inputs.selectPayPayFile}
           />
         ) : (
@@ -389,10 +416,10 @@ export default function Home() {
             ) : (
               <Step3FileList lockedReason="手順2で答えるか、入出金履歴を追加すると表示されます" />
             )}
-            <div className="mt-4">
-              <ReviewCandidates candidates={conversion.mfmeCandidates} />
-            </div>
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5">
+              {reviewCandidateCount !== null && (
+                <ReviewLink candidateCount={reviewCandidateCount} />
+              )}
               <CsvShareGuide />
             </div>
           </div>

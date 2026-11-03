@@ -1,4 +1,4 @@
-import { ArrowRight, FileText, Share2 } from "lucide-react";
+import { ArrowRight, FileText, Share2, Smartphone } from "lucide-react";
 import Modal from "~/components/Modal";
 
 interface Pp2mfShareTargetModalProps {
@@ -43,8 +43,8 @@ export default function Pp2mfShareTargetModal({
           </div>
           <ArrowRight className="size-4 text-zinc-400" aria-hidden="true" />
           <div className="flex flex-col items-center gap-2 text-center">
-            <span className="flex size-11 items-center justify-center bg-orange-500 text-sm font-extrabold text-white ring-2 ring-red-600 ring-offset-2">
-              ME
+            <span className="flex size-11 items-center justify-center bg-white ring-2 ring-red-600 ring-offset-2">
+              <Smartphone className="size-6 text-zinc-600" aria-hidden="true" />
             </span>
             <span className="text-xs font-semibold leading-4">
               MoneyForward ME

@@ -41,11 +41,9 @@ test("画面選択とShare Targetから入出金履歴を年ごとに追加で�
     "収入・支出詳細_2025.csv",
     mfme2025Csv,
   );
-  await expect(
-    page.getByText(
-      "MoneyForward MEの入出金履歴は1ファイルを読み込み済みです。",
-    ),
-  ).toBeVisible();
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({ payPay: null, mfme: ["収入・支出詳細_2025.csv"] });
 
   await selectPayPayCsv(page);
   const registeredStep = page.getByRole("region", { name: "登録済みの明細" });

@@ -1,18 +1,30 @@
-import { AlertCircle, ArrowRight, LockKeyhole } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  History,
+  LockKeyhole,
+  Smartphone,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import CsvShareGuide from "~/components/CsvShareGuide";
+import FileStatsSummary from "~/components/FileStatsSummary";
+import ReviewLink from "~/components/ReviewLink";
+import type { FileStats } from "~/services/csv-date";
 
 interface StartScreenProps {
   error: string;
-  mfmeFileCount: number;
+  // 「MoneyForward MEで保存した」明細の記録。
+  recordStats: FileStats;
+  // 保存しているPayPayの取引履歴と入出金履歴で求めた要確認明細の件数。どちらかがなければnull。
+  reviewCandidateCount: number | null;
   onFileSelected: (file: File) => void;
 }
 
 const steps = [
   "PayPayの取引履歴を選ぶ",
-  "登録済みの明細を除外する",
+  "MoneyForward MEに登録済みの明細を、取り込み用CSVから除く",
   "口座ごとにMoneyForward MEへ取り込む",
 ] as const;
 
@@ -27,9 +39,7 @@ function FlowNode({
 }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-2 text-center">
-      <span
-        className={`flex size-12 items-center justify-center rounded-xl text-sm font-extrabold ${className}`}
-      >
+      <span className={`flex size-12 items-center justify-center ${className}`}>
         {children}
       </span>
       <span className="text-xs font-semibold leading-4 text-zinc-700">
@@ -41,31 +51,38 @@ function FlowNode({
 
 export default function StartScreen({
   error,
-  mfmeFileCount,
+  recordStats,
+  reviewCandidateCount,
   onFileSelected,
 }: StartScreenProps) {
   return (
     <section aria-labelledby="start-title" className="space-y-5">
       <figure
         className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start gap-2 px-2"
-        aria-label="PayPayの取引履歴をPP2MFで整えてMoneyForward MEへ取り込む流れ"
+        aria-label="PayPayの取引履歴をPP2MFで整え、MoneyForward MEへ取り込む流れ"
       >
-        <FlowNode label="PayPayの取引履歴" className="bg-red-600 text-white">
-          Pay
+        <FlowNode
+          label="PayPay"
+          className="bg-white shadow-sm ring-1 ring-zinc-200"
+        >
+          <Smartphone className="size-6 text-zinc-600" aria-hidden="true" />
         </FlowNode>
         <ArrowRight
           className="mt-4 size-4 shrink-0 text-zinc-400"
           aria-hidden="true"
         />
-        <FlowNode label="PP2MF" className="bg-white ring-1 ring-zinc-200">
-          <img src="/pwa-icon.svg" alt="" className="size-12 rounded-xl" />
+        <FlowNode label="PP2MF" className="">
+          <img src="/pwa-icon.svg" alt="" className="size-12 shadow-sm" />
         </FlowNode>
         <ArrowRight
           className="mt-4 size-4 shrink-0 text-zinc-400"
           aria-hidden="true"
         />
-        <FlowNode label="MoneyForward ME" className="bg-orange-500 text-white">
-          ME
+        <FlowNode
+          label="MoneyForward ME"
+          className="bg-white shadow-sm ring-1 ring-zinc-200"
+        >
+          <Smartphone className="size-6 text-zinc-600" aria-hidden="true" />
         </FlowNode>
       </figure>
 
@@ -74,10 +91,11 @@ export default function StartScreen({
           id="start-title"
           className="text-2xl font-bold leading-snug text-zinc-950"
         >
-          PayPayの明細を、MoneyForward MEへ重複なく取り込みます
+          PayPayの決済を、MoneyForward MEにストレスなく取り込み。
         </h1>
         <p className="mt-2 text-sm leading-6 text-zinc-600">
-          登録済みの明細を除外し、口座ごとに取り込み用CSVを作ります。
+          PayPayとMoneyForward
+          MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。
         </p>
       </div>
 
@@ -92,24 +110,33 @@ export default function StartScreen({
         ))}
       </ol>
 
-      <div className="space-y-2 text-xs leading-5 text-zinc-500">
-        <p>2回目からは、新しいPayPayの取引履歴を選ぶだけで使えます。</p>
-        <p className="flex gap-1.5">
-          <LockKeyhole
-            className="mt-0.5 size-3.5 shrink-0"
-            aria-hidden="true"
-          />
-          明細はこの端末の中だけで処理し、外部へ送信しません。
-        </p>
-        {mfmeFileCount > 0 && (
-          <p>
-            MoneyForward MEの入出金履歴は{mfmeFileCount}
-            ファイルを読み込み済みです。
-          </p>
-        )}
-      </div>
+      <p className="flex gap-1.5 text-xs leading-5 text-zinc-500">
+        <LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+        明細はこの端末の中だけで処理し、外部へ送信しません。
+      </p>
 
       <div className="space-y-3">
+        {recordStats.count > 0 && (
+          <section
+            aria-labelledby="start-records-title"
+            className="border border-blue-200 bg-blue-50 px-4 py-3"
+          >
+            <h2
+              id="start-records-title"
+              className="flex items-center gap-1.5 text-sm font-bold text-blue-950"
+            >
+              <History className="size-4 shrink-0" aria-hidden="true" />
+              前回までに保存した明細を記録しています
+            </h2>
+            <div className="mt-1 text-xs text-blue-900">
+              <FileStatsSummary stats={recordStats} />
+            </div>
+            <p className="mt-2 text-sm leading-6 text-zinc-700">
+              PayPayの取引履歴を選ぶだけで、記録した明細を除いて、まだ登録していない明細だけを取り込めます。MoneyForward
+              MEの入出金履歴を追加し直す必要はありません。
+            </p>
+          </section>
+        )}
         <CsvFilePicker
           id="paypay-csv-input"
           label="PayPayの取引履歴を選ぶ"
@@ -132,6 +159,9 @@ export default function StartScreen({
           </div>
         )}
         <div className="flex flex-wrap items-center justify-center gap-x-5">
+          {reviewCandidateCount !== null && (
+            <ReviewLink candidateCount={reviewCandidateCount} />
+          )}
           <CsvShareGuide />
           <Link
             to="/guide"

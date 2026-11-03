@@ -10,6 +10,7 @@ import {
   pageDescription,
   pageTitle,
   payPayStep,
+  readStoredInputFileNames,
   resolveInstallChoice,
   selectPayPayCsv,
   shareCsvThroughTarget,
@@ -52,9 +53,6 @@ test("初期画面をデスクトップとモバイルで表示できる", async
     "summary",
   );
   await expect(page.getByText(startDescription)).toBeVisible();
-  await expect(
-    page.getByText("2回目からは、新しいPayPayの取引履歴を選ぶだけで使えます。"),
-  ).toBeVisible();
   await expect(
     page.getByRole("main").getByRole("link", { name: "使い方" }),
   ).toHaveAttribute("href", "/guide");
@@ -125,7 +123,7 @@ test("3ページで共通ヘッダーと情報ページの戻る導線を表示�
     "width=device-width, initial-scale=1, viewport-fit=cover",
   );
 
-  for (const path of ["/", "/guide", "/privacy"]) {
+  for (const path of ["/", "/guide", "/privacy", "/review"]) {
     await page.goto(path);
     const header = page.getByRole("banner");
 
@@ -369,11 +367,7 @@ test("MoneyForward MEの入出金履歴を先に受け取ってもPayPayの取�
     auditMfmeCsv,
   );
 
-  const loadedNotice = page.getByText(
-    "MoneyForward MEの入出金履歴は1ファイルを読み込み済みです。",
-  );
   await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
-  await expect(loadedNotice).toBeVisible();
   await expect(page).toHaveScreenshot("mfme-loaded-before-paypay.png", {
     fullPage: true,
   });
@@ -381,23 +375,56 @@ test("MoneyForward MEの入出金履歴を先に受け取ってもPayPayの取�
   await page.reload();
 
   await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
-  await expect(loadedNotice).toBeVisible();
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({ payPay: null, mfme: ["moneyforward-history.csv"] });
+
+  // 入出金履歴があってもPayPayの取引履歴がなければ、要確認明細のリンクは出さない。
+  await expect(
+    page.getByRole("link", { name: /重複登録・口座間違いを確認する/ }),
+  ).toHaveCount(0);
 });
 
-test("重複登録と口座間違いの候補を表示できる", async ({ page }) => {
+test("重複登録と口座間違いの候補を別のページで表示できる", async ({ page }) => {
   await selectPayPayCsv(page);
   await addMfmeCsvs(page, [
     { name: "moneyforward-history.csv", csv: auditMfmeCsv },
   ]);
 
-  const candidatesButton = page.getByRole("button", {
-    name: /要確認の明細が2件あります/,
+  const reviewLink = page.getByRole("link", {
+    name: /重複登録・口座間違いを確認する/,
   });
-  await candidatesButton.click();
-  const candidates = page.locator("#review-candidates-content");
-  await expect(candidates.getByRole("listitem")).toHaveCount(5);
+  await expect(reviewLink).toContainText("2件");
+  await reviewLink.click();
+  await expect(page).toHaveURL(/\/review$/);
+  await expect(
+    page.getByRole("heading", { name: "要確認の明細 2件" }),
+  ).toBeVisible();
+  const candidates = page.getByRole("list", { name: "要確認の明細" });
+  await expect(candidates.getByRole("listitem")).toHaveCount(2);
   await expect(candidates).toContainText("口座：別の口座");
   await expect(page).toHaveScreenshot("audit-candidates.png", {
     fullPage: true,
   });
+
+  await page.getByRole("link", { name: "アプリに戻る" }).click();
+  await expect(importStep(page)).toBeVisible();
+});
+
+test("要確認明細のページは、ファイルが足りないときに案内を表示する", async ({
+  page,
+}) => {
+  await page.goto("/review");
+  await expect(
+    page.getByText("PayPayの取引履歴を選んでください。", { exact: true }),
+  ).toBeVisible();
+
+  await page.goto("/");
+  await selectPayPayCsv(page);
+  await page.goto("/review");
+  await expect(
+    page.getByText("MoneyForward MEの入出金履歴を追加してください。", {
+      exact: true,
+    }),
+  ).toBeVisible();
 });

@@ -23,7 +23,7 @@ const steps = [
     ],
   },
   {
-    title: "登録済みの明細を除外する",
+    title: "MoneyForward MEに登録済みの明細を除く",
     paragraphs: [
       "MoneyForward MEにPayPayの明細を登録したことがあるかを答えます。登録したことがある場合は、MoneyForward MEから書き出した入出金履歴を追加すると、すでに登録されている明細を作成対象から除外します。",
       "初めて登録する場合は「ない」を選ぶと、すべての明細を取り込みます。",
@@ -136,7 +136,7 @@ export default function Guide() {
             <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
               <p>
                 PayPayの取引履歴とMoneyForward
-                MEの入出金履歴の両方を読み込むと、重複登録や口座間違いの可能性がある明細を確認できます。
+                MEの入出金履歴の両方を読み込むと、「重複登録・口座間違いを確認する」から、重複登録や口座間違いの可能性がある明細を確認できます。
               </p>
               <p>
                 修正が必要な場合は、MoneyForward ME側で手動で行ってください。
