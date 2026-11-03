@@ -135,7 +135,7 @@ export default function Step2MfmeFilter(props: Step2MfmeFilterProps) {
     return (
       <StepCard
         number={2}
-        title="登録済みの明細"
+        title="MoneyForward MEに登録済みの明細"
         status="done"
         summary={summaryParts.join("・")}
         actions={
@@ -185,7 +185,7 @@ export default function Step2MfmeFilter(props: Step2MfmeFilterProps) {
     return (
       <StepCard
         number={2}
-        title="登録済みの明細"
+        title="MoneyForward MEに登録済みの明細"
         status="done"
         summary="登録したことはありません（すべての明細を取り込みます）"
         actions={
@@ -202,7 +202,11 @@ export default function Step2MfmeFilter(props: Step2MfmeFilterProps) {
   }
 
   return (
-    <StepCard number={2} title="登録済みの明細を除外する" status="current">
+    <StepCard
+      number={2}
+      title="MoneyForward MEに登録済みの明細を除く"
+      status="current"
+    >
       <fieldset className="space-y-2">
         <legend className="mb-3 text-sm font-bold leading-6 text-zinc-950">
           MoneyForward MEに、PayPayの明細を登録したことはありますか？

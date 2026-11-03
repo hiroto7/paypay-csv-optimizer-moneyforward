@@ -9,9 +9,11 @@ import {
   openCleanPage,
   payPayCsv,
   readLocalState,
+  readStoredInputFileNames,
   resolveShareSheet,
   saveImport,
   selectPayPayCsv,
+  startHeading,
 } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
@@ -187,7 +189,7 @@ test("共有シートを閉じると保存待ちを残さない", async ({ page 
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("保存した口座はリロード後も保存済みのまま、すべて保存すると完了を表示する", async ({
+test("保存した口座はリロード後も保存済みのまま、すべて保存すると完了を表示し、次に開くと最初の画面に戻る", async ({
   page,
 }) => {
   await selectPayPayCsv(page);
@@ -209,27 +211,40 @@ test("保存した口座はリロード後も保存済みのまま、すべて�
     fullPage: true,
   });
 
+  // 保存した直後は、完了しても作業画面のまま結果を見せる。
   await saveImport(page, "PayPayポイントを取り込む");
   await expect(
     step.getByText("取り込みが完了しました", { exact: true }),
   ).toBeVisible();
   await expect(step.getByText("2 / 2 口座を保存しました")).toBeVisible();
-  await page.reload();
-  await expect(
-    step.getByText("取り込みが完了しました", { exact: true }),
-  ).toBeVisible();
   await expect(page).toHaveScreenshot("import-complete.png", {
     fullPage: true,
   });
 
-  // 次の取引履歴は、保存した明細を除外して新しい明細だけを作る。
-  await page.locator("#paypay-csv-input-next").setInputFiles({
-    name: "paypay-history-next.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(
-      `${payPayCsv}\n2025/10/26 09:00:00,500,-,-,-,-,-,支払い,ダミーストアE,PayPay残高,-,-,00000000000000000006`,
-    ),
+  // すべて保存済みのまま開き直すと、ファイルは残したまま最初の画面を表示する。
+  await page.reload();
+  await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
+  await expect(step).toHaveCount(0);
+  const recordsNotice = page.getByRole("region", {
+    name: "前回までに保存した明細を記録しています",
   });
+  await expect(recordsNotice).toContainText("3件");
+  await expect(recordsNotice).toContainText(
+    "PayPayの取引履歴を選ぶだけで、記録した明細を除いて、まだ登録していない明細だけを取り込めます。",
+  );
+  await expect(page).toHaveScreenshot("start-with-records.png", {
+    fullPage: true,
+  });
+  await expect
+    .poll(() => readStoredInputFileNames(page))
+    .toEqual({ payPay: "paypay-history.csv", mfme: [] });
+
+  // 次の取引履歴は、保存した明細を除外して新しい明細だけを作る。
+  await selectPayPayCsv(
+    page,
+    `${payPayCsv}\n2025/10/26 09:00:00,500,-,-,-,-,-,支払い,ダミーストアE,PayPay残高,-,-,00000000000000000006`,
+    "paypay-history-next.csv",
+  );
   await expect(
     step.getByText("取り込み対象の明細4件のうち、1件を取り込みます", {
       exact: true,
@@ -237,6 +252,31 @@ test("保存した口座はリロード後も保存済みのまま、すべて�
   ).toBeVisible();
   await expect(step.getByText("前回までに保存した明細")).toBeVisible();
   await expect(step.getByText("0 / 1 口座")).toBeVisible();
+});
+
+test("選んだ取引履歴がすべて登録済みでも、作業画面で結果を表示する", async ({
+  page,
+}) => {
+  await selectPayPayCsv(page);
+  await answerNoMfmeHistory(page);
+  await saveImport(page, "PayPay残高を取り込む");
+  await saveImport(page, "PayPayポイントを取り込む");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
+
+  // 対象外の明細だけが増えた取引履歴は、保存した明細で作成対象がなくなる。
+  await selectPayPayCsv(
+    page,
+    `${payPayCsv}\n2025/10/25 13:17:35,72,-,-,-,-,-,支払い,ダミーストアD,VISA 1234,-,-,00000000000000000009`,
+    "paypay-history-again.csv",
+  );
+  const step = importStep(page);
+  await expect(
+    step.getByText("この取引履歴の明細は、すべて登録済みです"),
+  ).toBeVisible();
+  await expect(
+    step.getByText("取り込む明細はありません", { exact: true }),
+  ).toBeVisible();
 });
 
 test("分割した取り込み用CSVの一部を保存しても、残りを維持する", async ({

@@ -4,16 +4,18 @@ import type { CsvRecord } from "~/services/csv-schema";
 import {
   type PayPayParsedData,
   selectLatestPayPayFile,
-  type ValidatedInputFile,
-  validateInputFile,
 } from "~/services/input-file-validation";
 import { combineMfmeData, type MfmeParsedResult } from "~/services/mfme-csv";
+import {
+  loadStoredInputFiles,
+  type RejectedInputFile,
+  validateInputFiles as validateFiles,
+} from "~/services/stored-input-files";
 import { isPp2mfOutputFilename } from "~/utils/pp2mf-output-filename";
 import {
   clearInputFiles,
   deleteSharedFilesExcept,
   type InputFiles,
-  loadInputFiles,
   mergeUniqueFiles,
   readSharedFiles,
   saveInputFiles,
@@ -24,10 +26,7 @@ export type SharedFileNotice = {
   message: string;
 };
 
-export type RejectedInputFile = {
-  name: string;
-  reason: string;
-};
+export type { RejectedInputFile };
 
 // 入出金履歴を変更する前に、取り込み記録のリセットを確認するための内容。
 export type MfmeChangePreview = {
@@ -76,39 +75,6 @@ const persistInputFiles = async (inputFiles: InputFiles): Promise<void> => {
   } else {
     await saveInputFiles(inputFiles);
   }
-};
-
-const validationReason = (error: unknown): string =>
-  error instanceof Error
-    ? error.message
-    : "CSVファイルを読み込めませんでした。";
-
-const validateFiles = async (
-  files: readonly File[],
-  expectedType?: "paypay" | "mfme",
-): Promise<{
-  accepted: ValidatedInputFile[];
-  rejected: RejectedInputFile[];
-}> => {
-  const results = await Promise.all(
-    files.map(async (file) => {
-      try {
-        return { accepted: await validateInputFile(file, expectedType) };
-      } catch (error) {
-        return {
-          rejected: { name: file.name, reason: validationReason(error) },
-        };
-      }
-    }),
-  );
-  return {
-    accepted: results.flatMap((result) =>
-      result.accepted ? [result.accepted] : [],
-    ),
-    rejected: results.flatMap((result) =>
-      result.rejected ? [result.rejected] : [],
-    ),
-  };
 };
 
 const describeRejectedFiles = (files: readonly RejectedInputFile[]): string =>
@@ -482,25 +448,16 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
 
     void enqueue(async () => {
       try {
-        const saved = await loadInputFiles();
-        const payPay = saved.payPayFile
-          ? await validateFiles([saved.payPayFile], "paypay")
-          : { accepted: [], rejected: [] };
-        const mfme = await validateFiles(saved.mfmeFiles, "mfme");
-        const validPayPay = payPay.accepted[0];
-        const validMfme = mfme.accepted.flatMap((item) =>
-          item.type === "mfme" ? [item] : [],
-        );
+        const stored = await loadStoredInputFiles();
         const nextFiles: InputFiles = {
-          payPayFile: validPayPay?.type === "paypay" ? validPayPay.file : null,
-          mfmeFiles: validMfme.map(({ file }) => file),
+          payPayFile: stored.payPay?.file ?? null,
+          mfmeFiles: stored.mfme.map(({ file }) => file),
         };
-        const removedMfme = mfme.rejected.length > 0;
-        if (payPay.rejected.length > 0 || removedMfme) {
+        const removedPayPay = stored.payPayRejected.length > 0;
+        const removedMfme = stored.mfmeRejected.length > 0;
+        if (removedPayPay || removedMfme) {
           await persistInputFiles(nextFiles);
-          if (payPay.rejected.length > 0) {
-            callbacksRef.current.onPayPayFileChanged(null);
-          }
+          if (removedPayPay) callbacksRef.current.onPayPayFileChanged(null);
           if (removedMfme) reportMfmeChange();
           showNotice({
             tone: "error",
@@ -510,14 +467,14 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
         }
         applyInputState({
           files: nextFiles,
-          payPayData: validPayPay?.type === "paypay" ? validPayPay.data : null,
+          payPayData: stored.payPay?.data ?? null,
           mfmeDataByName: new Map(
-            validMfme.map(({ file, data }) => [file.name, data]),
+            stored.mfme.map(({ file, data }) => [file.name, data]),
           ),
         });
         if (mountedRef.current) {
-          setPayPayError(describeRejectedFiles(payPay.rejected));
-          setMfmeErrors(mfme.rejected);
+          setPayPayError(describeRejectedFiles(stored.payPayRejected));
+          setMfmeErrors(stored.mfmeRejected);
         }
       } catch (error) {
         reportPersistenceError(error);

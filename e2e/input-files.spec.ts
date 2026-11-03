@@ -83,16 +83,11 @@ test("以前に保存されたNGファイルを再読み込み時に除外する
   );
 
   await page.reload();
-  // PayPayの取引履歴が読み込めないため、最初の画面でエラーと読み込めた入出金履歴を示す。
+  // PayPayの取引履歴が読み込めないため、最初の画面でエラーを示す。
   await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
   await expect(page.getByRole("main").getByRole("alert").last()).toContainText(
     "wrong-paypay.csv",
   );
-  await expect(
-    page.getByText(
-      "MoneyForward MEの入出金履歴は1ファイルを読み込み済みです。",
-    ),
-  ).toBeVisible();
   await expect
     .poll(() => readStoredInputFileNames(page))
     .toEqual({
