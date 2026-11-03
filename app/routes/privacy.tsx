@@ -25,8 +25,8 @@ const sections = [
   {
     title: "端末内への保存",
     paragraphs: [
-      "作業中のPayPayの取引履歴とMoneyForward MEの入出金履歴は、再読み込み後も作業を続けられるよう端末のIndexedDBへ保存します。入力欄からファイルの選択を解除するか、ブラウザのサイトデータを削除するまで保持されます。",
-      "「MoneyForward MEで保存した」の記録と、手動で設定した口座残高は端末のlocalStorageへ保存します。MoneyForward MEの入出金履歴を変更すると取り込み記録はリセットされますが、手動で設定した残高は保持されます。",
+      "作業中のPayPayの取引履歴とMoneyForward MEの入出金履歴は、再読み込み後も作業を続けられるよう端末のIndexedDBへ保存します。画面でファイルを削除するか、ブラウザのサイトデータを削除するまで保持されます。共有シートで受け取ったファイルは、読み込むかやめるかを選ぶまで一時的にIndexedDBへ保存し、その後に削除します。",
+      "「MoneyForward MEで保存した」の記録、今のPayPayの取引履歴で保存した明細、「MoneyForward MEに登録したことはない」という回答は、端末のlocalStorageへ保存します。MoneyForward MEの入出金履歴を変更すると、確認したうえで取り込み記録をリセットします。",
     ],
   },
   {

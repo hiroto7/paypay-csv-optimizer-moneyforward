@@ -6,7 +6,10 @@ import {
   SINGLE_PAYMENT_ROW,
 } from "./csv-test-fixtures";
 import { parseMfmeCsvs } from "./mfme-csv";
-import { reconcileMfmeTransactions } from "./mfme-reconciliation";
+import {
+  countRecordsCoveredByMfme,
+  reconcileMfmeTransactions,
+} from "./mfme-reconciliation";
 import { extractTransactionsFromPayPayCsv } from "./paypay-csv";
 
 const reconcileCsvs = (payPayRows: string, mfmeRows: string) => {
@@ -113,5 +116,41 @@ describe("reconcileMfmeTransactions", () => {
 
     expect(result.matchedCount).toBe(1);
     expect(result.candidates).toHaveLength(0);
+  });
+});
+
+describe("countRecordsCoveredByMfme", () => {
+  const recordKey = "2025/10/24_-190_PayPay残高_ダミー'ストアA";
+
+  it("入出金履歴に含まれる記録と含まれない記録を件数で数えること", () => {
+    const { records } = parseMfmeCsvs([
+      `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー’ストアA,-190,PayPay残高,食費,食費,メモ,,id01`,
+    ]);
+
+    const result = countRecordsCoveredByMfme(
+      new Map([
+        [recordKey, 2],
+        ["2025/10/25_-100_PayPay残高_ダミーストアB", 1],
+      ]),
+      records,
+    );
+
+    expect(result.covered).toBe(1);
+    expect(result.uncoveredCounts).toEqual(
+      new Map([
+        [recordKey, 1],
+        ["2025/10/25_-100_PayPay残高_ダミーストアB", 1],
+      ]),
+    );
+  });
+
+  it("口座が違う入出金履歴の明細は含まれるものとして数えないこと", () => {
+    const { records } = parseMfmeCsvs([
+      `${MFME_CSV_HEADER}\n1,2025/10/24,ダミー'ストアA,-190,別の口座,食費,食費,メモ,,id01`,
+    ]);
+
+    expect(
+      countRecordsCoveredByMfme(new Map([[recordKey, 1]]), records).covered,
+    ).toBe(0);
   });
 });

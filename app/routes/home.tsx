@@ -1,30 +1,18 @@
-import { AlertCircle, UploadCloud, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
-import AuditPanel from "~/components/AuditPanel";
 import CsvShareGuide from "~/components/CsvShareGuide";
-import MfImportGuideModal from "~/components/MfImportGuideModal";
-import PendingImportModal from "~/components/PendingImportModal";
+import NoticeBanner from "~/components/NoticeBanner";
+import ReviewLink from "~/components/ReviewLink";
+import StartScreen from "~/components/StartScreen";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
 import Step2MfmeFilter from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
-import WorkspaceEmptyState from "~/components/WorkspaceEmptyState";
-import { useInputWorkspace } from "~/hooks/useInputWorkspace";
-import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
-import {
-  createChunksFromGroupedTransactions,
-  filterTransactionsBySources,
-  type ProcessedResult,
-} from "~/services/paypay-csv";
-import { shareCsv } from "~/utils/csv-share";
+import { StepConnector } from "~/components/StepCard";
+import { useWorkspace } from "~/hooks/useWorkspace";
 import type { Route } from "./+types/home";
 
 const pageTitle = "PayPayの決済をMoneyForward MEにストレスなく取り込み | PP2MF";
-const heroDescription =
-  "PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。";
 const pageDescription =
   "PayPayとMoneyForward MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。PayPayポイントで支払った分はPayPay残高とは別の口座として登録でき、ポイントと残高を併用した支払いも自動で分けて整理します。明細が多くても、上限に合わせて取り込み用ファイルを自動で分割します。";
 const canonicalUrl = "https://pp2mf.vercel.app/";
@@ -46,269 +34,116 @@ export function meta(_args: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const [importedChunkKeys, setImportedChunkKeys] = useState<Set<string>>(
-    () => new Set(),
-  );
-  // 保存待ちのうち、今回の作業で共有したもの。再読み込み後は空になり、再訪時の確認として扱う。
-  const [sessionShare, setSessionShare] = useState<{
-    name: string;
-    index: number;
-    isSharing: boolean;
-  } | null>(null);
+  // この画面を開いてから作業画面を表示したか。開いた時点ですべて保存済みなら最初の画面を表示するが、
+  // ファイルを選んだり保存したりしたあとは、完了しても作業画面のまま結果を見せる。
+  const [hasEnteredWork, setHasEnteredWork] = useState(false);
   const {
-    conversionCounts,
-    accountBalances,
-    pendingImport,
-    recordStats,
-    startPendingImport,
-    confirmPendingImport,
-    discardPendingImport,
-    hasPendingImport,
-    setAccountBalance,
-    clearAccountBalance,
-    resetImportedRecords,
-    refreshConversionCounts,
-  } = useLocalImportRecords();
-  const resetCurrentImportState = useCallback(() => {
-    setImportedChunkKeys(new Set());
-    setSessionShare(null);
-  }, []);
-  const handlePayPayFileChanged = useCallback(() => {
-    refreshConversionCounts();
-    resetCurrentImportState();
-  }, [refreshConversionCounts, resetCurrentImportState]);
-  const handleMfmeFilesChanged = useCallback(() => {
-    const didResetImportedRecords = resetImportedRecords();
-    resetCurrentImportState();
-    return didResetImportedRecords;
-  }, [resetImportedRecords, resetCurrentImportState]);
-  const {
+    records,
+    inputs,
+    state,
     payPayFile,
-    mfmeFiles,
-    notice,
-    dismissNotice,
-    selectPayPayFile,
-    addMfmeFiles,
-    removeMfmeFile,
     payPayData,
-    payPayError,
     mfmeData,
-    mfmeErrors,
-    mfmeFileStatsByName,
-  } = useInputWorkspace({
-    onPayPayFileChanged: handlePayPayFileChanged,
-    onMfmeFilesChanged: handleMfmeFilesChanged,
-    hasPendingImport,
-  });
+    conversion,
+    progress,
+    recordStats,
+    reviewCandidateCount,
+    isReady,
+    handleImport,
+    modals,
+  } = useWorkspace({ onWorkStarted: () => setHasEnteredWork(true) });
 
-  const conversionResult = useMemo(() => {
-    if (!payPayData) {
-      return filterTransactionsBySources([], [], new Map());
-    }
+  const isFinished = progress.accounts.length === 0 || progress.isComplete;
+  const showsWorkScreen =
+    Boolean(payPayFile && payPayData && conversion) &&
+    (hasEnteredWork || !isFinished);
 
-    return filterTransactionsBySources(
-      payPayData.transactions,
-      mfmeData?.records ?? [],
-      conversionCounts,
-    );
-  }, [payPayData, mfmeData, conversionCounts]);
+  // 作業画面を一度表示したら、完了しても最初の画面へ戻さない。
+  useEffect(() => {
+    if (showsWorkScreen) setHasEnteredWork(true);
+  }, [showsWorkScreen]);
 
-  const chunks = useMemo<ProcessedResult>(() => {
-    if (!payPayData) {
-      return {};
-    }
-
-    return createChunksFromGroupedTransactions(
-      conversionResult.groupedTransactions,
-      payPayData.headers,
-    );
-  }, [payPayData, conversionResult]);
-
-  const handleImport = useCallback(
-    async (filename: string, data: string, name: string, index: number) => {
-      const chunk = chunks[name]?.[index];
-      if (!chunk) return;
-
-      // 共有シートからMoneyForward MEへ移っている間にページが破棄されても確認できるよう、共有前に記録する。
-      flushSync(() => {
-        startPendingImport({
-          accountName: name,
-          sharedAt: Date.now(),
-          balanceDelta: chunk.balanceDelta,
-          transactions: chunk.transactions,
-        });
-        setSessionShare({ name, index, isSharing: true });
-      });
-      try {
-        const shared = await shareCsv(filename, data);
-        if (!shared) {
-          discardPendingImport();
-          setSessionShare(null);
-          return;
-        }
-        setSessionShare((current) =>
-          current ? { ...current, isSharing: false } : null,
-        );
-      } catch {
-        discardPendingImport();
-        setSessionShare(null);
-      }
-    },
-    [chunks, discardPendingImport, startPendingImport],
-  );
-
-  const handleConfirmImport = () => {
-    confirmPendingImport();
-    if (sessionShare) {
-      const { name, index } = sessionShare;
-      setImportedChunkKeys((currentKeys) =>
-        new Set(currentKeys).add(`${name}:${index}`),
-      );
-    } else {
-      // 前回の作業で共有した明細は、チャンクの区切りが変わるため除外し直して作り直す。
-      setImportedChunkKeys(new Set());
-      refreshConversionCounts();
-    }
-    setSessionShare(null);
-  };
-
-  const handleDiscardImport = () => {
-    discardPendingImport();
-    setSessionShare(null);
-  };
-
-  const hasMfmeRecords = Boolean(mfmeData?.records.length);
-  const hasOutput = Object.keys(chunks).length > 0;
-  const canShowConversion = Boolean(payPayData && hasOutput);
+  const isStep2Done =
+    recordStats.count > 0 ||
+    inputs.mfmeFiles.length > 0 ||
+    state.hasNoMfmeHistory;
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 sm:px-6 sm:py-7">
-        {notice && (
-          <div
-            className={`mb-5 flex items-center justify-between gap-3 border px-4 py-2.5 text-sm ${
-              notice.tone === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                : "border-red-200 bg-red-50 text-red-800"
-            }`}
-            role={notice.tone === "error" ? "alert" : "status"}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              {notice.tone === "success" ? (
-                <UploadCloud className="size-4 shrink-0" aria-hidden="true" />
-              ) : (
-                <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-              )}
-              <p className="leading-5">{notice.message}</p>
-            </div>
-            <button
-              type="button"
-              onClick={dismissNotice}
-              className="inline-flex size-7 shrink-0 items-center justify-center hover:bg-black/5"
-              aria-label="通知を閉じる"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
-          </div>
-        )}
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
+        <NoticeBanner notice={inputs.notice} onDismiss={inputs.dismissNotice} />
 
-        <div className="mb-5">
-          <div>
-            <h1 className="text-2xl font-bold text-zinc-950">
+        {!isReady ? (
+          <div className="min-h-96" aria-busy="true">
+            <h1 className="sr-only">
               PayPayの決済を、MoneyForward MEにストレスなく取り込み。
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-              {heroDescription}
-            </p>
-            <Link
-              to="/guide"
-              className="mt-2 inline-block text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
-            >
-              使い方を見る
-            </Link>
           </div>
-        </div>
-
-        <div className="grid items-start gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="border border-zinc-200 bg-white">
-            <div className="border-b border-zinc-200 px-5 py-4">
-              <h2 className="text-sm font-bold text-zinc-950">入力ファイル</h2>
-            </div>
-            <div className="space-y-6 p-5">
-              <Step1PayPayUpload
-                file={payPayFile}
-                stats={payPayData?.stats ?? null}
-                error={payPayError}
-                onFileSelected={selectPayPayFile}
-              />
-              <div className="border-t border-zinc-200 pt-5">
-                <Step2MfmeFilter
-                  files={mfmeFiles}
-                  stats={mfmeData?.stats ?? null}
-                  fileStatsByName={mfmeFileStatsByName}
-                  errors={mfmeErrors}
-                  onFilesAdded={addMfmeFiles}
-                  onFileRemoved={removeMfmeFile}
-                  localImportedStats={recordStats}
-                />
-              </div>
-              <div className="border-t border-zinc-200 pt-4">
-                <CsvShareGuide />
-              </div>
-            </div>
-          </aside>
-
-          <div className="min-w-0 space-y-5">
-            <div className="border border-zinc-200 bg-white">
-              {canShowConversion ? (
-                <Step3FileList
-                  chunks={chunks}
-                  importedChunkKeys={importedChunkKeys}
-                  hasMfmeData={hasMfmeRecords}
-                  excludedByMfme={conversionResult.mfmeDuplicates}
-                  excludedByImportedRecords={
-                    conversionResult.importedDuplicates
-                  }
-                  onImport={handleImport}
-                  accountBalances={accountBalances}
-                  onSetBalance={setAccountBalance}
-                  onClearBalance={clearAccountBalance}
-                />
-              ) : (
-                <WorkspaceEmptyState
-                  hasPayPay={Boolean(payPayData)}
-                  hasOutput={hasOutput}
-                />
-              )}
-            </div>
-            <AuditPanel
-              hasPayPay={Boolean(payPayData)}
-              hasMfme={hasMfmeRecords}
-              candidates={conversionResult.mfmeCandidates}
+        ) : !showsWorkScreen || !payPayFile || !payPayData || !conversion ? (
+          <StartScreen
+            error={inputs.payPayError}
+            recordStats={recordStats}
+            reviewCandidateCount={reviewCandidateCount}
+            onFileSelected={inputs.selectPayPayFile}
+          />
+        ) : (
+          <div>
+            <h1 className="sr-only">
+              PayPayの取引履歴をMoneyForward MEへ取り込む
+            </h1>
+            <Step1PayPayUpload
+              file={payPayFile}
+              stats={payPayData.stats}
+              error={inputs.payPayError}
+              onFileSelected={inputs.selectPayPayFile}
             />
+            <StepConnector />
+            <Step2MfmeFilter
+              files={inputs.mfmeFiles}
+              fileStatsByName={
+                new Map(
+                  [...inputs.mfmeDataByName].map(([name, data]) => [
+                    name,
+                    data.stats,
+                  ]),
+                )
+              }
+              mfmeStats={mfmeData?.stats ?? null}
+              recordStats={recordStats}
+              hasNoMfmeHistory={state.hasNoMfmeHistory}
+              errors={inputs.mfmeErrors}
+              onFilesAdded={inputs.addMfmeFiles}
+              onFileRemoved={inputs.removeMfmeFile}
+              onNoMfmeHistoryChange={records.setHasNoMfmeHistory}
+            />
+            <StepConnector />
+            {isStep2Done ? (
+              <Step3FileList
+                lockedReason={null}
+                progress={progress}
+                totalCount={payPayData.transactions.length}
+                savedBeforeCount={conversion.importedDuplicates}
+                mfmeMatchedCount={conversion.mfmeDuplicates}
+                recordedCount={recordStats.count}
+                onImport={handleImport}
+                onNewFileSelected={inputs.selectPayPayFile}
+              />
+            ) : (
+              <Step3FileList lockedReason="手順2で答えるか、入出金履歴を追加すると表示されます" />
+            )}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5">
+              <ReviewLink candidateCount={reviewCandidateCount} />
+              <CsvShareGuide />
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       <AppFooter />
 
-      {pendingImport &&
-        (sessionShare ? (
-          <MfImportGuideModal
-            accountName={pendingImport.accountName}
-            isSharing={sessionShare.isSharing}
-            onImported={handleConfirmImport}
-            onCancel={handleDiscardImport}
-          />
-        ) : (
-          <PendingImportModal
-            pendingImport={pendingImport}
-            onConfirm={handleConfirmImport}
-            onDiscard={handleDiscardImport}
-          />
-        ))}
+      {modals}
     </div>
   );
 }

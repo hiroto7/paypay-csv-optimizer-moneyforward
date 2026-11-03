@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addCounts,
+  applyConfirmedImport,
+  clipCounts,
   countExclusions,
+  createBaselineCounts,
   createCountsFromKeys,
   createEmptyLocalExclusionState,
   createStatsFromTransactionCounts,
+  forgetOtherFileWork,
+  type LocalExclusionState,
   loadLocalExclusionState,
   type PendingImport,
   persistLocalExclusionState,
+  resetImportedRecords,
   saveLocalExclusionState,
+  subtractCounts,
 } from "./local-exclusion-store";
 
 const STORE_KEY = "paypay-csv-optimizer:local-exclusion-state:v1";
@@ -16,7 +23,7 @@ const STORE_KEY = "paypay-csv-optimizer:local-exclusion-state:v1";
 const pendingImport: PendingImport = {
   accountName: "PayPay残高",
   sharedAt: 1234567890,
-  balanceDelta: -290,
+  payPayFingerprint: "sha256:file-a",
   transactions: [
     {
       key: "2025/10/24_-190_PayPay残高_ダミーストアA",
@@ -64,44 +71,72 @@ describe("local exclusion store", () => {
     vi.stubGlobal("window", fakeWindow);
   });
 
-  it("取り込み確認記録を保存して復元できる", () => {
-    const initialState = {
+  it("取り込み確認記録と作業中の保存状況を保存して復元できる", () => {
+    const initialState: LocalExclusionState = {
       localImportedCounts: new Map([
-        ["2025/10/25_-100_PayPay残高_ダミーストアB", 1],
-      ]),
-      accountBalances: new Map([
-        ["PayPay残高", { amount: 12345, updatedAt: 1234567890 }],
+        ["2025/10/25_-100_PayPay残高_ダミーストアB", 2],
       ]),
       pendingImport: null,
+      currentWork: {
+        payPayFingerprint: "sha256:file-a",
+        savedCounts: new Map([["2025/10/25_-100_PayPay残高_ダミーストアB", 1]]),
+      },
+      hasNoMfmeHistory: true,
       updatedAt: 1234567890,
     };
 
     saveLocalExclusionState(initialState);
-    const restoredState = loadLocalExclusionState();
 
-    expect(
-      restoredState.localImportedCounts.get(
-        "2025/10/25_-100_PayPay残高_ダミーストアB",
-      ),
-    ).toBe(1);
-    expect(restoredState.accountBalances.get("PayPay残高")).toEqual({
-      amount: 12345,
-      updatedAt: 1234567890,
-    });
-    expect(restoredState.updatedAt).toBe(1234567890);
+    expect(loadLocalExclusionState()).toEqual(initialState);
   });
 
-  it("残高のない既存形式を空の残高として復元できる", () => {
+  it("作業中の保存状況を取り込み記録の範囲に切り詰めて復元する", () => {
     const storage = createMockStorage();
     storage.setItem(
-      "paypay-csv-optimizer:local-exclusion-state:v1",
-      '{"localImportedCounts":[["valid",1]],"updatedAt":1}',
+      STORE_KEY,
+      JSON.stringify({
+        localImportedCounts: [["a", 1]],
+        currentWork: {
+          payPayFingerprint: "sha256:file-a",
+          savedCounts: [
+            ["a", 3],
+            ["b", 1],
+          ],
+        },
+        updatedAt: 1,
+      }),
+    );
+    vi.stubGlobal("window", { localStorage: storage });
+
+    expect(loadLocalExclusionState().currentWork).toEqual({
+      payPayFingerprint: "sha256:file-a",
+      savedCounts: new Map([["a", 1]]),
+    });
+  });
+
+  it("廃止した口座残高と残高の増減額を読み込まず、保存し直す", () => {
+    const storage = createMockStorage();
+    const { payPayFingerprint: _, ...legacyPendingImport } = pendingImport;
+    storage.setItem(
+      STORE_KEY,
+      JSON.stringify({
+        localImportedCounts: [["valid", 1]],
+        accountBalances: [["PayPay残高", { amount: 1000, updatedAt: 1 }]],
+        pendingImport: { ...legacyPendingImport, balanceDelta: -290 },
+        updatedAt: 1,
+      }),
     );
     vi.stubGlobal("window", { localStorage: storage });
 
     const state = loadLocalExclusionState();
     expect(state.localImportedCounts).toEqual(new Map([["valid", 1]]));
-    expect(state.accountBalances).toEqual(new Map());
+    expect(state.pendingImport).toEqual({
+      ...legacyPendingImport,
+      payPayFingerprint: null,
+    });
+    const rewritten = JSON.parse(storage.getItem(STORE_KEY) ?? "{}");
+    expect(rewritten).not.toHaveProperty("accountBalances");
+    expect(rewritten.pendingImport).not.toHaveProperty("balanceDelta");
   });
 
   it("破損した保存値から非有限カウントを復元しない", () => {
@@ -114,19 +149,6 @@ describe("local exclusion store", () => {
 
     expect(loadLocalExclusionState().localImportedCounts).toEqual(
       new Map([["valid", 2]]),
-    );
-  });
-
-  it("破損した口座残高を復元しない", () => {
-    const storage = createMockStorage();
-    storage.setItem(
-      "paypay-csv-optimizer:local-exclusion-state:v1",
-      '{"localImportedCounts":[],"accountBalances":[["PayPay残高",{"amount":1000,"updatedAt":1}],["小数",{"amount":1.5,"updatedAt":1}],["無限",{"amount":1e400,"updatedAt":1}]],"updatedAt":1}',
-    );
-    vi.stubGlobal("window", { localStorage: storage });
-
-    expect(loadLocalExclusionState().accountBalances).toEqual(
-      new Map([["PayPay残高", { amount: 1000, updatedAt: 1 }]]),
     );
   });
 
@@ -185,13 +207,19 @@ describe("local exclusion store", () => {
     expect(state.localImportedCounts).toEqual(new Map([["valid", 1]]));
   });
 
-  it("記録・残高・保存待ちのどれかがあれば保存し、すべてなければ削除する", () => {
+  it("記録・保存待ち・手順2の回答のどれかがあれば保存し、すべてなければ削除する", () => {
     const storage = createMockStorage();
     vi.stubGlobal("window", { localStorage: storage });
 
     persistLocalExclusionState({
       ...createEmptyLocalExclusionState(),
       pendingImport,
+    });
+    expect(storage.getItem(STORE_KEY)).not.toBeNull();
+
+    persistLocalExclusionState({
+      ...createEmptyLocalExclusionState(),
+      hasNoMfmeHistory: true,
     });
     expect(storage.getItem(STORE_KEY)).not.toBeNull();
 
@@ -263,8 +291,156 @@ describe("createEmptyLocalExclusionState", () => {
     const state = createEmptyLocalExclusionState();
 
     expect(state.localImportedCounts.size).toBe(0);
-    expect(state.accountBalances.size).toBe(0);
     expect(state.pendingImport).toBeNull();
+    expect(state.currentWork).toBeNull();
+    expect(state.hasNoMfmeHistory).toBe(false);
     expect(state.updatedAt).toBeNull();
+  });
+});
+
+describe("subtractCounts / clipCounts", () => {
+  it("件数を差し引き、0件以下のキーは残さない", () => {
+    expect(
+      subtractCounts(
+        new Map([
+          ["a", 3],
+          ["b", 1],
+        ]),
+        new Map([
+          ["a", 1],
+          ["b", 2],
+        ]),
+      ),
+    ).toEqual(new Map([["a", 2]]));
+  });
+
+  it("上限を超える件数を切り詰める", () => {
+    expect(
+      clipCounts(
+        new Map([
+          ["a", 3],
+          ["b", 1],
+        ]),
+        new Map([["a", 2]]),
+      ),
+    ).toEqual(new Map([["a", 2]]));
+  });
+});
+
+describe("作業中の保存状況", () => {
+  const keyA = "2025/10/24_-190_PayPay残高_ダミーストアA";
+  const keyB = "2025/10/25_-100_PayPay残高_ダミー'ストアB";
+
+  const withPending = (
+    state: LocalExclusionState,
+    payPayFingerprint: string | null,
+  ): LocalExclusionState => ({
+    ...state,
+    pendingImport: { ...pendingImport, payPayFingerprint },
+  });
+
+  it("保存を確認すると、記録と今のファイルの保存状況の両方に加える", () => {
+    const state = applyConfirmedImport(
+      withPending(createEmptyLocalExclusionState(), "sha256:file-a"),
+      10,
+    );
+
+    expect(state.pendingImport).toBeNull();
+    expect(state.localImportedCounts).toEqual(
+      new Map([
+        [keyA, 1],
+        [keyB, 1],
+      ]),
+    );
+    expect(state.currentWork).toEqual({
+      payPayFingerprint: "sha256:file-a",
+      savedCounts: new Map([
+        [keyA, 1],
+        [keyB, 1],
+      ]),
+    });
+  });
+
+  it("同じファイルで保存しても、作成対象から除外する件数は変わらない", () => {
+    const before: LocalExclusionState = {
+      ...createEmptyLocalExclusionState(),
+      localImportedCounts: new Map([["earlier", 1]]),
+    };
+    const after = applyConfirmedImport(
+      withPending(before, "sha256:file-a"),
+      10,
+    );
+
+    expect(createBaselineCounts(after, "sha256:file-a")).toEqual(
+      createBaselineCounts(before, "sha256:file-a"),
+    );
+    expect(createBaselineCounts(after, "sha256:file-b")).toEqual(
+      after.localImportedCounts,
+    );
+  });
+
+  it("別のファイルで保存すると、前のファイルの保存状況を置き換える", () => {
+    const first = applyConfirmedImport(
+      withPending(createEmptyLocalExclusionState(), "sha256:file-a"),
+      10,
+    );
+    const second = applyConfirmedImport(
+      {
+        ...first,
+        pendingImport: {
+          ...pendingImport,
+          payPayFingerprint: "sha256:file-b",
+          transactions: pendingImport.transactions.slice(0, 1),
+        },
+      },
+      20,
+    );
+
+    expect(second.currentWork).toEqual({
+      payPayFingerprint: "sha256:file-b",
+      savedCounts: new Map([[keyA, 1]]),
+    });
+    expect(second.localImportedCounts.get(keyA)).toBe(2);
+  });
+
+  it("以前の形式の保存待ちは記録にだけ加える", () => {
+    const state = applyConfirmedImport(
+      withPending(createEmptyLocalExclusionState(), null),
+      10,
+    );
+
+    expect(state.localImportedCounts.size).toBe(2);
+    expect(state.currentWork).toBeNull();
+  });
+
+  it("PayPayの取引履歴を替えたら保存状況だけを忘れ、同じファイルなら残す", () => {
+    const state = applyConfirmedImport(
+      withPending(createEmptyLocalExclusionState(), "sha256:file-a"),
+      10,
+    );
+
+    expect(forgetOtherFileWork(state, "sha256:file-a", 20)).toBe(state);
+    const changed = forgetOtherFileWork(state, "sha256:file-b", 20);
+    expect(changed.currentWork).toBeNull();
+    expect(changed.localImportedCounts).toEqual(state.localImportedCounts);
+  });
+
+  it("入出金履歴の変更では記録と保存状況をリセットし、保存待ちと回答は残す", () => {
+    const state = resetImportedRecords(
+      {
+        ...applyConfirmedImport(
+          withPending(createEmptyLocalExclusionState(), "sha256:file-a"),
+          10,
+        ),
+        pendingImport,
+        hasNoMfmeHistory: true,
+      },
+      20,
+    );
+
+    expect(state.localImportedCounts.size).toBe(0);
+    expect(state.currentWork).toBeNull();
+    expect(state.pendingImport).toEqual(pendingImport);
+    expect(state.hasNoMfmeHistory).toBe(true);
   });
 });
