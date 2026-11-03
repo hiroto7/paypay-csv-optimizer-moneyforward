@@ -136,7 +136,7 @@ export default function Guide() {
             <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
               <p>
                 PayPayの取引履歴とMoneyForward
-                MEの入出金履歴の両方を読み込むと、「重複登録・口座間違いを確認する」から、重複登録や口座間違いの可能性がある明細を確認できます。
+                MEの入出金履歴を選ぶと、「重複登録・口座間違いを確認する」のページで、重複登録や口座間違いの可能性がある明細を確認できます。取り込みの手順を進めなくても、このページでファイルを選べます。
               </p>
               <p>
                 修正が必要な場合は、MoneyForward ME側で手動で行ってください。

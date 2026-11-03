@@ -58,7 +58,7 @@ function AnswerOption({
   );
 }
 
-function MfmeFileManager({
+export function MfmeFileManager({
   files,
   fileStatsByName,
   errors,

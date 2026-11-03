@@ -9,8 +9,8 @@ export default function ReviewCandidateList({
   candidates,
 }: ReviewCandidateListProps) {
   return (
-    <div>
-      <div className="flex gap-2 border-y border-amber-200 bg-amber-50 px-5 py-4 text-xs leading-5 text-amber-950 sm:px-7">
+    <div className="space-y-3">
+      <div className="flex gap-2 border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-950">
         <ListChecks className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <div>
           <p className="font-bold">MoneyForward MEで確認する手順</p>
@@ -21,11 +21,14 @@ export default function ReviewCandidateList({
           </ol>
         </div>
       </div>
-      <ul className="divide-y divide-zinc-200" aria-label="要確認の明細">
+      <ul
+        className="divide-y divide-zinc-200 border border-zinc-200"
+        aria-label="要確認の明細"
+      >
         {candidates.map((candidate) => (
           <li
             key={candidate.key}
-            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 px-5 py-3 text-sm sm:px-7"
+            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 px-3 py-2.5 text-sm"
           >
             <span className="break-words font-medium text-zinc-900">
               {candidate.content}

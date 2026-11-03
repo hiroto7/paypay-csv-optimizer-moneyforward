@@ -5,7 +5,7 @@ import StepCard from "~/components/StepCard";
 import type { FileStats } from "~/services/csv-date";
 
 interface Step1PayPayUploadProps {
-  file: File;
+  file: File | null;
   stats: FileStats | null;
   error: string;
   onFileSelected: (file: File | null) => void;
@@ -17,6 +17,34 @@ export default function Step1PayPayUpload({
   error,
   onFileSelected,
 }: Step1PayPayUploadProps) {
+  const errorAlert = error ? (
+    <div
+      className="flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
+      role="alert"
+    >
+      <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <p>{error}</p>
+    </div>
+  ) : null;
+
+  if (!file) {
+    return (
+      <StepCard number={1} title="PayPayの取引履歴を選ぶ" status="current">
+        <div className="space-y-3">
+          <CsvFilePicker
+            id="paypay-csv-input"
+            label="PayPayの取引履歴を選ぶ"
+            onFilesSelected={(files) => {
+              const nextFile = files?.[0];
+              if (nextFile) onFileSelected(nextFile);
+            }}
+          />
+          {errorAlert}
+        </div>
+      </StepCard>
+    );
+  }
+
   return (
     <StepCard
       number={1}
@@ -50,15 +78,7 @@ export default function Step1PayPayUpload({
         </>
       }
     >
-      {error ? (
-        <div
-          className="flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
-          role="alert"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>{error}</p>
-        </div>
-      ) : undefined}
+      {errorAlert ?? undefined}
     </StepCard>
   );
 }
