@@ -379,10 +379,10 @@ test("MoneyForward MEの入出金履歴を先に受け取ってもPayPayの取�
     .poll(() => readStoredInputFileNames(page))
     .toEqual({ payPay: null, mfme: ["moneyforward-history.csv"] });
 
-  // 入出金履歴があってもPayPayの取引履歴がなければ、要確認明細のリンクは出さない。
+  // PayPayの取引履歴がなければ件数は出さず、要確認明細のページへのリンクだけを出す。
   await expect(
     page.getByRole("link", { name: /重複登録・口座間違いを確認する/ }),
-  ).toHaveCount(0);
+  ).toHaveText("重複登録・口座間違いを確認する");
 });
 
 test("重複登録と口座間違いの候補を別のページで表示できる", async ({ page }) => {
@@ -397,9 +397,8 @@ test("重複登録と口座間違いの候補を別のページで表示でき�
   await expect(reviewLink).toContainText("2件");
   await reviewLink.click();
   await expect(page).toHaveURL(/\/review$/);
-  await expect(
-    page.getByRole("heading", { name: "要確認の明細 2件" }),
-  ).toBeVisible();
+  const resultStep = page.getByRole("region", { name: "要確認の明細" });
+  await expect(resultStep).toContainText("2件あります。");
   const candidates = page.getByRole("list", { name: "要確認の明細" });
   await expect(candidates.getByRole("listitem")).toHaveCount(2);
   await expect(candidates).toContainText("口座：別の口座");
@@ -411,20 +410,34 @@ test("重複登録と口座間違いの候補を別のページで表示でき�
   await expect(importStep(page)).toBeVisible();
 });
 
-test("要確認明細のページは、ファイルが足りないときに案内を表示する", async ({
+test("要確認明細のページで、取り込みを進めずにファイルを選んで確認できる", async ({
   page,
 }) => {
-  await page.goto("/review");
+  const reviewLink = page.getByRole("link", {
+    name: /重複登録・口座間違いを確認する/,
+  });
+  await expect(reviewLink).toHaveText("重複登録・口座間違いを確認する");
+  await reviewLink.click();
+  await expect(page).toHaveURL(/\/review$/);
   await expect(
-    page.getByText("PayPayの取引履歴を選んでください。", { exact: true }),
+    page.getByText("手順1と手順2のファイルを選ぶと表示されます"),
   ).toBeVisible();
+  await expect(page).toHaveScreenshot("review-empty.png", { fullPage: true });
 
-  await page.goto("/");
   await selectPayPayCsv(page);
-  await page.goto("/review");
+  await page.locator("#mfme-csv-input").setInputFiles({
+    name: "moneyforward-history.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(auditMfmeCsv),
+  });
   await expect(
-    page.getByText("MoneyForward MEの入出金履歴を追加してください。", {
-      exact: true,
-    }),
-  ).toBeVisible();
+    page.getByRole("list", { name: "要確認の明細" }).getByRole("listitem"),
+  ).toHaveCount(2);
+
+  // 選んだファイルは作業画面と共有する。
+  await page.getByRole("link", { name: "アプリに戻る" }).click();
+  await expect(payPayStep(page).getByText("paypay-history.csv")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "登録済みの明細" }),
+  ).toContainText("入出金履歴 1ファイル");
 });

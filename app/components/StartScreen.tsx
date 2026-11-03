@@ -159,9 +159,7 @@ export default function StartScreen({
           </div>
         )}
         <div className="flex flex-wrap items-center justify-center gap-x-5">
-          {reviewCandidateCount !== null && (
-            <ReviewLink candidateCount={reviewCandidateCount} />
-          )}
+          <ReviewLink candidateCount={reviewCandidateCount} />
           <CsvShareGuide />
           <Link
             to="/guide"

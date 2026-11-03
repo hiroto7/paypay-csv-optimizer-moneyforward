@@ -1,41 +1,15 @@
-import { AlertCircle, UploadCloud, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import { useEffect, useState } from "react";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
 import CsvShareGuide from "~/components/CsvShareGuide";
-import MfImportGuideModal from "~/components/MfImportGuideModal";
-import MfmeChangeConfirmModal from "~/components/MfmeChangeConfirmModal";
-import PendingImportModal from "~/components/PendingImportModal";
-import Pp2mfShareTargetModal from "~/components/Pp2mfShareTargetModal";
-import type { RecordCoverage } from "~/components/RecordCoverageNotice";
+import NoticeBanner from "~/components/NoticeBanner";
 import ReviewLink from "~/components/ReviewLink";
-import SharedFilesConfirmModal from "~/components/SharedFilesConfirmModal";
 import StartScreen from "~/components/StartScreen";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
 import Step2MfmeFilter from "~/components/Step2MfmeFilter";
 import Step3FileList from "~/components/Step3FileList";
 import { StepConnector } from "~/components/StepCard";
-import {
-  type MfmeChangePreview,
-  type SharedFilesPreview,
-  useInputFilesStore,
-} from "~/hooks/useInputFilesStore";
-import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
-import type { CsvRecord } from "~/services/csv-schema";
-import { markSavedChunks } from "~/services/import-progress";
-import {
-  countExclusions,
-  createBaselineCounts,
-  createStatsFromTransactionCounts,
-  getSavedCountsForFile,
-} from "~/services/local-exclusion-store";
-import { countRecordsCoveredByMfme } from "~/services/mfme-reconciliation";
-import {
-  createChunksFromGroupedTransactions,
-  filterTransactionsBySources,
-} from "~/services/paypay-csv";
-import { shareCsv, shareFile } from "~/utils/csv-share";
+import { useWorkspace } from "~/hooks/useWorkspace";
 import type { Route } from "./+types/home";
 
 const pageTitle = "PayPayの決済をMoneyForward MEにストレスなく取り込み | PP2MF";
@@ -59,304 +33,47 @@ export function meta(_args: Route.MetaArgs) {
   ];
 }
 
-type PendingConfirmation<T> = {
-  preview: T;
-  resolve: (confirmed: boolean) => void;
-};
-
 export default function Home() {
-  const records = useLocalImportRecords();
-  // 保存待ちのうち、今回の作業で共有したもの。再読み込み後は空になり、再訪時の確認として扱う。
-  const [sessionShare, setSessionShare] = useState<{
-    isSharing: boolean;
-  } | null>(null);
-  const [mfmeConfirmation, setMfmeConfirmation] =
-    useState<PendingConfirmation<MfmeChangePreview> | null>(null);
-  const [sharedFilesConfirmation, setSharedFilesConfirmation] =
-    useState<PendingConfirmation<SharedFilesPreview> | null>(null);
-  const { hasImportedRecords } = records;
-
-  const confirmMfmeChange = useCallback(
-    (preview: MfmeChangePreview) =>
-      hasImportedRecords()
-        ? new Promise<boolean>((resolve) =>
-            setMfmeConfirmation({ preview, resolve }),
-          )
-        : Promise.resolve(true),
-    [hasImportedRecords],
-  );
-
-  const confirmSharedFiles = useCallback(
-    (preview: SharedFilesPreview) =>
-      new Promise<boolean>((resolve) =>
-        setSharedFilesConfirmation({ preview, resolve }),
-      ),
-    [],
-  );
-
   // この画面を開いてから作業画面を表示したか。開いた時点ですべて保存済みなら最初の画面を表示するが、
   // ファイルを選んだり保存したりしたあとは、完了しても作業画面のまま結果を見せる。
   const [hasEnteredWork, setHasEnteredWork] = useState(false);
-  const { changePayPayFile } = records;
-  const handlePayPayFileChanged = useCallback(
-    (payPayFingerprint: string | null) => {
-      changePayPayFile(payPayFingerprint);
-      if (payPayFingerprint !== null) setHasEnteredWork(true);
-    },
-    [changePayPayFile],
-  );
-
-  const inputs = useInputFilesStore({
-    onPayPayFileChanged: handlePayPayFileChanged,
-    onMfmeFilesChanged: records.resetImportedRecords,
-    hasPendingImport: records.hasPendingImport,
-    confirmMfmeChange,
-    confirmSharedFiles,
-  });
   const {
+    records,
+    inputs,
+    state,
     payPayFile,
     payPayData,
     mfmeData,
-    deferredShare,
-    resumeDeferredShare,
-    discardDeferredShare,
-  } = inputs;
-  const { state, discardPendingImport } = records;
-  const { pendingImport } = state;
-  const payPayFingerprint = payPayData?.fingerprint ?? null;
+    conversion,
+    progress,
+    recordStats,
+    reviewCandidateCount,
+    isReady,
+    handleImport,
+    modals,
+  } = useWorkspace({ onWorkStarted: () => setHasEnteredWork(true) });
 
-  const conversion = useMemo(() => {
-    if (!payPayData) return null;
-    return filterTransactionsBySources(
-      payPayData.transactions,
-      mfmeData?.records ?? [],
-      createBaselineCounts(state, payPayFingerprint),
-    );
-  }, [payPayData, mfmeData, state, payPayFingerprint]);
-
-  const progress = useMemo(() => {
-    const chunks =
-      payPayData && conversion
-        ? createChunksFromGroupedTransactions(
-            conversion.groupedTransactions,
-            payPayData.headers,
-          )
-        : {};
-    return markSavedChunks(
-      chunks,
-      getSavedCountsForFile(state, payPayFingerprint),
-    );
-  }, [payPayData, conversion, state, payPayFingerprint]);
-
-  const recordStats = useMemo(
-    () => createStatsFromTransactionCounts(state.localImportedCounts),
-    [state.localImportedCounts],
-  );
-
-  const createCoverage = useCallback(
-    (nextRecords: readonly CsvRecord[]): RecordCoverage => {
-      const { covered, uncoveredCounts } = countRecordsCoveredByMfme(
-        state.localImportedCounts,
-        nextRecords,
-      );
-      return {
-        recordCount: countExclusions(state.localImportedCounts),
-        coveredCount: covered,
-        uncoveredStats: createStatsFromTransactionCounts(uncoveredCounts),
-      };
-    },
-    [state.localImportedCounts],
-  );
-
-  // 保存待ちの確認が終わったら、後回しにしていた共有ファイルを読み込む。
-  useEffect(() => {
-    if (pendingImport || !deferredShare) return;
-    if (deferredShare.kind === "pending") {
-      resumeDeferredShare();
-    } else {
-      discardDeferredShare();
-    }
-  }, [pendingImport, deferredShare, resumeDeferredShare, discardDeferredShare]);
-
-  const handleImport = async (
-    filename: string,
-    accountName: string,
-    index: number,
-  ) => {
-    const chunk = progress.accounts.find(({ name }) => name === accountName)
-      ?.chunks[index];
-    if (!chunk) return;
-
-    // 共有シートからMoneyForward MEへ移っている間にページが破棄されても確認できるよう、共有前に記録する。
-    flushSync(() => {
-      records.startPendingImport({
-        accountName,
-        sharedAt: Date.now(),
-        payPayFingerprint,
-        transactions: chunk.transactions,
-      });
-      setSessionShare({ isSharing: true });
-    });
-    try {
-      const shared = await shareCsv(filename, chunk.data);
-      if (!shared) {
-        discardPendingImport();
-        setSessionShare(null);
-        return;
-      }
-      setSessionShare((current) => (current ? { isSharing: false } : null));
-    } catch {
-      discardPendingImport();
-      setSessionShare(null);
-    }
-  };
-
-  const handleShareAgain = async (file: File) => {
-    setSessionShare({ isSharing: true });
-    try {
-      if (!(await shareFile(file))) {
-        setSessionShare(null);
-        return;
-      }
-      setSessionShare({ isSharing: false });
-      discardDeferredShare();
-    } catch {
-      setSessionShare(null);
-    }
-  };
-
-  const handleConfirmImport = () => {
-    records.confirmPendingImport();
-    setSessionShare(null);
-    setHasEnteredWork(true);
-  };
-
-  const handleDiscardImport = () => {
-    discardPendingImport();
-    setSessionShare(null);
-  };
-
-  const isReady = records.isLoaded && inputs.isReady;
   const isFinished = progress.accounts.length === 0 || progress.isComplete;
   const showsWorkScreen =
     Boolean(payPayFile && payPayData && conversion) &&
     (hasEnteredWork || !isFinished);
-  const reviewCandidateCount =
-    payPayData && mfmeData && conversion
-      ? conversion.mfmeCandidates.length
-      : null;
 
   // 作業画面を一度表示したら、完了しても最初の画面へ戻さない。
   useEffect(() => {
     if (showsWorkScreen) setHasEnteredWork(true);
   }, [showsWorkScreen]);
-  const hasRecords = recordStats.count > 0;
-  const isStep2Done =
-    hasRecords || inputs.mfmeFiles.length > 0 || state.hasNoMfmeHistory;
-  const notice = inputs.notice;
 
-  const renderModal = () => {
-    if (pendingImport && sessionShare) {
-      return (
-        <MfImportGuideModal
-          accountName={pendingImport.accountName}
-          transactionCount={pendingImport.transactions.length}
-          isSharing={sessionShare.isSharing}
-          onImported={handleConfirmImport}
-          onCancel={handleDiscardImport}
-        />
-      );
-    }
-    if (pendingImport && deferredShare?.kind === "pp2mf-output") {
-      return (
-        <Pp2mfShareTargetModal
-          fileName={deferredShare.file.name}
-          onShareAgain={() => void handleShareAgain(deferredShare.file)}
-          onCancel={handleDiscardImport}
-        />
-      );
-    }
-    if (pendingImport) {
-      return (
-        <PendingImportModal
-          pendingImport={pendingImport}
-          deferredFileNames={
-            deferredShare?.kind === "pending" ? deferredShare.fileNames : []
-          }
-          onConfirm={handleConfirmImport}
-          onDiscard={handleDiscardImport}
-        />
-      );
-    }
-    if (mfmeConfirmation) {
-      const answer = (confirmed: boolean) => {
-        mfmeConfirmation.resolve(confirmed);
-        setMfmeConfirmation(null);
-      };
-      return (
-        <MfmeChangeConfirmModal
-          preview={mfmeConfirmation.preview}
-          coverage={createCoverage(mfmeConfirmation.preview.nextRecords)}
-          onConfirm={() => answer(true)}
-          onCancel={() => answer(false)}
-        />
-      );
-    }
-    if (sharedFilesConfirmation) {
-      const { preview } = sharedFilesConfirmation;
-      const answer = (confirmed: boolean) => {
-        sharedFilesConfirmation.resolve(confirmed);
-        setSharedFilesConfirmation(null);
-      };
-      return (
-        <SharedFilesConfirmModal
-          preview={preview}
-          coverage={
-            hasRecords && preview.mfme.length > 0
-              ? createCoverage(preview.nextMfmeRecords)
-              : null
-          }
-          hasImportedRecords={hasRecords}
-          onConfirm={() => answer(true)}
-          onCancel={() => answer(false)}
-        />
-      );
-    }
-    return null;
-  };
+  const isStep2Done =
+    recordStats.count > 0 ||
+    inputs.mfmeFiles.length > 0 ||
+    state.hasNoMfmeHistory;
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
       <AppHeader />
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
-        {notice && (
-          <div
-            className={`mb-5 flex items-center justify-between gap-3 border px-4 py-2.5 text-sm ${
-              notice.tone === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                : "border-red-200 bg-red-50 text-red-800"
-            }`}
-            role={notice.tone === "error" ? "alert" : "status"}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              {notice.tone === "success" ? (
-                <UploadCloud className="size-4 shrink-0" aria-hidden="true" />
-              ) : (
-                <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-              )}
-              <p className="leading-5">{notice.message}</p>
-            </div>
-            <button
-              type="button"
-              onClick={inputs.dismissNotice}
-              className="inline-flex size-7 shrink-0 items-center justify-center hover:bg-black/5"
-              aria-label="通知を閉じる"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
-          </div>
-        )}
+        <NoticeBanner notice={inputs.notice} onDismiss={inputs.dismissNotice} />
 
         {!isReady ? (
           <div className="min-h-96" aria-busy="true">
@@ -417,9 +134,7 @@ export default function Home() {
               <Step3FileList lockedReason="手順2で答えるか、入出金履歴を追加すると表示されます" />
             )}
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5">
-              {reviewCandidateCount !== null && (
-                <ReviewLink candidateCount={reviewCandidateCount} />
-              )}
+              <ReviewLink candidateCount={reviewCandidateCount} />
               <CsvShareGuide />
             </div>
           </div>
@@ -428,7 +143,7 @@ export default function Home() {
 
       <AppFooter />
 
-      {renderModal()}
+      {modals}
     </div>
   );
 }
