@@ -24,26 +24,26 @@
     "csv-parse": "^7.0.3",
     "csv-stringify": "^6.9.0",
     "isbot": "^5.2.2",
-    "lucide-react": "^1.64.0",
+    "lucide-react": "^1.69.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^8.5.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.4",
+    "@biomejs/biome": "2.6.5",
     "@playwright/test": "1.64.1",
     "@react-router/dev": "^8.5.1",
     "@resvg/resvg-js": "^2.6.2",
-    "@tailwindcss/vite": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.4",
     "@tsconfig/strictest": "^2.0.8",
     "@types/node": "^26",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/web-app-manifest": "^1.0.9",
-    "knip": "^6.43.0",
+    "knip": "^6.44.1",
     "tailwindcss": "^4.1.13",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5",
-    "vitest": "^5.0.5"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   }
 }
