@@ -11,22 +11,9 @@ export default function ExclusionBreakdown({
 }: ExclusionBreakdownProps) {
   const excludedCount = savedBeforeCount + mfmeMatchedCount;
   const newCount = totalCount - excludedCount;
-  const segments = [
-    {
-      label: "前回までに保存した明細",
-      count: savedBeforeCount,
-      className: "bg-blue-600",
-    },
-    {
-      label: "入出金履歴に登録済みの明細",
-      count: mfmeMatchedCount,
-      className: "bg-blue-300",
-    },
-    {
-      label: "まだ登録していない明細",
-      count: newCount,
-      className: "bg-zinc-900",
-    },
+  const excluded = [
+    { label: "前回までに保存した明細", count: savedBeforeCount },
+    { label: "入出金履歴に登録済みの明細", count: mfmeMatchedCount },
   ].filter(({ count }) => count > 0);
 
   return (
@@ -36,26 +23,16 @@ export default function ExclusionBreakdown({
           ? `PayPayの取引履歴の${totalCount}件を取り込みます`
           : `PayPayの取引履歴の${totalCount}件のうち、未登録の${newCount}件を取り込みます`}
       </p>
-      {totalCount > 0 && (
-        <div className="mt-2 flex h-2.5 overflow-hidden" aria-hidden="true">
-          {segments.map(({ label, count, className }) => (
-            <span
-              key={label}
-              className={className}
-              style={{ width: `${(count / totalCount) * 100}%` }}
-            />
+      {excluded.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
+          {excluded.map(({ label, count }) => (
+            <li key={label} className="flex items-center gap-2">
+              <span>{label}</span>
+              <span className="ml-auto tabular-nums">{count}件</span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-      <ul className="mt-2 space-y-0.5 text-xs text-zinc-600">
-        {segments.map(({ label, count, className }) => (
-          <li key={label} className="flex items-center gap-2">
-            <span className={`size-2.5 shrink-0 ${className}`} />
-            <span>{label}</span>
-            <span className="ml-auto tabular-nums">{count}件</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
