@@ -26,7 +26,7 @@ test("作成結果と共有・保存確認モーダルを表示できる", async
 
   const step = importStep(page);
   await expect(
-    step.getByText("3件を取り込みます", { exact: true }),
+    step.getByText("PayPayの取引履歴の3件を取り込みます", { exact: true }),
   ).toBeVisible();
   await expect(step.getByText("0 / 2 口座")).toBeVisible();
   await expect(page).toHaveScreenshot("conversion-result.png", {
@@ -246,10 +246,9 @@ test("保存した口座はリロード後も保存済みのまま、すべて�
     "paypay-history-next.csv",
   );
   await expect(
-    step.getByText("まだ登録していない1件を取り込みます", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    step.getByText("PayPayの取引履歴の4件のうち、3件はもう登録されています。"),
+    step.getByText("PayPayの取引履歴の4件のうち、未登録の1件を取り込みます", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(step.getByText("前回までに保存した明細")).toBeVisible();
   await expect(step.getByText("0 / 1 口座")).toBeVisible();
@@ -368,17 +367,21 @@ test("PayPayの取引履歴を先に選んでも実際の除外件数を表示�
 
   const step = importStep(page);
   await expect(
-    step.getByText("まだ登録していない1件を取り込みます", { exact: true }),
+    step.getByText("PayPayの取引履歴の3件のうち、未登録の1件を取り込みます", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     step
       .getByRole("listitem")
       .filter({ hasText: "入出金履歴に登録済みの明細" }),
-  ).toContainText("2件を除外");
+  ).toContainText("2件");
 
   await page.reload();
 
   await expect(
-    step.getByText("まだ登録していない1件を取り込みます", { exact: true }),
+    step.getByText("PayPayの取引履歴の3件のうち、未登録の1件を取り込みます", {
+      exact: true,
+    }),
   ).toBeVisible();
 });

@@ -16,19 +16,16 @@ export default function ExclusionBreakdown({
       label: "前回までに保存した明細",
       count: savedBeforeCount,
       className: "bg-blue-600",
-      excluded: true,
     },
     {
       label: "入出金履歴に登録済みの明細",
       count: mfmeMatchedCount,
       className: "bg-blue-300",
-      excluded: true,
     },
     {
       label: "まだ登録していない明細",
       count: newCount,
       className: "bg-zinc-900",
-      excluded: false,
     },
   ].filter(({ count }) => count > 0);
 
@@ -36,14 +33,9 @@ export default function ExclusionBreakdown({
     <div>
       <p className="text-sm font-bold text-zinc-950">
         {excludedCount === 0
-          ? `${newCount}件を取り込みます`
-          : `まだ登録していない${newCount}件を取り込みます`}
+          ? `PayPayの取引履歴の${totalCount}件を取り込みます`
+          : `PayPayの取引履歴の${totalCount}件のうち、未登録の${newCount}件を取り込みます`}
       </p>
-      {excludedCount > 0 && (
-        <p className="mt-0.5 text-xs text-zinc-600">
-          {`PayPayの取引履歴の${totalCount}件のうち、${excludedCount}件はもう登録されています。`}
-        </p>
-      )}
       {totalCount > 0 && (
         <div className="mt-2 flex h-2.5 overflow-hidden" aria-hidden="true">
           {segments.map(({ label, count, className }) => (
@@ -56,22 +48,16 @@ export default function ExclusionBreakdown({
         </div>
       )}
       <ul className="mt-2 space-y-0.5 text-xs text-zinc-600">
-        {segments.map(({ label, count, className, excluded }) => (
+        {segments.map(({ label, count, className }) => (
           <li key={label} className="flex items-center gap-2">
             <span className={`size-2.5 shrink-0 ${className}`} />
             <span>{label}</span>
-            <span
-              className={`ml-auto tabular-nums ${
-                excluded ? "text-zinc-500" : "font-bold text-zinc-900"
-              }`}
-            >
-              {count}件{excluded ? "を除外" : ""}
-            </span>
+            <span className="ml-auto tabular-nums">{count}件</span>
           </li>
         ))}
       </ul>
       <p className="mt-1.5 text-[11px] leading-4 text-zinc-500">
-        件数は、支払い方法が「PayPay」で始まる明細を数えています。併用払いは支払い方法ごとに分けて数えます。
+        PayPay残高とPayPayポイントを組み合わせて支払った明細は、支払い方法ごとに1件ずつ数えます。
       </p>
     </div>
   );
