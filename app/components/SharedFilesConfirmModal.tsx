@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Share2, X } from "lucide-react";
+import { AlertTriangle, Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import Modal from "~/components/Modal";
@@ -167,9 +167,8 @@ export default function SharedFilesConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            className="inline-flex min-h-10 w-full items-center justify-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 sm:w-auto"
+            className="inline-flex min-h-10 w-full items-center justify-center bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 sm:w-auto"
           >
-            <Share2 className="size-4" aria-hidden="true" />
             {resetsRecords ? "読み込んで記録をリセットする" : "読み込む"}
           </button>
         )}
