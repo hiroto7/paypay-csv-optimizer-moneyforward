@@ -20,9 +20,16 @@ export default function MfmeChangeConfirmModal({
   return (
     <Modal title="保存した明細の記録をリセットしますか？" onClose={onCancel}>
       <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4">
-        <p className="text-sm leading-6 text-zinc-700">
-          {`「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。${isRemoval ? "" : "入出金履歴は、MoneyForward MEから最新のものを書き出して使ってください。"}`}
-        </p>
+        <div className="space-y-2 text-sm leading-6 text-zinc-700">
+          <p>
+            {`入出金履歴を変更すると、「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。`}
+          </p>
+          <p>
+            {isRemoval
+              ? "前回書き出したあとに変わった入出金履歴は、MoneyForward MEから最新のものを書き出し直して追加してください。"
+              : "正しく照合できるよう、今回選んだファイル以外も含めて、前回書き出したあとに変わった入出金履歴は、MoneyForward MEから最新のものを書き出し直して追加してください。"}
+          </p>
+        </div>
       </div>
       <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
         <button

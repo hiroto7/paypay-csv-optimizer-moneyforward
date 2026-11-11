@@ -53,9 +53,10 @@ test("初期画面をデスクトップとモバイルで表示できる", async
     "summary",
   );
   await expect(page.getByText(startDescription)).toBeVisible();
+  // 使い方へのリンクは、どの画面でもフッターにだけ置く。
   await expect(
     page.getByRole("main").getByRole("link", { name: "使い方" }),
-  ).toHaveAttribute("href", "/guide");
+  ).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("initial-desktop.png", {
     fullPage: true,

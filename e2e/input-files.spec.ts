@@ -169,7 +169,7 @@ test("記録があるときは入出金履歴の変更を確認し、やめれ�
   });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(
-    "「MoneyForward MEで保存した」記録（1件）をリセットします。入出金履歴は、MoneyForward MEから最新のものを書き出して使ってください。",
+    "入出金履歴を変更すると、「MoneyForward MEで保存した」記録（1件）をリセットします。正しく照合できるよう、今回選んだファイル以外も含めて、前回書き出したあとに変わった入出金履歴は、MoneyForward MEから最新のものを書き出し直して追加してください。",
   );
   await expect(page).toHaveScreenshot("mfme-change-confirm.png", {
     fullPage: true,

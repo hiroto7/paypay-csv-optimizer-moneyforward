@@ -6,7 +6,6 @@ import {
   Smartphone,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import CsvShareGuide from "~/components/CsvShareGuide";
 import FileStatsSummary from "~/components/FileStatsSummary";
@@ -161,12 +160,6 @@ export default function StartScreen({
         <div className="flex flex-wrap items-center justify-center gap-x-5">
           <ReviewLink candidateCount={reviewCandidateCount} />
           <CsvShareGuide />
-          <Link
-            to="/guide"
-            className="inline-flex min-h-8 items-center text-xs font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
-          >
-            使い方
-          </Link>
         </div>
       </div>
     </section>

@@ -120,9 +120,15 @@ export default function SharedFilesConfirmModal({
               </div>
             ))}
             {resetsRecords ? (
-              <p className="text-zinc-700">
-                {`読み込むと、「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。入出金履歴は、MoneyForward MEから最新のものを書き出して使ってください。`}
-              </p>
+              <div className="space-y-1 text-zinc-700">
+                <p>
+                  {`読み込むと、「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。`}
+                </p>
+                <p>
+                  正しく照合できるよう、共有したファイル以外も含めて、前回書き出したあとに変わった入出金履歴は、MoneyForward
+                  MEから最新のものを書き出し直して追加してください。
+                </p>
+              </div>
             ) : (
               <p>登録済みの明細の除外に使います。</p>
             )}
