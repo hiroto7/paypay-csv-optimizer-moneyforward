@@ -56,9 +56,6 @@ export default function ExclusionBreakdown({
           </li>
         ))}
       </ul>
-      <p className="mt-1.5 text-[11px] leading-4 text-zinc-500">
-        PayPay残高とPayPayポイントを組み合わせて支払った明細は、支払い方法ごとに1件ずつ数えます。
-      </p>
     </div>
   );
 }

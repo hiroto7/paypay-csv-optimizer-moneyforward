@@ -206,9 +206,7 @@ test("「ない」の回答はリロード後も残り、「ある」では入�
 
   await page.reload();
   const region = registeredStep(page);
-  await expect(
-    region.getByText("登録したことはありません（すべての明細を取り込みます）"),
-  ).toBeVisible();
+  await expect(region.getByText("スキップ", { exact: true })).toBeVisible();
   await expect(
     importStep(page).getByRole("button", { name: "PayPay残高を取り込む" }),
   ).toBeVisible();

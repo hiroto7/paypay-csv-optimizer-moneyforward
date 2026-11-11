@@ -187,7 +187,7 @@ export default function Step2MfmeFilter(props: Step2MfmeFilterProps) {
         number={2}
         title="MoneyForward MEに登録済みの明細"
         status="done"
-        summary="登録したことはありません（すべての明細を取り込みます）"
+        summary="スキップ"
         actions={
           <button
             type="button"
