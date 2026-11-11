@@ -2,6 +2,7 @@ import { AlertTriangle, Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import Modal from "~/components/Modal";
+import RecordResetNotice from "~/components/RecordResetNotice";
 import type { SharedFilesPreview } from "~/hooks/useInputFilesStore";
 
 interface SharedFilesConfirmModalProps {
@@ -120,14 +121,9 @@ export default function SharedFilesConfirmModal({
               </div>
             ))}
             {resetsRecords ? (
-              <div className="space-y-1 text-zinc-700">
-                <p>
-                  {`読み込むと、「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。`}
-                </p>
-                <p>
-                  正しく照合できるよう、共有したファイル以外も含めて、前回書き出したあとに変わった入出金履歴は、MoneyForward
-                  MEから最新のものを書き出し直して追加してください。
-                </p>
+              <div className="space-y-1 border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-950">
+                <p className="font-bold">保存した明細の記録をリセットします</p>
+                <RecordResetNotice kind="add" recordCount={recordCount} />
               </div>
             ) : (
               <p>登録済みの明細の除外に使います。</p>
@@ -169,7 +165,7 @@ export default function SharedFilesConfirmModal({
             onClick={onConfirm}
             className="inline-flex min-h-10 w-full items-center justify-center bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 sm:w-auto"
           >
-            {resetsRecords ? "読み込んで記録をリセットする" : "読み込む"}
+            {resetsRecords ? "リセットして読み込む" : "読み込む"}
           </button>
         )}
       </div>
