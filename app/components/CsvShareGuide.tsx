@@ -8,16 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import Modal from "~/components/Modal";
-
-type InstallChoice = {
-  outcome: "accepted" | "dismissed";
-  platform: string;
-};
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<InstallChoice>;
-};
+import { clearInstallPrompt, useInstallPrompt } from "~/utils/install-prompt";
 
 const isPp2mfInstalled = async (): Promise<boolean> => {
   const installedApps = await navigator.getInstalledRelatedApps?.();
@@ -40,8 +31,7 @@ export default function CsvShareGuide() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasInstalledInSession, setHasInstalledInSession] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
-  const [installPromptEvent, setInstallPromptEvent] =
-    useState<BeforeInstallPromptEvent | null>(null);
+  const installPromptEvent = useInstallPrompt();
   const [installError, setInstallError] = useState<string | null>(null);
   const isInstalled = hasInstalledInSession;
 
@@ -56,14 +46,13 @@ export default function CsvShareGuide() {
     }
   }, []);
 
+  // 新しいインストールの案内を受け取ったら、前回の失敗の表示を消す。
   useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPromptEvent(event as BeforeInstallPromptEvent);
-      setInstallError(null);
-    };
+    if (installPromptEvent) setInstallError(null);
+  }, [installPromptEvent]);
+
+  useEffect(() => {
     const handleAppInstalled = () => {
-      setInstallPromptEvent(null);
       setInstallError(null);
 
       // Android Chromeの実機調査では、承認直後と実インストール後の両方で
@@ -71,13 +60,8 @@ export default function CsvShareGuide() {
       void updateInstalledState();
     };
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
     return () => {
-      window.removeEventListener(
-        "beforeinstallprompt",
-        handleBeforeInstallPrompt,
-      );
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, [updateInstalledState]);
@@ -101,13 +85,13 @@ export default function CsvShareGuide() {
       setInstallError(null);
       await installPromptEvent.prompt();
       const choice = await installPromptEvent.userChoice;
-      setInstallPromptEvent(null);
+      clearInstallPrompt();
       if (choice.outcome === "dismissed") {
         setIsInstalling(false);
       }
     } catch (error) {
       console.error("Failed to show install prompt:", error);
-      setInstallPromptEvent(null);
+      clearInstallPrompt();
       setIsInstalling(false);
       setInstallError(
         "インストール画面を開けませんでした。ブラウザのメニューからインストールできるか確認してください。",

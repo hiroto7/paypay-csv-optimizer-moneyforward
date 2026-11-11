@@ -52,7 +52,7 @@ test("作成結果と共有・保存確認モーダルを表示できる", async
   ).toBeVisible();
   await expect(
     importDialog.getByText(
-      "この2件をこの端末に記録し、次回からは自動で除外します。押さないと、次回も取り込み用CSVに含まれます。",
+      "PP2MFに戻り、この画面の「MoneyForward MEで保存した」を押す",
     ),
   ).toBeVisible();
   await expect(
@@ -217,6 +217,9 @@ test("保存した口座はリロード後も保存済みのまま、すべて�
     step.getByText("取り込みが完了しました", { exact: true }),
   ).toBeVisible();
   await expect(step.getByText("2 / 2 口座を保存しました")).toBeVisible();
+  await expect(
+    step.getByText("PayPayの取引履歴の3件を取り込みました", { exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveScreenshot("import-complete.png", {
     fullPage: true,
   });

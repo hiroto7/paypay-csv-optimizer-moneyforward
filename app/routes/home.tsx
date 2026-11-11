@@ -126,7 +126,6 @@ export default function Home() {
                 totalCount={payPayData.transactions.length}
                 savedBeforeCount={conversion.importedDuplicates}
                 mfmeMatchedCount={conversion.mfmeDuplicates}
-                recordedCount={recordStats.count}
                 onImport={handleImport}
                 onNewFileSelected={inputs.selectPayPayFile}
               />

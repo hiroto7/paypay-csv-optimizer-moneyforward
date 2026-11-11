@@ -14,7 +14,6 @@ type Step3FileListProps =
       totalCount: number;
       savedBeforeCount: number;
       mfmeMatchedCount: number;
-      recordedCount: number;
       onImport: (
         filename: string,
         accountName: string,
@@ -44,7 +43,6 @@ export default function Step3FileList(props: Step3FileListProps) {
     totalCount,
     savedBeforeCount,
     mfmeMatchedCount,
-    recordedCount,
     onImport,
     onNewFileSelected,
   } = props;
@@ -75,9 +73,13 @@ export default function Step3FileList(props: Step3FileListProps) {
               ? "取り込む明細はありません"
               : "取り込みが完了しました"
           }
-          importedCount={importedCount}
-          excludedCount={savedBeforeCount + mfmeMatchedCount}
-          recordedCount={recordedCount}
+          description={
+            accounts.length === 0
+              ? null
+              : savedBeforeCount + mfmeMatchedCount === 0
+                ? `PayPayの取引履歴の${totalCount}件を取り込みました`
+                : `PayPayの取引履歴の${totalCount}件のうち、未登録の${importedCount}件を取り込みました`
+          }
           onNewFileSelected={onNewFileSelected}
         />
       </StepCard>

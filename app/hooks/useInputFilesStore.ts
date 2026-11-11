@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FileStats } from "~/services/csv-date";
 import {
   type PayPayParsedData,
   selectLatestPayPayFile,
@@ -30,7 +29,6 @@ export type { RejectedInputFile };
 // 入出金履歴を変更する前に、取り込み記録のリセットを確認するための内容。
 export type MfmeChangePreview = {
   kind: "add" | "remove";
-  files: { name: string; stats: FileStats | null }[];
 };
 
 // 共有で受け取ったファイルを読み込む前に、ファイルごとの扱いを確認するための内容。
@@ -213,10 +211,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
         for (const item of valid) nextData.set(item.file.name, item.data);
         const confirmed = await callbacksRef.current.confirmMfmeChange({
           kind: "add",
-          files: valid.map(({ file, data }) => ({
-            name: file.name,
-            stats: data.stats,
-          })),
         });
         if (!confirmed) {
           if (mountedRef.current) setMfmeErrors(rejected);
@@ -254,9 +248,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
         nextData.delete(name);
         const confirmed = await callbacksRef.current.confirmMfmeChange({
           kind: "remove",
-          files: [
-            { name, stats: current.mfmeDataByName.get(name)?.stats ?? null },
-          ],
         });
         if (!confirmed) return;
 

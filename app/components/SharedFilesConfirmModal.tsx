@@ -121,7 +121,7 @@ export default function SharedFilesConfirmModal({
             ))}
             {resetsRecords ? (
               <p className="text-zinc-700">
-                {`読み込むと、「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。PayPayの明細を登録した期間の入出金履歴は、もれなく追加してください。`}
+                {`読み込むと、「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。入出金履歴は、MoneyForward MEから最新のものを書き出して使ってください。`}
               </p>
             ) : (
               <p>登録済みの明細の除外に使います。</p>

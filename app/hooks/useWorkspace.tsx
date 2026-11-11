@@ -213,7 +213,6 @@ export function useWorkspace({
       return (
         <MfImportGuideModal
           accountName={pendingImport.accountName}
-          transactionCount={pendingImport.transactions.length}
           isSharing={sessionShare.isSharing}
           onImported={handleConfirmImport}
           onCancel={handleDiscardImport}
