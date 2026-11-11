@@ -104,11 +104,9 @@ test("受け取ったファイルの扱いを確認し、やめれば何も変�
   await expect(dialog).toContainText(
     "pp2mf-paypay残高.csv：PP2MFで作成した取り込み用CSVです。",
   );
-  await expect(
-    dialog.getByText(
-      "記録2件のうち1件は、変更後の入出金履歴に含まれています。",
-    ),
-  ).toBeVisible();
+  await expect(dialog).toContainText(
+    "読み込むと、「MoneyForward MEで保存した」記録（2件）をリセットします。PayPayの明細を登録した期間の入出金履歴は、もれなく追加してください。",
+  );
   await expect(page).toHaveScreenshot("shared-files-confirm.png", {
     fullPage: true,
   });

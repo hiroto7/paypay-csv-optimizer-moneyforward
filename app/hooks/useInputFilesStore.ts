@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FileStats } from "~/services/csv-date";
-import type { CsvRecord } from "~/services/csv-schema";
 import {
   type PayPayParsedData,
   selectLatestPayPayFile,
@@ -32,7 +31,6 @@ export type { RejectedInputFile };
 export type MfmeChangePreview = {
   kind: "add" | "remove";
   files: { name: string; stats: FileStats | null }[];
-  nextRecords: CsvRecord[];
 };
 
 // 共有で受け取ったファイルを読み込む前に、ファイルごとの扱いを確認するための内容。
@@ -42,7 +40,6 @@ export type SharedFilesPreview = {
   currentPayPayFile: File | null;
   unusedPayPayFiles: File[];
   mfme: { file: File; data: MfmeParsedResult; replaces: boolean }[];
-  nextMfmeRecords: CsvRecord[];
   rejected: RejectedInputFile[];
 };
 
@@ -220,8 +217,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
             name: file.name,
             stats: data.stats,
           })),
-          nextRecords:
-            combineMfmeData(nextFiles.mfmeFiles, nextData)?.records ?? [],
         });
         if (!confirmed) {
           if (mountedRef.current) setMfmeErrors(rejected);
@@ -262,8 +257,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
           files: [
             { name, stats: current.mfmeDataByName.get(name)?.stats ?? null },
           ],
-          nextRecords:
-            combineMfmeData(nextFiles.mfmeFiles, nextData)?.records ?? [],
         });
         if (!confirmed) return;
 
@@ -364,8 +357,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
             (currentFile) => currentFile.name === file.name,
           ),
         })),
-        nextMfmeRecords:
-          combineMfmeData(nextMfmeFiles, nextMfmeData)?.records ?? [],
         rejected: [
           ...pp2mfOutputs.map((file) => ({
             name: file.name,

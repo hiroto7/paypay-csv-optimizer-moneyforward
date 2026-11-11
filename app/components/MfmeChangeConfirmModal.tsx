@@ -1,20 +1,18 @@
 import FileStatsSummary from "~/components/FileStatsSummary";
 import Modal from "~/components/Modal";
-import RecordCoverageNotice, {
-  type RecordCoverage,
-} from "~/components/RecordCoverageNotice";
 import type { MfmeChangePreview } from "~/hooks/useInputFilesStore";
 
 interface MfmeChangeConfirmModalProps {
   preview: MfmeChangePreview;
-  coverage: RecordCoverage;
+  // リセットする「MoneyForward MEで保存した」記録の件数。
+  recordCount: number;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export default function MfmeChangeConfirmModal({
   preview,
-  coverage,
+  recordCount,
   onConfirm,
   onCancel,
 }: MfmeChangeConfirmModalProps) {
@@ -43,11 +41,8 @@ export default function MfmeChangeConfirmModal({
           </ul>
         </div>
         <p className="text-sm leading-6 text-zinc-700">
-          MoneyForward MEの入出金履歴を変更すると、この端末の「MoneyForward
-          MEで保存した」記録（{coverage.recordCount}
-          件）をリセットし、今後は入出金履歴をもとに登録済みの明細を判断します。
+          {`「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。PayPayの明細を登録した期間の入出金履歴は、もれなく追加してください。`}
         </p>
-        <RecordCoverageNotice coverage={coverage} />
       </div>
       <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
         <button

@@ -168,14 +168,9 @@ test("記録があるときは入出金履歴の変更を確認し、やめれ�
     name: "保存した明細の記録をリセットしますか？",
   });
   await expect(dialog).toBeVisible();
-  await expect(
-    dialog.getByText(
-      "記録1件のうち0件は、変更後の入出金履歴に含まれています。",
-    ),
-  ).toBeVisible();
-  await expect(
-    dialog.getByText(/含まれていない1件（2025\/10\/24）/),
-  ).toBeVisible();
+  await expect(dialog).toContainText(
+    "「MoneyForward MEで保存した」記録（1件）をリセットします。PayPayの明細を登録した期間の入出金履歴は、もれなく追加してください。",
+  );
   await expect(page).toHaveScreenshot("mfme-change-confirm.png", {
     fullPage: true,
   });

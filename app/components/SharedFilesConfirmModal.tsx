@@ -2,16 +2,13 @@ import { AlertTriangle, Check, Share2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import Modal from "~/components/Modal";
-import RecordCoverageNotice, {
-  type RecordCoverage,
-} from "~/components/RecordCoverageNotice";
 import type { SharedFilesPreview } from "~/hooks/useInputFilesStore";
 
 interface SharedFilesConfirmModalProps {
   preview: SharedFilesPreview;
   // 取り込み記録があり、入出金履歴を読み込む場合だけ渡す。
-  coverage: RecordCoverage | null;
-  hasImportedRecords: boolean;
+  // 入出金履歴を読み込むとリセットする「MoneyForward MEで保存した」記録の件数。
+  recordCount: number;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -46,8 +43,7 @@ function FileGroup({
 
 export default function SharedFilesConfirmModal({
   preview,
-  coverage,
-  hasImportedRecords,
+  recordCount,
   onConfirm,
   onCancel,
 }: SharedFilesConfirmModalProps) {
@@ -61,7 +57,7 @@ export default function SharedFilesConfirmModal({
     })),
     ...preview.rejected,
   ];
-  const resetsRecords = mfme.length > 0 && hasImportedRecords;
+  const resetsRecords = mfme.length > 0 && recordCount > 0;
   const title =
     loadableCount === 0
       ? "共有されたファイルを読み込めませんでした"
@@ -93,9 +89,6 @@ export default function SharedFilesConfirmModal({
               {currentPayPayFile
                 ? "今のPayPayの取引履歴と置き換えます。"
                 : "この取引履歴で作業します。"}
-              {hasImportedRecords &&
-                !resetsRecords &&
-                "保存した明細の記録はそのまま使います。"}
             </p>
           </FileGroup>
         )}
@@ -126,15 +119,10 @@ export default function SharedFilesConfirmModal({
                 {replaces && <p>同じ名前のファイルと置き換えます。</p>}
               </div>
             ))}
-            {resetsRecords && coverage ? (
-              <>
-                <p className="text-zinc-700">
-                  読み込むと、この端末の「MoneyForward MEで保存した」記録（
-                  {coverage.recordCount}
-                  件）をリセットし、今後は入出金履歴をもとに登録済みの明細を判断します。
-                </p>
-                <RecordCoverageNotice coverage={coverage} />
-              </>
+            {resetsRecords ? (
+              <p className="text-zinc-700">
+                {`読み込むと、「MoneyForward MEで保存した」記録（${recordCount}件）をリセットします。PayPayの明細を登録した期間の入出金履歴は、もれなく追加してください。`}
+              </p>
             ) : (
               <p>登録済みの明細の除外に使います。</p>
             )}

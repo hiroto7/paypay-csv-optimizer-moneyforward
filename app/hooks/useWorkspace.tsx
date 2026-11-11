@@ -11,7 +11,6 @@ import MfImportGuideModal from "~/components/MfImportGuideModal";
 import MfmeChangeConfirmModal from "~/components/MfmeChangeConfirmModal";
 import PendingImportModal from "~/components/PendingImportModal";
 import Pp2mfShareTargetModal from "~/components/Pp2mfShareTargetModal";
-import type { RecordCoverage } from "~/components/RecordCoverageNotice";
 import SharedFilesConfirmModal from "~/components/SharedFilesConfirmModal";
 import {
   type MfmeChangePreview,
@@ -19,7 +18,6 @@ import {
   useInputFilesStore,
 } from "~/hooks/useInputFilesStore";
 import { useLocalImportRecords } from "~/hooks/useLocalImportRecords";
-import type { CsvRecord } from "~/services/csv-schema";
 import { markSavedChunks } from "~/services/import-progress";
 import {
   countExclusions,
@@ -27,7 +25,6 @@ import {
   createStatsFromTransactionCounts,
   getSavedCountsForFile,
 } from "~/services/local-exclusion-store";
-import { countRecordsCoveredByMfme } from "~/services/mfme-reconciliation";
 import {
   createChunksFromGroupedTransactions,
   filterTransactionsBySources,
@@ -134,20 +131,7 @@ export function useWorkspace({
     [state.localImportedCounts],
   );
 
-  const createCoverage = useCallback(
-    (nextRecords: readonly CsvRecord[]): RecordCoverage => {
-      const { covered, uncoveredCounts } = countRecordsCoveredByMfme(
-        state.localImportedCounts,
-        nextRecords,
-      );
-      return {
-        recordCount: countExclusions(state.localImportedCounts),
-        coveredCount: covered,
-        uncoveredStats: createStatsFromTransactionCounts(uncoveredCounts),
-      };
-    },
-    [state.localImportedCounts],
-  );
+  const recordCount = countExclusions(state.localImportedCounts);
 
   // 保存待ちの確認が終わったら、後回しにしていた共有ファイルを読み込む。
   useEffect(() => {
@@ -223,7 +207,6 @@ export function useWorkspace({
     payPayData && mfmeData && conversion
       ? conversion.mfmeCandidates.length
       : null;
-  const hasRecords = recordStats.count > 0;
 
   const renderModal = () => {
     if (pendingImport && sessionShare) {
@@ -266,7 +249,7 @@ export function useWorkspace({
       return (
         <MfmeChangeConfirmModal
           preview={mfmeConfirmation.preview}
-          coverage={createCoverage(mfmeConfirmation.preview.nextRecords)}
+          recordCount={recordCount}
           onConfirm={() => answer(true)}
           onCancel={() => answer(false)}
         />
@@ -281,12 +264,7 @@ export function useWorkspace({
       return (
         <SharedFilesConfirmModal
           preview={preview}
-          coverage={
-            hasRecords && preview.mfme.length > 0
-              ? createCoverage(preview.nextMfmeRecords)
-              : null
-          }
-          hasImportedRecords={hasRecords}
+          recordCount={recordCount}
           onConfirm={() => answer(true)}
           onCancel={() => answer(false)}
         />

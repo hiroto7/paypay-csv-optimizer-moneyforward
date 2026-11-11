@@ -9,7 +9,8 @@ export default function ExclusionBreakdown({
   savedBeforeCount,
   mfmeMatchedCount,
 }: ExclusionBreakdownProps) {
-  const newCount = totalCount - savedBeforeCount - mfmeMatchedCount;
+  const excludedCount = savedBeforeCount + mfmeMatchedCount;
+  const newCount = totalCount - excludedCount;
   const segments = [
     {
       label: "前回までに保存した明細",
@@ -34,10 +35,15 @@ export default function ExclusionBreakdown({
   return (
     <div>
       <p className="text-sm font-bold text-zinc-950">
-        {newCount === totalCount
-          ? `取り込み対象の明細${totalCount}件を取り込みます`
-          : `取り込み対象の明細${totalCount}件のうち、${newCount}件を取り込みます`}
+        {excludedCount === 0
+          ? `${newCount}件を取り込みます`
+          : `まだ登録していない${newCount}件を取り込みます`}
       </p>
+      {excludedCount > 0 && (
+        <p className="mt-0.5 text-xs text-zinc-600">
+          {`PayPayの取引履歴の${totalCount}件のうち、${excludedCount}件はもう登録されています。`}
+        </p>
+      )}
       {totalCount > 0 && (
         <div className="mt-2 flex h-2.5 overflow-hidden" aria-hidden="true">
           {segments.map(({ label, count, className }) => (
@@ -65,7 +71,7 @@ export default function ExclusionBreakdown({
         ))}
       </ul>
       <p className="mt-1.5 text-[11px] leading-4 text-zinc-500">
-        取り込み対象は、支払い方法が「PayPay」で始まる明細です。併用払いは支払い方法ごとに分けて数えます。
+        件数は、支払い方法が「PayPay」で始まる明細を数えています。併用払いは支払い方法ごとに分けて数えます。
       </p>
     </div>
   );
