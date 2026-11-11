@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AccountImportCard from "~/components/AccountImportCard";
+import CsvFilePicker from "~/components/CsvFilePicker";
 import ExclusionBreakdown from "~/components/ExclusionBreakdown";
 import ImportCompletionCard from "~/components/ImportCompletionCard";
 import StepCard from "~/components/StepCard";
@@ -55,30 +56,42 @@ export default function Step3FileList(props: Step3FileListProps) {
     />
   );
 
-  if (accounts.length === 0 || isComplete) {
+  // 選んだ取引履歴に取り込む明細がないのは完了ではないため、注意として示す。
+  if (accounts.length === 0) {
+    return (
+      <StepCard
+        number={3}
+        title={TITLE}
+        status="attention"
+        summary="この取引履歴の明細は、すべて登録済みです"
+      >
+        <CsvFilePicker
+          id="paypay-csv-input-next"
+          label="新しい取引履歴を選ぶ"
+          variant="primary"
+          onFilesSelected={(files) => {
+            const file = files?.[0];
+            if (file) onNewFileSelected(file);
+          }}
+        />
+      </StepCard>
+    );
+  }
+
+  if (isComplete) {
     return (
       <StepCard
         number={3}
         title={TITLE}
         status="done"
-        summary={
-          accounts.length === 0
-            ? "この取引履歴の明細は、すべて登録済みです"
-            : `${savedAccountCount} / ${accounts.length} 口座を保存しました`
-        }
+        summary={`${savedAccountCount} / ${accounts.length} 口座を保存しました`}
       >
         <ImportCompletionCard
-          title={
-            accounts.length === 0
-              ? "取り込む明細はありません"
-              : "取り込みが完了しました"
-          }
+          title="取り込みが完了しました"
           description={
-            accounts.length === 0
-              ? null
-              : savedBeforeCount + mfmeMatchedCount === 0
-                ? `PayPayの取引履歴の${totalCount}件を取り込みました`
-                : `PayPayの取引履歴の${totalCount}件のうち、未登録の${importedCount}件を取り込みました`
+            savedBeforeCount + mfmeMatchedCount === 0
+              ? `PayPayの取引履歴の${totalCount}件を取り込みました`
+              : `PayPayの取引履歴の${totalCount}件のうち、未登録の${importedCount}件を取り込みました`
           }
           onNewFileSelected={onNewFileSelected}
         />

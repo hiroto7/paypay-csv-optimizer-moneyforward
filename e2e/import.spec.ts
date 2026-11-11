@@ -277,9 +277,7 @@ test("選んだ取引履歴がすべて登録済みでも、作業画面で結�
   await expect(
     step.getByText("この取引履歴の明細は、すべて登録済みです"),
   ).toBeVisible();
-  await expect(
-    step.getByText("取り込む明細はありません", { exact: true }),
-  ).toBeVisible();
+  await expect(step.getByLabel("要確認")).toBeVisible();
 });
 
 test("分割した取り込み用CSVの一部を保存しても、残りを維持する", async ({

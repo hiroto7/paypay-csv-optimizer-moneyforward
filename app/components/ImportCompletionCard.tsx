@@ -1,9 +1,8 @@
-import { CheckCircle2 } from "lucide-react";
 import CsvFilePicker from "~/components/CsvFilePicker";
 
 interface ImportCompletionCardProps {
   title: string;
-  description: string | null;
+  description: string;
   onNewFileSelected: (file: File) => void;
 }
 
@@ -14,15 +13,9 @@ export default function ImportCompletionCard({
 }: ImportCompletionCardProps) {
   return (
     <div className="space-y-4">
-      <div className="text-center">
-        <CheckCircle2
-          className="mx-auto size-10 text-emerald-600"
-          aria-hidden="true"
-        />
-        <p className="mt-2 text-base font-bold text-zinc-950">{title}</p>
-        {description && (
-          <p className="mt-1 text-sm text-zinc-600">{description}</p>
-        )}
+      <div>
+        <p className="text-base font-bold text-zinc-950">{title}</p>
+        <p className="mt-1 text-sm text-zinc-600">{description}</p>
       </div>
       <div>
         <p className="text-xs font-bold text-zinc-800">次回の使い方</p>
