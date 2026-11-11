@@ -111,26 +111,6 @@ export default function Guide() {
 
           <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
             <h2 className="text-base font-bold text-zinc-950">
-              2回目以降に使う
-            </h2>
-            <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
-              <p>
-                「MoneyForward
-                MEで保存した」を押した明細はこの端末に記録され、次回以降は自動で除外されます。2回目からは、新しいPayPayの取引履歴を選ぶだけで、まだ登録していない明細だけを取り込めます。期間が前回と重なっても構いません。MoneyForward
-                MEの入出金履歴を追加し直す必要はありません。
-              </p>
-              <p>
-                MoneyForward
-                MEの入出金履歴を追加・削除すると、確認したうえでこの記録をリセットし、以降は入出金履歴をもとに登録済みの明細を判断します。
-              </p>
-              <p>
-                記録はこの端末のブラウザにだけ保存されます。別の端末やブラウザで使う場合は、MoneyForward
-                MEの入出金履歴を追加してください。
-              </p>
-            </div>
-          </section>
-          <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
-            <h2 className="text-base font-bold text-zinc-950">
               重複登録・口座間違いの明細を見つける
             </h2>
             <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
