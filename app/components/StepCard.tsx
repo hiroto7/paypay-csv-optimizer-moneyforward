@@ -1,7 +1,8 @@
-import { Check } from "lucide-react";
+import { AlertTriangle, Check } from "lucide-react";
 import { type ReactNode, useId } from "react";
 
-type StepStatus = "current" | "done" | "locked";
+// attentionは、手順は終わったが確認してほしい結果があることを示す。
+type StepStatus = "current" | "done" | "attention" | "locked";
 
 interface StepCardProps {
   number: number;
@@ -36,13 +37,17 @@ export default function StepCard({
           className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
             status === "done"
               ? "bg-emerald-600 text-white"
-              : status === "locked"
-                ? "bg-zinc-200 text-zinc-500"
-                : "bg-zinc-900 text-white"
+              : status === "attention"
+                ? "bg-amber-500 text-white"
+                : status === "locked"
+                  ? "bg-zinc-200 text-zinc-500"
+                  : "bg-zinc-900 text-white"
           }`}
         >
           {status === "done" ? (
             <Check className="size-4" aria-label="完了" />
+          ) : status === "attention" ? (
+            <AlertTriangle className="size-4" aria-label="要確認" />
           ) : (
             number
           )}

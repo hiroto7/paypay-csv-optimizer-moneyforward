@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
@@ -51,8 +51,7 @@ export default function Review() {
           </h1>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
             PayPayの取引履歴と同じ日付・金額・内容の明細のうち、口座が違うものや、件数が多いものをMoneyForward
-            MEの入出金履歴から探します。重複か口座間違いかは判定せず、MoneyForward
-            MEの明細も変更しません。
+            MEの入出金履歴から探します。
           </p>
         </div>
 
@@ -104,24 +103,16 @@ export default function Review() {
               <StepCard
                 number={3}
                 title="要確認の明細"
-                status="done"
+                status={candidates.length > 0 ? "attention" : "done"}
                 summary={
                   candidates.length > 0
                     ? `${candidates.length}件あります。MoneyForward MEで内容と口座を確認してください。`
-                    : "見つかりませんでした"
+                    : "読み込んだ入出金履歴の範囲では、見つかりませんでした"
                 }
               >
                 {candidates.length > 0 ? (
                   <ReviewCandidateList candidates={candidates} />
-                ) : (
-                  <p className="flex items-center gap-2 text-sm text-zinc-700">
-                    <CheckCircle2
-                      className="size-5 shrink-0 text-emerald-600"
-                      aria-hidden="true"
-                    />
-                    読み込んだ入出金履歴の範囲では、要確認の明細は見つかりませんでした。
-                  </p>
-                )}
+                ) : undefined}
               </StepCard>
             )}
           </div>
