@@ -125,7 +125,7 @@ export default function StartScreen({
               className="flex items-center gap-1.5 text-sm font-bold text-blue-950"
             >
               <History className="size-4 shrink-0" aria-hidden="true" />
-              前回までに保存した明細を記録しています
+              「MoneyForward MEで保存した」を押した明細を記録しています
             </h2>
             <div className="mt-1 text-xs text-blue-900">
               <FileStatsSummary stats={recordStats} />

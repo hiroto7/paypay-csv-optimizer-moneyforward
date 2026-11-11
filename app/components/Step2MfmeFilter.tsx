@@ -154,14 +154,11 @@ export default function Step2MfmeFilter(props: Step2MfmeFilterProps) {
             {hasRecords && (
               <div className="border border-blue-200 bg-blue-50 px-3 py-3 text-xs leading-5 text-zinc-700">
                 <p className="font-semibold text-blue-950">
-                  「MoneyForward MEで保存した」明細
+                  「MoneyForward MEで保存した」を押した明細
                 </p>
                 <div className="mt-1">
                   <FileStatsSummary stats={recordStats} />
                 </div>
-                <p className="mt-1">
-                  この端末に記録しています。次回以降も自動で除外するので、入出金履歴を追加し直す必要はありません。
-                </p>
               </div>
             )}
             <div>

@@ -12,7 +12,10 @@ export default function ExclusionBreakdown({
   const excludedCount = savedBeforeCount + mfmeMatchedCount;
   const newCount = totalCount - excludedCount;
   const excluded = [
-    { label: "前回までに保存した明細", count: savedBeforeCount },
+    {
+      label: "「MoneyForward MEで保存した」を押した明細",
+      count: savedBeforeCount,
+    },
     { label: "入出金履歴に登録済みの明細", count: mfmeMatchedCount },
   ].filter(({ count }) => count > 0);
 

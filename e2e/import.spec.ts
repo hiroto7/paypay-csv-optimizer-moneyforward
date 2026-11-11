@@ -229,7 +229,7 @@ test("保存した口座はリロード後も保存済みのまま、すべて�
   await expect(page.getByRole("heading", { name: startHeading })).toBeVisible();
   await expect(step).toHaveCount(0);
   const recordsNotice = page.getByRole("region", {
-    name: "前回までに保存した明細を記録しています",
+    name: "「MoneyForward MEで保存した」を押した明細を記録しています",
   });
   await expect(recordsNotice).toContainText("3件");
   await expect(recordsNotice).toContainText(
@@ -253,7 +253,9 @@ test("保存した口座はリロード後も保存済みのまま、すべて�
       exact: true,
     }),
   ).toBeVisible();
-  await expect(step.getByText("前回までに保存した明細")).toBeVisible();
+  await expect(
+    step.getByText("「MoneyForward MEで保存した」を押した明細"),
+  ).toBeVisible();
   await expect(step.getByText("0 / 1 口座")).toBeVisible();
 });
 
