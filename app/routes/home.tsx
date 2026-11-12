@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
 import CsvShareGuide from "~/components/CsvShareGuide";
@@ -34,9 +34,6 @@ export function meta(_args: Route.MetaArgs) {
 }
 
 export default function Home() {
-  // この画面を開いてから作業画面を表示したか。開いた時点ですべて保存済みなら最初の画面を表示するが、
-  // ファイルを選んだり保存したりしたあとは、完了しても作業画面のまま結果を見せる。
-  const [hasEnteredWork, setHasEnteredWork] = useState(false);
   const {
     records,
     inputs,
@@ -49,9 +46,11 @@ export default function Home() {
     recordStats,
     reviewCandidateCount,
     isReady,
+    hasEnteredWork,
+    enterWork,
     handleImport,
     modals,
-  } = useWorkspace({ onWorkStarted: () => setHasEnteredWork(true) });
+  } = useWorkspace();
 
   const isFinished = progress.accounts.length === 0 || progress.isComplete;
   const showsWorkScreen =
@@ -60,8 +59,8 @@ export default function Home() {
 
   // 作業画面を一度表示したら、完了しても最初の画面へ戻さない。
   useEffect(() => {
-    if (showsWorkScreen) setHasEnteredWork(true);
-  }, [showsWorkScreen]);
+    if (showsWorkScreen) enterWork();
+  }, [showsWorkScreen, enterWork]);
 
   const isStep2Done =
     recordStats.count > 0 ||

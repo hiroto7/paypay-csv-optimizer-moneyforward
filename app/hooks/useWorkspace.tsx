@@ -5,7 +5,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { flushSync } from "react-dom";
@@ -42,14 +41,11 @@ type PendingConfirmation<T> = {
   resolve: (confirmed: boolean) => void;
 };
 
-type WorkStartedListener = () => void;
-
 // 入力ファイル・取り込み記録・確認画面の状態を求める。WorkspaceProviderから一度だけ呼ぶ。
-function useWorkspaceState(notifyWorkStarted: WorkStartedListener) {
-  const onWorkStartedRef = useRef<WorkStartedListener | undefined>(
-    notifyWorkStarted,
-  );
-  onWorkStartedRef.current = notifyWorkStarted;
+function useWorkspaceState() {
+  // 起動してから作業画面を表示したか。PayPayの取引履歴を選んだ・受け取ったときと、保存を確認したときにも立てる。
+  const [hasEnteredWork, setHasEnteredWork] = useState(false);
+  const enterWork = useCallback(() => setHasEnteredWork(true), []);
   const records = useLocalImportRecords();
   // 保存待ちのうち、今回の作業で共有したもの。再読み込み後は空になり、再訪時の確認として扱う。
   const [sessionShare, setSessionShare] = useState<{
@@ -83,9 +79,9 @@ function useWorkspaceState(notifyWorkStarted: WorkStartedListener) {
   const handlePayPayFileChanged = useCallback(
     (payPayFingerprint: string | null) => {
       changePayPayFile(payPayFingerprint);
-      if (payPayFingerprint !== null) onWorkStartedRef.current?.();
+      if (payPayFingerprint !== null) enterWork();
     },
-    [changePayPayFile],
+    [changePayPayFile, enterWork],
   );
 
   const inputs = useInputFilesStore({
@@ -198,7 +194,7 @@ function useWorkspaceState(notifyWorkStarted: WorkStartedListener) {
   const handleConfirmImport = () => {
     records.confirmPendingImport();
     setSessionShare(null);
-    onWorkStartedRef.current?.();
+    enterWork();
   };
 
   const handleDiscardImport = () => {
@@ -327,54 +323,29 @@ function useWorkspaceState(notifyWorkStarted: WorkStartedListener) {
     recordStats,
     reviewCandidateCount,
     isReady,
+    hasEnteredWork,
+    enterWork,
     handleImport,
     modals,
   };
 }
 
-type WorkspaceContextValue = {
-  workspace: ReturnType<typeof useWorkspaceState>;
-  workStartedListeners: Set<WorkStartedListener>;
-};
-
-const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+const WorkspaceContext = createContext<ReturnType<
+  typeof useWorkspaceState
+> | null>(null);
 
 // 作業画面と要確認明細のページで、入力ファイル・取り込み記録・確認画面を共有する。
 // ページを移るたびに端末から読み込み直して画面が空になることを避けるため、状態はページより上で一度だけ持つ。
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [workStartedListeners] = useState(() => new Set<WorkStartedListener>());
-  const workspace = useWorkspaceState(() => {
-    for (const listener of workStartedListeners) listener();
-  });
-
   return (
-    <WorkspaceContext value={{ workspace, workStartedListeners }}>
-      {children}
-    </WorkspaceContext>
+    <WorkspaceContext value={useWorkspaceState()}>{children}</WorkspaceContext>
   );
 }
 
-export function useWorkspace({
-  onWorkStarted,
-}: {
-  // PayPayの取引履歴を選んだ・受け取ったときと、保存を確認したときに呼ぶ。
-  onWorkStarted?: () => void;
-} = {}) {
-  const context = useContext(WorkspaceContext);
-  if (!context) {
+export function useWorkspace() {
+  const workspace = useContext(WorkspaceContext);
+  if (!workspace) {
     throw new Error("useWorkspace must be used within WorkspaceProvider");
   }
-  const { workspace, workStartedListeners } = context;
-  const onWorkStartedRef = useRef(onWorkStarted);
-  onWorkStartedRef.current = onWorkStarted;
-
-  useEffect(() => {
-    const listener = () => onWorkStartedRef.current?.();
-    workStartedListeners.add(listener);
-    return () => {
-      workStartedListeners.delete(listener);
-    };
-  }, [workStartedListeners]);
-
   return workspace;
 }
