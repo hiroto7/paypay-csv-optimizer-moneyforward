@@ -98,11 +98,13 @@ test("受け取ったファイルの扱いを確認し、やめれば何も変�
   await expect(dialog).toHaveAccessibleName("2件を読み込みますか？");
   await expect(dialog.getByText("paypay-new.csv")).toBeVisible();
   await expect(dialog).toContainText(
-    "paypay-old.csv：PayPayの取引履歴は1つだけ使います。期間が新しいほうを使います。",
+    "paypay-old.csv：期間が古い取引履歴です。",
   );
-  await expect(dialog).toContainText("memo.csv：");
   await expect(dialog).toContainText(
-    "pp2mf-paypay残高.csv：PP2MFで作成した取り込み用CSVです。",
+    "memo.csv：対応していないCSVファイルです。",
+  );
+  await expect(dialog).toContainText(
+    "pp2mf-paypay残高.csv：PP2MFで作成したCSVです。",
   );
   await expect(dialog).toContainText(
     "保存した明細の記録をリセットします入出金履歴を変更すると、「MoneyForward MEで保存した」記録（2件）をリセットします。正しく照合できるよう、今回のファイル以外も含めて、前回書き出したあとに変わった入出金履歴は、MoneyForward MEから最新のものを書き出し直して追加してください。",

@@ -48,13 +48,12 @@ export default function SharedFilesConfirmModal({
   onConfirm,
   onCancel,
 }: SharedFilesConfirmModalProps) {
-  const { fileCount, payPay, currentPayPayFile, unusedPayPayFiles, mfme } =
-    preview;
+  const { fileCount, payPay, unusedPayPayFiles, mfme } = preview;
   const loadableCount = (payPay ? 1 : 0) + mfme.length;
   const skipped = [
     ...unusedPayPayFiles.map((file) => ({
       name: file.name,
-      reason: "PayPayの取引履歴は1つだけ使います。期間が新しいほうを使います。",
+      reason: "期間が古い取引履歴です。",
     })),
     ...preview.rejected,
   ];
@@ -86,11 +85,6 @@ export default function SharedFilesConfirmModal({
               </p>
               <FileStatsSummary stats={payPay.data.stats} />
             </div>
-            <p>
-              {currentPayPayFile
-                ? "今のPayPayの取引履歴と置き換えます。"
-                : "この取引履歴で作業します。"}
-            </p>
           </FileGroup>
         )}
 

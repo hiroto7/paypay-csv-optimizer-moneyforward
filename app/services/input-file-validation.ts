@@ -31,17 +31,15 @@ export const validateInputFile = async (
   }
   const type = detectCsvFileType(content);
 
-  if (type === "unknown") {
-    throw new Error(
-      "PayPayの取引履歴またはMoneyForward MEの入出金履歴に必要な列がありません。",
-    );
-  }
   if (expectedType && type !== expectedType) {
     throw new Error(
       expectedType === "paypay"
         ? "PayPayの取引履歴のCSVファイルを選んでください。"
         : "MoneyForward MEの入出金履歴のCSVファイルを選んでください。",
     );
+  }
+  if (type === "unknown") {
+    throw new Error("対応していないCSVファイルです。");
   }
 
   if (type === "paypay") {

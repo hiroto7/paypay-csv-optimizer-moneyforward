@@ -35,7 +35,6 @@ export type MfmeChangePreview = {
 export type SharedFilesPreview = {
   fileCount: number;
   payPay: { file: File; data: PayPayParsedData } | null;
-  currentPayPayFile: File | null;
   unusedPayPayFiles: File[];
   mfme: { file: File; data: MfmeParsedResult; replaces: boolean }[];
   rejected: RejectedInputFile[];
@@ -55,8 +54,7 @@ type InputState = {
 type InputOperation = (current: InputState) => Promise<void>;
 
 const SHARED_FILES_PARAM = "shared-files";
-const PP2MF_OUTPUT_REASON =
-  "PP2MFで作成した取り込み用CSVです。共有シートではMoneyForward MEを選んでください。";
+const PP2MF_OUTPUT_REASON = "PP2MFで作成したCSVです。";
 
 const emptyInputState = (): InputState => ({
   files: { payPayFile: null, mfmeFiles: [] },
@@ -337,7 +335,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
       const confirmed = await callbacksRef.current.confirmSharedFiles({
         fileCount: files.length,
         payPay: payPay && { file: payPay.file, data: payPay.data },
-        currentPayPayFile: current.files.payPayFile,
         unusedPayPayFiles: payPayFiles
           .filter((item) => item !== payPay)
           .map(({ file }) => file),
