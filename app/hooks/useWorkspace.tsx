@@ -1,6 +1,8 @@
 import {
+  createContext,
   type ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -40,16 +42,14 @@ type PendingConfirmation<T> = {
   resolve: (confirmed: boolean) => void;
 };
 
-// 作業画面と要確認明細のページで、入力ファイル・取り込み記録・確認画面を共有する。
-// 状態は端末に保存したものから復元するため、どちらのページから操作しても同じ結果になる。
-export function useWorkspace({
-  onWorkStarted,
-}: {
-  // PayPayの取引履歴を選んだ・受け取ったときと、保存を確認したときに呼ぶ。
-  onWorkStarted?: () => void;
-} = {}) {
-  const onWorkStartedRef = useRef(onWorkStarted);
-  onWorkStartedRef.current = onWorkStarted;
+type WorkStartedListener = () => void;
+
+// 入力ファイル・取り込み記録・確認画面の状態を求める。WorkspaceProviderから一度だけ呼ぶ。
+function useWorkspaceState(notifyWorkStarted: WorkStartedListener) {
+  const onWorkStartedRef = useRef<WorkStartedListener | undefined>(
+    notifyWorkStarted,
+  );
+  onWorkStartedRef.current = notifyWorkStarted;
   const records = useLocalImportRecords();
   // 保存待ちのうち、今回の作業で共有したもの。再読み込み後は空になり、再訪時の確認として扱う。
   const [sessionShare, setSessionShare] = useState<{
@@ -330,4 +330,51 @@ export function useWorkspace({
     handleImport,
     modals,
   };
+}
+
+type WorkspaceContextValue = {
+  workspace: ReturnType<typeof useWorkspaceState>;
+  workStartedListeners: Set<WorkStartedListener>;
+};
+
+const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+
+// 作業画面と要確認明細のページで、入力ファイル・取り込み記録・確認画面を共有する。
+// ページを移るたびに端末から読み込み直して画面が空になることを避けるため、状態はページより上で一度だけ持つ。
+export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const [workStartedListeners] = useState(() => new Set<WorkStartedListener>());
+  const workspace = useWorkspaceState(() => {
+    for (const listener of workStartedListeners) listener();
+  });
+
+  return (
+    <WorkspaceContext value={{ workspace, workStartedListeners }}>
+      {children}
+    </WorkspaceContext>
+  );
+}
+
+export function useWorkspace({
+  onWorkStarted,
+}: {
+  // PayPayの取引履歴を選んだ・受け取ったときと、保存を確認したときに呼ぶ。
+  onWorkStarted?: () => void;
+} = {}) {
+  const context = useContext(WorkspaceContext);
+  if (!context) {
+    throw new Error("useWorkspace must be used within WorkspaceProvider");
+  }
+  const { workspace, workStartedListeners } = context;
+  const onWorkStartedRef = useRef(onWorkStarted);
+  onWorkStartedRef.current = onWorkStarted;
+
+  useEffect(() => {
+    const listener = () => onWorkStartedRef.current?.();
+    workStartedListeners.add(listener);
+    return () => {
+      workStartedListeners.delete(listener);
+    };
+  }, [workStartedListeners]);
+
+  return workspace;
 }
