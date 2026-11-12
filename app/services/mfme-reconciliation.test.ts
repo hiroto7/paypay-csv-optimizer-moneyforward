@@ -66,6 +66,16 @@ describe("reconcileMfmeTransactions", () => {
     expect(new Set(result.candidates.map(({ key }) => key)).size).toBe(2);
   });
 
+  it("別のファイルに同じIDの要確認明細があっても、キーを重複させないこと", () => {
+    const result = reconcileCsvs(
+      SINGLE_PAYMENT_ROW,
+      "1,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,id01\n1,2025/10/24,ダミーストアA,-190,別の口座,食費,食費,メモ,,id01",
+    );
+
+    expect(result.candidates).toHaveLength(2);
+    expect(new Set(result.candidates.map(({ key }) => key)).size).toBe(2);
+  });
+
   it("同じ取引が双方に2件あればすべて一致させること", () => {
     const result = reconcileCsvs(
       `${SINGLE_PAYMENT_ROW}\n${createSecondSinglePaymentRow()}`,

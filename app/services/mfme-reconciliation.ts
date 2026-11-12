@@ -79,6 +79,9 @@ export const reconcileMfmeTransactions = (
     }
   }
 
+  // 期間の重なる入出金履歴を別のファイルで追加すると、同じ明細IDの候補が並ぶことがあるため、
+  // 2件目以降は行の位置を加えて区別する。
+  const usedCandidateKeys = new Set<string>();
   const candidates = [...recordsByKey.values()].flatMap(
     ({ records, consumed }) =>
       records.slice(consumed).flatMap(({ record, index }) => {
@@ -89,9 +92,15 @@ export const reconcileMfmeTransactions = (
         );
         if (!payPayBaseKeys.has(baseKey)) return [];
 
+        const candidateKey = createMfmeCandidateKey(record, index);
+        const key = usedCandidateKeys.has(candidateKey)
+          ? `${candidateKey}_${index}`
+          : candidateKey;
+        usedCandidateKeys.add(key);
+
         return [
           {
-            key: createMfmeCandidateKey(record, index),
+            key,
             date: record[MFME_COLUMNS.date] ?? "",
             amount: normalizeAmount(record[MFME_COLUMNS.amount]),
             content: record[MFME_COLUMNS.content] ?? "",
