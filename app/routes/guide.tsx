@@ -61,10 +61,25 @@ export default function Guide() {
             </p>
           </div>
 
-          <section className="px-5 py-5 sm:px-7 sm:py-6">
+          <section
+            id="why-pp2mf"
+            className="scroll-mt-4 px-5 py-5 sm:px-7 sm:py-6"
+          >
             <h2 className="text-base font-bold text-zinc-950">
               なぜPP2MFを使うのか
             </h2>
+            {/* biome-ignore lint/a11y/useMediaCaption: 音声のない動画で、字幕にする内容がない。同じ説明を直後の本文に書いている。 */}
+            <video
+              className="mt-3 aspect-video h-auto w-full border border-zinc-200 bg-zinc-100"
+              src="/videos/intro.mp4"
+              poster="/videos/intro-poster.png"
+              width={1920}
+              height={1080}
+              controls
+              playsInline
+              preload="metadata"
+              aria-label="なぜPP2MFを使うのかを紹介する動画（約1分、音声なし）"
+            />
             <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
               <p>
                 MoneyForward

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import {
   addMfmeCsvs,
@@ -17,6 +18,10 @@ import {
   startDescription,
   startHeading,
 } from "./helpers";
+
+const hideVideoControlsStylePath = fileURLToPath(
+  new URL("./hide-video-controls.css", import.meta.url),
+);
 
 test.beforeEach(async ({ page }) => {
   await openCleanPage(page);
@@ -53,6 +58,9 @@ test("初期画面をデスクトップとモバイルで表示できる", async
     "summary",
   );
   await expect(page.getByText(startDescription)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "なぜPP2MFを使うのか（動画・1分）" }),
+  ).toHaveAttribute("href", "/guide#why-pp2mf");
   // 使い方へのリンクは、どの画面でもフッターにだけ置く。
   await expect(
     page.getByRole("main").getByRole("link", { name: "使い方" }),
@@ -143,6 +151,7 @@ test("3ページで共通ヘッダーと情報ページの戻る導線を表示�
     if (path !== "/") {
       await expect(page).toHaveScreenshot(`${path.slice(1)}-page.png`, {
         fullPage: true,
+        stylePath: hideVideoControlsStylePath,
       });
     }
   }
