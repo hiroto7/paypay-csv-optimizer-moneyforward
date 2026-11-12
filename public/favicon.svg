@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>PayPay CSV Optimizer for MoneyForward</title>
+  <defs>
+    <clipPath id="overlap">
+      <rect x="4" y="4" width="16" height="16" rx="4"/>
+    </clipPath>
+  </defs>
+
+  <rect width="32" height="32" rx="7" fill="#18181b"/>
+  <rect x="4" y="4" width="16" height="16" rx="4" fill="#ef233c"/>
+  <rect x="12" y="12" width="16" height="16" rx="4" fill="#f59e0b"/>
+  <rect x="12" y="12" width="16" height="16" rx="4" fill="#ffffff" clip-path="url(#overlap)"/>
+</svg>
