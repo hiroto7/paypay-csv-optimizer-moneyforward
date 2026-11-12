@@ -14,8 +14,8 @@ export default function ImportCompletionCard({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-base font-bold text-zinc-950">{title}</p>
-        <p className="mt-1 text-sm text-zinc-600">{description}</p>
+        <p className="text-sm font-bold text-zinc-950">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-zinc-600">{description}</p>
       </div>
       <div>
         <p className="text-xs font-bold text-zinc-800">次回の使い方</p>
