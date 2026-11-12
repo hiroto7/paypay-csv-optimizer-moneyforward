@@ -26,6 +26,8 @@ export default function MfImportGuideModal({
           },
           {
             instruction: `「支出元・入金先一括変更」で「${accountName}」を選ぶ`,
+            description:
+              "一覧にないときは「取り込みをやめる」を押し、先に口座を作ってください",
           },
           { instruction: "内容を確認して右上の「保存」を押す" },
           {

@@ -388,3 +388,41 @@ test("PayPayの取引履歴を先に選んでも実際の除外件数を表示�
     }),
   ).toBeVisible();
 });
+
+test("初めて取り込むときは口座を作る案内を開いて示し、入出金履歴があれば閉じて示す", async ({
+  page,
+}) => {
+  await selectPayPayCsv(page);
+  await answerNoMfmeHistory(page);
+
+  const step = importStep(page);
+  const firstGuide = step.getByText(
+    "取り込む前に、MoneyForward MEに口座を作る",
+  );
+  await expect(firstGuide).toBeVisible();
+  const names = step.getByRole("list", { name: "作っておく口座の名前" });
+  await expect(names.getByRole("listitem")).toHaveText([
+    /^PayPay残高/,
+    /^PayPayポイント/,
+  ]);
+  await expect(
+    step.getByText("口座を作れるのは、Web版のMoneyForward MEだけです。", {
+      exact: false,
+    }),
+  ).toBeVisible();
+
+  // 1口座を保存しても、この取引履歴の途中では開いたままにする。
+  await saveImport(page, "PayPay残高を取り込む");
+  await expect(firstGuide).toBeVisible();
+  await expect(names).toBeVisible();
+
+  await addMfmeCsvs(page, [{ name: "mfme.csv", csv: auditMfmeCsv }]);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /リセット|追加/ })
+    .click();
+  await expect(
+    step.getByText("MoneyForward MEに取り込み先の口座がないとき"),
+  ).toBeVisible();
+  await expect(names).toBeHidden();
+});
