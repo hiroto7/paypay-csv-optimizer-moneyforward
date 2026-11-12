@@ -1,11 +1,13 @@
 import {
   AlertCircle,
   ArrowRight,
+  CirclePlay,
   History,
   LockKeyhole,
   Smartphone,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import CsvShareGuide from "~/components/CsvShareGuide";
 import FileStatsSummary from "~/components/FileStatsSummary";
@@ -96,6 +98,13 @@ export default function StartScreen({
           PayPayとMoneyForward
           MEの履歴を自動で照合し、二重登録することなく、新しい取引だけをスムーズに家計簿へ登録できます。
         </p>
+        <Link
+          to="/guide#why-pp2mf"
+          className="mt-2 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+        >
+          <CirclePlay className="size-4 shrink-0" aria-hidden="true" />
+          なぜPP2MFを使うのか（動画・1分）
+        </Link>
       </div>
 
       <ol className="divide-y divide-zinc-200 border border-zinc-200 bg-white">

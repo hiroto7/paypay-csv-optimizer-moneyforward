@@ -58,6 +58,9 @@ test("初期画面をデスクトップとモバイルで表示できる", async
     "summary",
   );
   await expect(page.getByText(startDescription)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "なぜPP2MFを使うのか（動画・1分）" }),
+  ).toHaveAttribute("href", "/guide#why-pp2mf");
   // 使い方へのリンクは、どの画面でもフッターにだけ置く。
   await expect(
     page.getByRole("main").getByRole("link", { name: "使い方" }),

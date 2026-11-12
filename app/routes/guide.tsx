@@ -61,7 +61,10 @@ export default function Guide() {
             </p>
           </div>
 
-          <section className="px-5 py-5 sm:px-7 sm:py-6">
+          <section
+            id="why-pp2mf"
+            className="scroll-mt-4 px-5 py-5 sm:px-7 sm:py-6"
+          >
             <h2 className="text-base font-bold text-zinc-950">
               なぜPP2MFを使うのか
             </h2>
