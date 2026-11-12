@@ -29,7 +29,11 @@ import {
   createChunksFromGroupedTransactions,
   filterTransactionsBySources,
 } from "~/services/paypay-csv";
-import { shareCsv, shareFile } from "~/utils/csv-share";
+import { createImportCsvFile, shareCsv, shareFile } from "~/utils/csv-share";
+import {
+  createPp2mfOutputFilename,
+  createUniqueFilenameBases,
+} from "~/utils/pp2mf-output-filename";
 
 type PendingConfirmation<T> = {
   preview: T;
@@ -88,6 +92,7 @@ export function useWorkspace({
     onPayPayFileChanged: handlePayPayFileChanged,
     onMfmeFilesChanged: records.resetImportedRecords,
     hasPendingImport: records.hasPendingImport,
+    hasRecentPendingImport: records.hasRecentPendingImport,
     confirmMfmeChange,
     confirmSharedFiles,
   });
@@ -208,6 +213,38 @@ export function useWorkspace({
       ? conversion.mfmeCandidates.length
       : null;
 
+  // 保存待ちの取り込み用CSVを作り直す。受け取りに失敗して、共有されたファイルがないときに使う。
+  const recreatePendingImportFile = (): File | null => {
+    if (!pendingImport) return null;
+    const { accounts } = progress;
+    const accountIndex = accounts.findIndex(
+      ({ name }) => name === pendingImport.accountName,
+    );
+    const account = accounts[accountIndex];
+    if (!account) return null;
+    const pendingKeys = pendingImport.transactions
+      .map(({ key }) => key)
+      .join("\n");
+    const chunkIndex = account.chunks.findIndex(
+      (chunk) =>
+        chunk.transactions.map(({ key }) => key).join("\n") === pendingKeys,
+    );
+    const chunk = account.chunks[chunkIndex];
+    if (!chunk) return null;
+    const filenameBase =
+      createUniqueFilenameBases(accounts.map(({ name }) => name))[
+        accountIndex
+      ] ?? account.name;
+    return createImportCsvFile(
+      createPp2mfOutputFilename(
+        filenameBase,
+        chunkIndex,
+        account.chunks.length,
+      ),
+      chunk.data,
+    );
+  };
+
   const renderModal = () => {
     if (pendingImport && sessionShare) {
       return (
@@ -219,11 +256,15 @@ export function useWorkspace({
         />
       );
     }
-    if (pendingImport && deferredShare?.kind === "pp2mf-output") {
+    const pp2mfOutput =
+      deferredShare?.kind === "pp2mf-output"
+        ? (deferredShare.file ?? recreatePendingImportFile())
+        : null;
+    if (pendingImport && pp2mfOutput) {
       return (
         <Pp2mfShareTargetModal
-          fileName={deferredShare.file.name}
-          onShareAgain={() => void handleShareAgain(deferredShare.file)}
+          fileName={pp2mfOutput.name}
+          onShareAgain={() => void handleShareAgain(pp2mfOutput)}
           onCancel={handleDiscardImport}
         />
       );

@@ -27,9 +27,11 @@ export const shareFile = async (file: File): Promise<boolean> => {
   return true;
 };
 
+// MoneyForward MEへ渡すファイルは、共有とダウンロードのどちらもBOM付きUTF-8にする。
+export const createImportCsvFile = (filename: string, data: string): File =>
+  new File([`\uFEFF${data}`], filename, { type: "text/csv" });
+
 export const shareCsv = async (
   filename: string,
   data: string,
-): Promise<boolean> =>
-  // MoneyForward MEへ渡すファイルは、共有とダウンロードのどちらもBOM付きUTF-8にする。
-  shareFile(new File([`\uFEFF${data}`], filename, { type: "text/csv" }));
+): Promise<boolean> => shareFile(createImportCsvFile(filename, data));

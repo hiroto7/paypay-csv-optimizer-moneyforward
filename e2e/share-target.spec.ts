@@ -267,3 +267,70 @@ test("読み込まれずに残った受け取りファイルを起動時に削�
   await expect.poll(() => countSharedFileRecords(page)).toBe(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+test("取り込み用CSVを共有した直後に受け取りに失敗したら、共有先の誤りを案内してCSVを作り直す", async ({
+  context,
+  page,
+}) => {
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async ({ files }: { files: File[] }) => {
+        const shared = window as typeof window & { sharedNames?: string[] };
+        shared.sharedNames = [
+          ...(shared.sharedNames ?? []),
+          ...files.map(({ name }) => name),
+        ];
+      },
+    });
+  });
+  await page.reload();
+  await selectPayPayCsv(page);
+  await answerNoMfmeHistory(page);
+  await importStep(page)
+    .getByRole("button", { name: "PayPay残高を取り込む" })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "MoneyForward MEに取り込む" }),
+  ).toBeVisible();
+
+  // Androidで共有先にPP2MFを選ぶと、Service Workerが受け取りに失敗してこのURLに移る。
+  await page.goto("/?share-error=no-file");
+  const dialog = page.getByRole("dialog", {
+    name: "共有先にPP2MFが選ばれました",
+  });
+  await expect(dialog).toContainText("「pp2mf-paypay残高.csv」は");
+  await expect(
+    page.getByText("共有されたCSVファイルを受け取れませんでした"),
+  ).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: "もう一度共有する" }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "MoneyForward MEに取り込む" })
+      .getByRole("button", { name: "MoneyForward MEで保存した" }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as typeof window & { sharedNames?: string[] }).sharedNames,
+      ),
+    )
+    .toEqual(["pp2mf-paypay残高.csv"]);
+});
+
+test("保存待ちがないときに受け取りに失敗したら、受け取れなかったことを示す", async ({
+  page,
+}) => {
+  await page.goto("/?share-error=no-file");
+  await expect(
+    page.getByText(
+      "共有されたCSVファイルを受け取れませんでした。通常のファイル選択をお試しください。",
+    ),
+  ).toBeVisible();
+});

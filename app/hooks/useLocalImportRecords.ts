@@ -10,6 +10,8 @@ import {
   resetImportedRecords as resetRecords,
 } from "~/services/local-exclusion-store";
 
+const RECENT_SHARE_MS = 10 * 60 * 1000;
+
 export function useLocalImportRecords() {
   const [state, setState] = useState<LocalExclusionState>(() =>
     createEmptyLocalExclusionState(),
@@ -52,6 +54,12 @@ export function useLocalImportRecords() {
     [],
   );
 
+  // 取り込み用CSVを共有してから間もないか。共有先の誤りを判断するために使う。
+  const hasRecentPendingImport = useCallback(() => {
+    const sharedAt = stateRef.current.pendingImport?.sharedAt;
+    return sharedAt !== undefined && Date.now() - sharedAt < RECENT_SHARE_MS;
+  }, []);
+
   const hasImportedRecords = useCallback(
     () => stateRef.current.localImportedCounts.size > 0,
     [],
@@ -87,6 +95,7 @@ export function useLocalImportRecords() {
     confirmPendingImport,
     discardPendingImport,
     hasPendingImport,
+    hasRecentPendingImport,
     hasImportedRecords,
     resetImportedRecords,
     changePayPayFile,

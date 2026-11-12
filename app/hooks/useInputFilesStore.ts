@@ -43,7 +43,8 @@ export type SharedFilesPreview = {
 // 保存待ちの確認が終わるまで読み込みを後回しにしている、共有で受け取ったファイル。
 export type DeferredShare =
   | { kind: "pending"; fileNames: string[] }
-  | { kind: "pp2mf-output"; file: File };
+  // 受け取りに失敗した場合はファイルがない。
+  | { kind: "pp2mf-output"; file: File | null };
 
 type InputState = {
   files: InputFiles;
@@ -88,6 +89,7 @@ type InputFilesStoreCallbacks = {
   // 取り込み記録をリセットした場合はtrueを返す。
   onMfmeFilesChanged: () => boolean;
   hasPendingImport: () => boolean;
+  hasRecentPendingImport: () => boolean;
   confirmMfmeChange: (preview: MfmeChangePreview) => Promise<boolean>;
   confirmSharedFiles: (preview: SharedFilesPreview) => Promise<boolean>;
 };
@@ -468,10 +470,20 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
     });
 
     if (shareError) {
-      showNotice({
-        tone: "error",
-        message:
-          "共有されたCSVファイルを受け取れませんでした。通常のファイル選択をお試しください。",
+      void enqueue(async () => {
+        // Androidでは、取り込み用CSVを共有シートでPP2MFへ渡すと受け取りに失敗する。
+        // 共有した直後なら、共有先の誤りとして案内する。
+        if (callbacksRef.current.hasRecentPendingImport()) {
+          if (mountedRef.current) {
+            setDeferredShare({ kind: "pp2mf-output", file: null });
+          }
+          return;
+        }
+        showNotice({
+          tone: "error",
+          message:
+            "共有されたCSVファイルを受け取れませんでした。通常のファイル選択をお試しください。",
+        });
       });
     } else if (sharedFilesId) {
       void enqueue(async (current) => {
