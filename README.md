@@ -44,7 +44,7 @@ PayPayの取引履歴とMoneyForward MEの入出金履歴の両方を読み込�
 
 - CSVの読み込み、照合、変換はブラウザ内で行い、内容や変換結果をPP2MFのアプリケーションサーバーへ送信しません。
 - 画面で選択またはShare Targetで読み込んだ作業中のPayPayの取引履歴とMoneyForward MEの入出金履歴は、再読み込み後も作業を続けられるよう端末のIndexedDBへ保存します。
-- 「MoneyForward MEで保存した」の記録、今のPayPayの取引履歴で保存した明細、手順2の回答は端末の`localStorage`へ保存します。
+- 「MoneyForward MEで保存した」の記録などの作業状態は、端末の`localStorage`へ保存します。
 - MoneyForward MEの入出金履歴を変更すると、確認したうえで取り込み記録をリセットします。
 - 取り込み記録は、MoneyForward MEとは自動で同期されません。
 
