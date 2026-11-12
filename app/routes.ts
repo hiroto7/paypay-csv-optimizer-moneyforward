@@ -5,4 +5,5 @@ export default [
   route("guide", "routes/guide.tsx"),
   route("manifest.webmanifest", "routes/manifest.webmanifest.ts"),
   route("privacy", "routes/privacy.tsx"),
+  route("review", "routes/review.tsx"),
 ] satisfies RouteConfig;

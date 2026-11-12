@@ -23,7 +23,6 @@ export type ChunkTransaction = {
 export type ProcessedCsvChunk = {
   data: string;
   count: number;
-  balanceDelta: number;
   startDate: Date | null;
   endDate: Date | null;
   transactions: ChunkTransaction[];
@@ -234,10 +233,6 @@ export function createChunksFromGroupedTransactions(
       chunks[name].push({
         data: csvString,
         count: chunkOfRecords.length,
-        balanceDelta: chunkOfTransactions.reduce(
-          (total, transaction) => total + Number(transaction.amountKey),
-          0,
-        ),
         startDate: minDate,
         endDate: maxDate,
         transactions: chunkOfTransactions.map(

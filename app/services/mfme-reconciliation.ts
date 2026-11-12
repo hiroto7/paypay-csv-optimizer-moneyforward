@@ -32,6 +32,14 @@ const createMfmeCandidateKey = (
   record[MFME_COLUMNS.id] ||
   `${record[MFME_COLUMNS.date] ?? ""}_${record[MFME_COLUMNS.amount] ?? ""}_${record[MFME_COLUMNS.institution] ?? ""}_${record[MFME_COLUMNS.content] ?? ""}_${fallbackIndex}`;
 
+const createMfmeRecordKey = (record: CsvRecord): string =>
+  createTransactionKey(
+    record[MFME_COLUMNS.date],
+    record[MFME_COLUMNS.amount],
+    record[MFME_COLUMNS.institution],
+    record[MFME_COLUMNS.content],
+  );
+
 export const reconcileMfmeTransactions = (
   transactions: readonly PayPayTransaction[],
   mfmeRecords: readonly CsvRecord[],
@@ -52,12 +60,7 @@ export const reconcileMfmeTransactions = (
   const recordsByKey = new Map<string, RecordBucket>();
 
   mfmeRecords.forEach((record, index) => {
-    const key = createTransactionKey(
-      record[MFME_COLUMNS.date],
-      record[MFME_COLUMNS.amount],
-      record[MFME_COLUMNS.institution],
-      record[MFME_COLUMNS.content],
-    );
+    const key = createMfmeRecordKey(record);
     const bucket = recordsByKey.get(key) ?? { records: [], consumed: 0 };
     bucket.records.push({ record, index });
     recordsByKey.set(key, bucket);
@@ -76,6 +79,9 @@ export const reconcileMfmeTransactions = (
     }
   }
 
+  // 期間の重なる入出金履歴を別のファイルで追加すると、同じ明細IDの候補が並ぶことがあるため、
+  // 2件目以降は行の位置を加えて区別する。
+  const usedCandidateKeys = new Set<string>();
   const candidates = [...recordsByKey.values()].flatMap(
     ({ records, consumed }) =>
       records.slice(consumed).flatMap(({ record, index }) => {
@@ -86,9 +92,15 @@ export const reconcileMfmeTransactions = (
         );
         if (!payPayBaseKeys.has(baseKey)) return [];
 
+        const candidateKey = createMfmeCandidateKey(record, index);
+        const key = usedCandidateKeys.has(candidateKey)
+          ? `${candidateKey}_${index}`
+          : candidateKey;
+        usedCandidateKeys.add(key);
+
         return [
           {
-            key: createMfmeCandidateKey(record, index),
+            key,
             date: record[MFME_COLUMNS.date] ?? "",
             amount: normalizeAmount(record[MFME_COLUMNS.amount]),
             content: record[MFME_COLUMNS.content] ?? "",

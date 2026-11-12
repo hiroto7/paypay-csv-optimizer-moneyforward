@@ -8,6 +8,7 @@ import {
   ScrollRestoration,
 } from "react-router";
 
+import { startInstallPromptCapture } from "~/utils/install-prompt";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -18,6 +19,8 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    // インストールの案内を、案内の部品が表示される前でも受け取れるようにする。
+    startInstallPromptCapture();
     const root = document.documentElement;
     root.dataset["hydrated"] = "true";
 
