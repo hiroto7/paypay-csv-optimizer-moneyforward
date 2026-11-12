@@ -25,9 +25,10 @@ export default function ReviewCandidateList({
         className="divide-y divide-zinc-200 border border-zinc-200"
         aria-label="要確認の明細"
       >
-        {candidates.map((candidate) => (
+        {/* 期間の重なる入出金履歴を別のファイルで追加すると、同じ明細IDの候補が並ぶことがある。 */}
+        {candidates.map((candidate, index) => (
           <li
-            key={candidate.key}
+            key={`${candidate.key}:${index}`}
             className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 px-3 py-2.5 text-sm"
           >
             <span className="break-words font-medium text-zinc-900">

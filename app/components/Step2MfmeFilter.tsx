@@ -46,6 +46,8 @@ function AnswerOption({
         name="mfme-history-answer"
         checked={checked}
         onChange={onSelect}
+        // 選択済みの選択肢ではchangeが起きないため、押したときも回答として扱い、質問を閉じられるようにする。
+        onClick={checked ? onSelect : undefined}
         className="mt-1 size-4 shrink-0 accent-zinc-900"
       />
       <span>

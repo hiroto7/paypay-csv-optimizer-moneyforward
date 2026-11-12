@@ -211,6 +211,11 @@ test("「ない」の回答はリロード後も残り、「ある」では入�
     importStep(page).getByRole("button", { name: "PayPay残高を取り込む" }),
   ).toBeVisible();
 
+  // 回答を変えずに、選択済みの「ない」を押して質問を閉じられる。
+  await region.getByRole("button", { name: "変更" }).click();
+  await answerNoMfmeHistory(page);
+  await expect(region.getByText("スキップ", { exact: true })).toBeVisible();
+
   await region.getByRole("button", { name: "変更" }).click();
   await page.getByRole("radio", { name: /^ある/ }).check();
   await expect(
