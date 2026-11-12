@@ -105,7 +105,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
   );
   const inputStateRef = useRef(inputState);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const mountedRef = useRef(true);
   const initializedRef = useRef(false);
   const deferredShareIdRef = useRef<string | null>(null);
   // 確認画面などの呼び出し側の状態が変わっても、実行中の処理から最新の関数を呼べるようにする。
@@ -114,7 +113,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
 
   const applyInputState = useCallback((nextState: InputState) => {
     inputStateRef.current = nextState;
-    if (mountedRef.current) setInputState(nextState);
+    setInputState(nextState);
   }, []);
 
   const enqueue = useCallback((operation: InputOperation) => {
@@ -126,7 +125,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
   }, []);
 
   const showNotice = useCallback((nextNotice: SharedFileNotice) => {
-    if (mountedRef.current) setNotice(nextNotice);
+    setNotice(nextNotice);
   }, []);
 
   const reportPersistenceError = useCallback(
@@ -159,9 +158,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
         if (file) {
           const result = await validateFiles([file], "paypay");
           if (result.rejected[0]) {
-            if (mountedRef.current) {
-              setPayPayError(describeRejectedFiles(result.rejected));
-            }
+            setPayPayError(describeRejectedFiles(result.rejected));
             return;
           }
           const accepted = result.accepted[0];
@@ -170,7 +167,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
         }
 
         if (!file && !current.files.payPayFile) {
-          if (mountedRef.current) setPayPayError("");
+          setPayPayError("");
           return;
         }
         const nextFiles = { ...current.files, payPayFile: file };
@@ -178,7 +175,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
           await persistInputFiles(nextFiles);
           callbacksRef.current.onPayPayFileChanged(data?.fingerprint ?? null);
           applyInputState({ ...current, files: nextFiles, payPayData: data });
-          if (mountedRef.current) setPayPayError("");
+          setPayPayError("");
         } catch (error) {
           reportPersistenceError(error);
         }
@@ -196,7 +193,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
           item.type === "mfme" ? [item] : [],
         );
         if (valid.length === 0) {
-          if (mountedRef.current) setMfmeErrors(rejected);
+          setMfmeErrors(rejected);
           return;
         }
 
@@ -213,7 +210,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
           kind: "add",
         });
         if (!confirmed) {
-          if (mountedRef.current) setMfmeErrors(rejected);
+          setMfmeErrors(rejected);
           return;
         }
 
@@ -225,7 +222,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
             files: nextFiles,
             mfmeDataByName: nextData,
           });
-          if (mountedRef.current) setMfmeErrors(rejected);
+          setMfmeErrors(rejected);
         } catch (error) {
           reportPersistenceError(error);
         }
@@ -259,7 +256,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
             files: nextFiles,
             mfmeDataByName: nextData,
           });
-          if (mountedRef.current) setMfmeErrors([]);
+          setMfmeErrors([]);
         } catch (error) {
           reportPersistenceError(error);
         }
@@ -270,7 +267,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
 
   const finishSharedFiles = useCallback(async () => {
     deferredShareIdRef.current = null;
-    if (mountedRef.current) setDeferredShare(null);
+    setDeferredShare(null);
     removeUrlParams([SHARED_FILES_PARAM]);
     try {
       await deleteSharedFilesExcept(null);
@@ -298,16 +295,14 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
           isPp2mfOutputFilename(file.name),
         );
         deferredShareIdRef.current = id;
-        if (mountedRef.current) {
-          setDeferredShare(
-            pp2mfOutput
-              ? { kind: "pp2mf-output", file: pp2mfOutput }
-              : {
-                  kind: "pending",
-                  fileNames: files.map((file) => file.name),
-                },
-          );
-        }
+        setDeferredShare(
+          pp2mfOutput
+            ? { kind: "pp2mf-output", file: pp2mfOutput }
+            : {
+                kind: "pending",
+                fileNames: files.map((file) => file.name),
+              },
+        );
         return;
       }
 
@@ -367,7 +362,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
           if (mfme.length > 0) callbacksRef.current.onMfmeFilesChanged();
           if (payPay) {
             callbacksRef.current.onPayPayFileChanged(payPay.data.fingerprint);
-            if (mountedRef.current) setPayPayError("");
+            setPayPayError("");
           }
           applyInputState({
             files: nextFiles,
@@ -413,12 +408,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
   }, [enqueue, finishSharedFiles]);
 
   useEffect(() => {
-    mountedRef.current = true;
-    if (initializedRef.current) {
-      return () => {
-        mountedRef.current = false;
-      };
-    }
+    if (initializedRef.current) return;
     initializedRef.current = true;
 
     const params = new URLSearchParams(window.location.search);
@@ -453,14 +443,12 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
             stored.mfme.map(({ file, data }) => [file.name, data]),
           ),
         });
-        if (mountedRef.current) {
-          setPayPayError(describeRejectedFiles(stored.payPayRejected));
-          setMfmeErrors(stored.mfmeRejected);
-        }
+        setPayPayError(describeRejectedFiles(stored.payPayRejected));
+        setMfmeErrors(stored.mfmeRejected);
       } catch (error) {
         reportPersistenceError(error);
       } finally {
-        if (mountedRef.current) setIsReady(true);
+        setIsReady(true);
       }
     });
 
@@ -474,9 +462,7 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
         // Androidでは、取り込み用CSVを共有シートでPP2MFへ渡すと受け取りに失敗する。
         // 共有した直後なら、共有先の誤りとして案内する。
         if (callbacksRef.current.hasRecentPendingImport()) {
-          if (mountedRef.current) {
-            setDeferredShare({ kind: "pp2mf-output", file: null });
-          }
+          setDeferredShare({ kind: "pp2mf-output", file: null });
           return;
         }
         showNotice({
@@ -500,10 +486,6 @@ export function useInputFilesStore(callbacks: InputFilesStoreCallbacks) {
         }
       });
     }
-
-    return () => {
-      mountedRef.current = false;
-    };
   }, [
     applyInputState,
     enqueue,

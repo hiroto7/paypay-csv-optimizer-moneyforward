@@ -1,9 +1,10 @@
 import {
+  createContext,
   type ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { flushSync } from "react-dom";
@@ -40,16 +41,11 @@ type PendingConfirmation<T> = {
   resolve: (confirmed: boolean) => void;
 };
 
-// 作業画面と要確認明細のページで、入力ファイル・取り込み記録・確認画面を共有する。
-// 状態は端末に保存したものから復元するため、どちらのページから操作しても同じ結果になる。
-export function useWorkspace({
-  onWorkStarted,
-}: {
-  // PayPayの取引履歴を選んだ・受け取ったときと、保存を確認したときに呼ぶ。
-  onWorkStarted?: () => void;
-} = {}) {
-  const onWorkStartedRef = useRef(onWorkStarted);
-  onWorkStartedRef.current = onWorkStarted;
+// 入力ファイル・取り込み記録・確認画面の状態を求める。WorkspaceProviderから一度だけ呼ぶ。
+function useWorkspaceState() {
+  // 起動してから作業画面を表示したか。PayPayの取引履歴を選んだ・受け取ったときと、保存を確認したときにも立てる。
+  const [hasEnteredWork, setHasEnteredWork] = useState(false);
+  const enterWork = useCallback(() => setHasEnteredWork(true), []);
   const records = useLocalImportRecords();
   // 保存待ちのうち、今回の作業で共有したもの。再読み込み後は空になり、再訪時の確認として扱う。
   const [sessionShare, setSessionShare] = useState<{
@@ -83,9 +79,9 @@ export function useWorkspace({
   const handlePayPayFileChanged = useCallback(
     (payPayFingerprint: string | null) => {
       changePayPayFile(payPayFingerprint);
-      if (payPayFingerprint !== null) onWorkStartedRef.current?.();
+      if (payPayFingerprint !== null) enterWork();
     },
-    [changePayPayFile],
+    [changePayPayFile, enterWork],
   );
 
   const inputs = useInputFilesStore({
@@ -198,7 +194,7 @@ export function useWorkspace({
   const handleConfirmImport = () => {
     records.confirmPendingImport();
     setSessionShare(null);
-    onWorkStartedRef.current?.();
+    enterWork();
   };
 
   const handleDiscardImport = () => {
@@ -327,7 +323,29 @@ export function useWorkspace({
     recordStats,
     reviewCandidateCount,
     isReady,
+    hasEnteredWork,
+    enterWork,
     handleImport,
     modals,
   };
+}
+
+const WorkspaceContext = createContext<ReturnType<
+  typeof useWorkspaceState
+> | null>(null);
+
+// 作業画面と要確認明細のページで、入力ファイル・取り込み記録・確認画面を共有する。
+// ページを移るたびに端末から読み込み直して画面が空になることを避けるため、状態はページより上で一度だけ持つ。
+export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  return (
+    <WorkspaceContext value={useWorkspaceState()}>{children}</WorkspaceContext>
+  );
+}
+
+export function useWorkspace() {
+  const workspace = useContext(WorkspaceContext);
+  if (!workspace) {
+    throw new Error("useWorkspace must be used within WorkspaceProvider");
+  }
+  return workspace;
 }
