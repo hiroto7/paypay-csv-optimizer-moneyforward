@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AccountImportCard from "~/components/AccountImportCard";
+import AccountSetupGuide from "~/components/AccountSetupGuide";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import ExclusionBreakdown from "~/components/ExclusionBreakdown";
 import ImportCompletionCard from "~/components/ImportCompletionCard";
@@ -15,6 +16,8 @@ type Step3FileListProps =
       totalCount: number;
       savedBeforeCount: number;
       mfmeMatchedCount: number;
+      // この取引履歴より前に登録した明細が、記録にも入出金履歴にもない。
+      isFirstImport: boolean;
       onImport: (
         filename: string,
         accountName: string,
@@ -44,6 +47,7 @@ export default function Step3FileList(props: Step3FileListProps) {
     totalCount,
     savedBeforeCount,
     mfmeMatchedCount,
+    isFirstImport,
     onImport,
     onNewFileSelected,
   } = props;
@@ -134,6 +138,10 @@ export default function Step3FileList(props: Step3FileListProps) {
     >
       <div className="space-y-4">
         {breakdown}
+        <AccountSetupGuide
+          accountNames={accounts.map(({ name }) => name)}
+          isFirstImport={isFirstImport}
+        />
         <ul className="space-y-2">
           {accounts.map((account, accountIndex) => {
             const nextChunkIndex =
