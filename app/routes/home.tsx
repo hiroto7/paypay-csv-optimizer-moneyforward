@@ -71,7 +71,7 @@ export default function Home() {
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
         <NoticeBanner notice={inputs.notice} onDismiss={inputs.dismissNotice} />
 
         {!isReady ? (

@@ -1,4 +1,5 @@
 import { CalendarDays, Check, Download, LoaderCircle } from "lucide-react";
+import Button from "~/components/Button";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import PeriodDisplay from "~/components/PeriodDisplay";
 import type { AccountProgress } from "~/services/import-progress";
@@ -26,25 +27,25 @@ export default function AccountImportCard({
 
   return (
     <div
-      className={`${
+      className={`border ${
         isNextAccount
-          ? "border-2 border-zinc-900 bg-white"
+          ? "border-zinc-900 bg-white ring-1 ring-inset ring-zinc-900"
           : saved
-            ? "border border-zinc-200 bg-zinc-50"
-            : "border border-zinc-200 bg-white"
+            ? "border-zinc-200 bg-zinc-50"
+            : "border-zinc-200 bg-white"
       }`}
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pt-3">
         <h3 className="text-sm font-bold text-zinc-950">{name}</h3>
         <span className="text-xs text-zinc-500">{count}件</span>
         {saved && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
             <Check className="size-3" aria-hidden="true" />
             保存済み
           </span>
         )}
       </div>
-      <ul className="divide-y divide-zinc-200 px-3 pb-1">
+      <ul className="divide-y divide-zinc-200 px-3 pb-0.5">
         {chunks.map((chunk, index) => {
           const filename = createPp2mfOutputFilename(
             filenameBase,
@@ -84,41 +85,33 @@ export default function AccountImportCard({
                   )
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => onImport(filename, index)}
-                disabled={chunk.saved || sharingFilename !== null}
-                aria-label={
-                  chunk.saved
-                    ? undefined
-                    : `${name}${partLabel ? ` ${index + 1}/${chunks.length}` : ""}を取り込む`
-                }
-                className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 px-4 text-sm font-semibold ${
-                  chunk.saved
-                    ? "cursor-default text-emerald-700"
-                    : sharingFilename !== null
-                      ? "cursor-wait bg-zinc-200 text-zinc-500"
-                      : isNext
-                        ? "bg-zinc-900 text-white hover:bg-zinc-700"
-                        : "border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"
-                }`}
-              >
-                {chunk.saved ? (
+              {chunk.saved ? (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex min-h-9 shrink-0 cursor-default items-center justify-center gap-2 px-4 text-sm font-semibold text-emerald-700"
+                >
                   <Check className="size-4" aria-hidden="true" />
-                ) : isSharing ? (
-                  <LoaderCircle
-                    className="size-4 animate-spin"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <Download className="size-4" aria-hidden="true" />
-                )}
-                {chunk.saved
-                  ? "保存済み"
-                  : isSharing
-                    ? "共有シートを表示中"
-                    : "取り込む"}
-              </button>
+                  保存済み
+                </button>
+              ) : (
+                <Button
+                  variant={isNext ? "primary" : "secondary"}
+                  onClick={() => onImport(filename, index)}
+                  disabled={sharingFilename !== null}
+                  aria-label={`${name}${partLabel ? ` ${index + 1}/${chunks.length}` : ""}を取り込む`}
+                >
+                  {isSharing ? (
+                    <LoaderCircle
+                      className="size-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Download className="size-4" aria-hidden="true" />
+                  )}
+                  {isSharing ? "共有シートを表示中" : "取り込む"}
+                </Button>
+              )}
             </li>
           );
         })}

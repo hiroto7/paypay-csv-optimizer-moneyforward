@@ -12,7 +12,7 @@ interface CsvFilePickerProps {
 const variantClassNames = {
   default: {
     label:
-      "h-9 justify-center border border-zinc-300 bg-white px-4 hover:bg-zinc-50",
+      "h-9 justify-center border border-zinc-300 bg-white px-4 hover:bg-zinc-100",
     icon: "size-4 text-zinc-500 group-hover:text-zinc-700",
     text: "text-sm font-semibold text-zinc-700",
   },
@@ -22,7 +22,7 @@ const variantClassNames = {
     text: "text-sm font-bold text-white",
   },
   link: {
-    label: "min-h-9 px-1",
+    label: "min-h-9",
     icon: "hidden",
     text: "text-xs font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 group-hover:text-zinc-950",
   },

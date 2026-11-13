@@ -1,7 +1,6 @@
-import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
+import BackLink from "~/components/BackLink";
 import type { Route } from "./+types/guide";
 
 export function meta(_args: Route.MetaArgs) {
@@ -44,27 +43,20 @@ export default function Guide() {
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
-        <Link
-          to="/"
-          className="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          アプリに戻る
-        </Link>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+        <BackLink />
         <div className="border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
-            <h1 className="text-2xl font-bold text-zinc-950">使い方</h1>
+          <div className="border-b border-zinc-200 p-5 sm:p-6">
+            <h1 className="text-2xl font-bold leading-snug text-zinc-950">
+              使い方
+            </h1>
             <p className="mt-2 text-sm leading-6 text-zinc-600">
               PP2MFは、PayPayの取引履歴をMoneyForward
               MEへ継続的に取り込むための補助ツールです。
             </p>
           </div>
 
-          <section
-            id="why-pp2mf"
-            className="scroll-mt-4 px-5 py-5 sm:px-7 sm:py-6"
-          >
+          <section id="why-pp2mf" className="scroll-mt-4 p-5 sm:p-6">
             <h2 className="text-base font-bold text-zinc-950">
               なぜPP2MFを使うのか
             </h2>
@@ -98,11 +90,11 @@ export default function Guide() {
             </div>
           </section>
 
-          <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
+          <section className="border-t border-zinc-200 p-5 sm:p-6">
             <h2 className="text-base font-bold text-zinc-950">
               取り込み用CSVを作る
             </h2>
-            <ol className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
+            <ol className="mt-3 divide-y divide-zinc-200 border-y border-zinc-200">
               {steps.map(({ title, paragraphs }, index) => (
                 <li
                   key={title}
@@ -112,8 +104,10 @@ export default function Guide() {
                     {index + 1}
                   </span>
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-950">{title}</h3>
-                    <div className="mt-1 space-y-2 text-sm leading-6 text-zinc-600">
+                    <h3 className="text-sm font-bold leading-7 text-zinc-950">
+                      {title}
+                    </h3>
+                    <div className="mt-1 space-y-2 text-sm leading-7 text-zinc-700">
                       {paragraphs.map((paragraph) => (
                         <p key={paragraph}>{paragraph}</p>
                       ))}
@@ -124,7 +118,7 @@ export default function Guide() {
             </ol>
           </section>
 
-          <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
+          <section className="border-t border-zinc-200 p-5 sm:p-6">
             <h2 className="text-base font-bold text-zinc-950">
               重複登録・口座間違いの明細を見つける
             </h2>
@@ -139,7 +133,7 @@ export default function Guide() {
             </div>
           </section>
 
-          <section className="border-t border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
+          <section className="border-t border-zinc-200 p-5 sm:p-6">
             <h2 className="text-base font-bold text-zinc-950">補足</h2>
             <ul className="mt-3 space-y-2 text-sm leading-7 text-zinc-700">
               <li>

@@ -1,6 +1,7 @@
 import { Check, ChevronDown, Share2 } from "lucide-react";
 import { useState } from "react";
-import Modal from "~/components/Modal";
+import Button from "~/components/Button";
+import Modal, { ModalBody, ModalFooter } from "~/components/Modal";
 import type { PendingImport } from "~/services/local-exclusion-store";
 
 interface PendingImportModalProps {
@@ -54,7 +55,7 @@ function TransactionList({
         {visibleRows.map(({ rowKey, date, content, amount }) => (
           <li
             key={rowKey}
-            className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-1.5"
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-2 leading-5"
           >
             <span className="tabular-nums">{date}</span>
             <span className="break-all">{content}</span>
@@ -89,49 +90,36 @@ export default function PendingImportModal({
 
   return (
     <Modal title="前回の取り込みを保存しましたか？" dismissible={false}>
-      <div className="min-h-0 overflow-y-auto px-5">
-        <div className="space-y-4 py-4">
-          <p className="text-sm leading-6 text-zinc-700">
-            {formatSharedAt(sharedAt)}に「{accountName}」の明細
-            {transactions.length}
-            件を共有しましたが、「MoneyForward
-            MEで保存した」が押されていません。
+      <ModalBody className="space-y-4">
+        <p className="text-sm leading-6 text-zinc-700">
+          {formatSharedAt(sharedAt)}に「{accountName}」の明細
+          {transactions.length}
+          件を共有しましたが、「MoneyForward MEで保存した」が押されていません。
+        </p>
+        <div className="space-y-3 border-t border-zinc-200 pt-4">
+          <p className="text-xs leading-5 text-zinc-600">
+            覚えていない場合は、MoneyForward MEで「{accountName}
+            」の明細を開き、次の明細があるか確かめてください。
           </p>
-          <div className="space-y-3 border-t border-zinc-200 pt-4">
-            <p className="text-xs leading-5 text-zinc-600">
-              覚えていない場合は、MoneyForward MEで「{accountName}
-              」の明細を開き、次の明細があるか確かめてください。
-            </p>
-            <TransactionList transactions={newestFirst} />
-          </div>
-          {deferredFileNames.length > 0 && (
-            <p className="flex gap-2 border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs leading-5 text-zinc-600">
-              <Share2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>
-                共有されたファイル（{deferredFileNames.join("、")}
-                ）は、この確認のあとで読み込みます。
-              </span>
-            </p>
-          )}
+          <TransactionList transactions={newestFirst} />
         </div>
-      </div>
-      <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          onClick={onDiscard}
-          className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
-        >
-          保存していない
-        </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="inline-flex min-h-10 w-full items-center justify-center gap-2 bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 sm:w-auto"
-        >
+        {deferredFileNames.length > 0 && (
+          <p className="flex gap-2 border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs leading-5 text-zinc-600">
+            <Share2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span>
+              共有されたファイル（{deferredFileNames.join("、")}
+              ）は、この確認のあとで読み込みます。
+            </span>
+          </p>
+        )}
+      </ModalBody>
+      <ModalFooter>
+        <Button onClick={onDiscard}>保存していない</Button>
+        <Button variant="primary" onClick={onConfirm}>
           <Check className="size-4" aria-hidden="true" />
           MoneyForward MEで保存した
-        </button>
-      </div>
+        </Button>
+      </ModalFooter>
     </Modal>
   );
 }

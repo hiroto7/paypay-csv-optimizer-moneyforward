@@ -17,7 +17,7 @@ export default function ReviewLink({ candidateCount }: ReviewLinkProps) {
         重複登録・口座間違いを確認する
       </span>
       {candidateCount !== null && candidateCount > 0 && (
-        <span className="rounded-full bg-amber-100 px-1.5 text-[11px] font-bold text-amber-800">
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
           {candidateCount}件
         </span>
       )}

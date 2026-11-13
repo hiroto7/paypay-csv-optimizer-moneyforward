@@ -1,4 +1,5 @@
-import Modal from "~/components/Modal";
+import Button from "~/components/Button";
+import Modal, { ModalBody, ModalFooter } from "~/components/Modal";
 import RecordResetNotice from "~/components/RecordResetNotice";
 import type { MfmeChangePreview } from "~/hooks/useInputFilesStore";
 
@@ -20,27 +21,15 @@ export default function MfmeChangeConfirmModal({
 
   return (
     <Modal title="保存した明細の記録をリセットしますか？" onClose={onCancel}>
-      <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4">
-        <div className="space-y-2 text-sm leading-6 text-zinc-700">
-          <RecordResetNotice kind={preview.kind} recordCount={recordCount} />
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
-        >
-          やめる
-        </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="inline-flex min-h-10 w-full items-center justify-center bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 sm:w-auto"
-        >
+      <ModalBody className="space-y-2 text-sm leading-6 text-zinc-700">
+        <RecordResetNotice kind={preview.kind} recordCount={recordCount} />
+      </ModalBody>
+      <ModalFooter>
+        <Button onClick={onCancel}>やめる</Button>
+        <Button variant="primary" onClick={onConfirm}>
           {isRemoval ? "リセットして削除する" : "リセットして追加する"}
-        </button>
-      </div>
+        </Button>
+      </ModalFooter>
     </Modal>
   );
 }
