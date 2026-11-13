@@ -26,13 +26,14 @@ export default function StepCard({
   return (
     <section
       aria-labelledby={titleId}
-      className={`bg-white ${
+      // 進行中の強調は内側の線で描き、枠線の太さで中身の位置が変わらないようにする。
+      className={`border bg-white ${
         status === "current"
-          ? "border-2 border-zinc-900"
-          : "border border-zinc-200"
+          ? "border-zinc-900 ring-1 ring-inset ring-zinc-900"
+          : "border-zinc-200"
       }`}
     >
-      <div className="flex items-start gap-3 px-4 py-3.5">
+      <div className="flex items-start gap-3 p-4">
         <span
           className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
             status === "done"
@@ -68,7 +69,7 @@ export default function StepCard({
           )}
         </div>
         {actions !== undefined && (
-          <div className="flex shrink-0 items-center gap-2">{actions}</div>
+          <div className="flex h-7 shrink-0 items-center gap-4">{actions}</div>
         )}
       </div>
       {children !== undefined && <div className="px-4 pb-4">{children}</div>}
@@ -76,11 +77,11 @@ export default function StepCard({
   );
 }
 
-// 手順のあいだをつなぐ縦線。
+// 手順のあいだをつなぐ縦線。番号の丸の中央を通す。
 export function StepConnector() {
   return (
     <div
-      className="ml-[29px] h-3 border-l-2 border-dashed border-zinc-300"
+      className="ml-[30px] h-3 border-l-2 border-dashed border-zinc-300"
       aria-hidden="true"
     />
   );

@@ -1,7 +1,6 @@
-import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
+import BackLink from "~/components/BackLink";
 import NoticeBanner from "~/components/NoticeBanner";
 import ReviewCandidateList from "~/components/ReviewCandidateList";
 import Step1PayPayUpload from "~/components/Step1PayPayUpload";
@@ -36,14 +35,8 @@ export default function Review() {
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
-        <Link
-          to="/"
-          className="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          アプリに戻る
-        </Link>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+        <BackLink />
         <NoticeBanner notice={inputs.notice} onDismiss={inputs.dismissNotice} />
         <div className="mb-5">
           <h1 className="text-2xl font-bold leading-snug text-zinc-950">

@@ -1,6 +1,6 @@
-import { AlertCircle } from "lucide-react";
 import { useState } from "react";
 import CsvFilePicker from "~/components/CsvFilePicker";
+import ErrorAlert from "~/components/ErrorAlert";
 import FileStatsSummary from "~/components/FileStatsSummary";
 import SelectedFileCard from "~/components/SelectedFileCard";
 import StepCard from "~/components/StepCard";
@@ -20,7 +20,7 @@ interface Step2MfmeFilterProps {
 }
 
 const linkButtonClassName =
-  "inline-flex min-h-9 items-center px-1 text-xs font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950";
+  "inline-flex min-h-9 items-center text-xs font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950";
 
 function AnswerOption({
   checked,
@@ -35,10 +35,10 @@ function AnswerOption({
 }) {
   return (
     <label
-      className={`flex cursor-pointer gap-3 p-3 ${
+      className={`flex cursor-pointer gap-3 border p-3 ${
         checked
-          ? "border-2 border-zinc-900 bg-zinc-50"
-          : "border border-zinc-300 bg-white hover:bg-zinc-50"
+          ? "border-zinc-900 bg-zinc-50 ring-1 ring-inset ring-zinc-900"
+          : "border-zinc-300 bg-white hover:bg-zinc-50"
       }`}
     >
       <input
@@ -48,7 +48,7 @@ function AnswerOption({
         onChange={onSelect}
         // 選択済みの選択肢ではchangeが起きないため、押したときも回答として扱い、質問を閉じられるようにする。
         onClick={checked ? onSelect : undefined}
-        className="mt-1 size-4 shrink-0 accent-zinc-900"
+        className="mt-0.5 size-4 shrink-0 accent-zinc-900"
       />
       <span>
         <span className="block text-sm font-bold text-zinc-950">{title}</span>
@@ -95,19 +95,15 @@ export function MfmeFileManager({
         }}
       />
       {errors.length > 0 && (
-        <div
-          className="flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
-          role="alert"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <ul className="min-w-0 space-y-1">
+        <ErrorAlert>
+          <ul className="space-y-1">
             {errors.map(({ name, reason }) => (
               <li key={`${name}:${reason}`} className="break-words">
                 {name}: {reason}
               </li>
             ))}
           </ul>
-        </div>
+        </ErrorAlert>
       )}
     </div>
   );
@@ -154,24 +150,24 @@ export default function Step2MfmeFilter(props: Step2MfmeFilterProps) {
         {isExpanded || errors.length > 0 ? (
           <div className="space-y-4">
             {hasRecords && (
-              <div className="border border-blue-200 bg-blue-50 px-3 py-3 text-xs leading-5 text-zinc-700">
+              <div className="border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs leading-5 text-zinc-700">
                 <p className="font-semibold text-blue-950">
                   「MoneyForward MEで保存した」を押した明細
                 </p>
-                <div className="mt-1">
-                  <FileStatsSummary stats={recordStats} />
-                </div>
+                <FileStatsSummary stats={recordStats} />
               </div>
             )}
             <div>
-              <p className="mb-2 text-xs font-semibold text-zinc-700">
-                MoneyForward MEの入出金履歴
+              <div className="mb-2 flex flex-wrap items-center gap-x-3 text-xs leading-5">
+                <p className="font-semibold text-zinc-700">
+                  MoneyForward MEの入出金履歴
+                </p>
                 {mfmeStats && (
-                  <span className="ml-2 font-normal text-zinc-500">
+                  <span className="text-zinc-500">
                     <FileStatsSummary stats={mfmeStats} />
                   </span>
                 )}
-              </p>
+              </div>
               <MfmeFileManager {...props} />
             </div>
           </div>
@@ -220,7 +216,8 @@ export default function Step2MfmeFilter(props: Step2MfmeFilterProps) {
           }}
         />
         {hasHistory && !hasNoMfmeHistory && (
-          <div className="py-1 pl-7">
+          // 選択肢の文字の左端（枠線1px・余白12px・ラジオボタン16px・間隔12px）にそろえる。
+          <div className="py-1 pl-[41px]">
             <MfmeFileManager {...props} />
           </div>
         )}

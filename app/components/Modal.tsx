@@ -63,7 +63,10 @@ export default function Modal({
             {title}
           </h2>
           {description !== undefined && (
-            <p id={descriptionId} className="mt-1 text-xs text-zinc-500">
+            <p
+              id={descriptionId}
+              className="mt-1 text-xs leading-5 text-zinc-500"
+            >
               {description}
             </p>
           )}
@@ -72,7 +75,7 @@ export default function Modal({
           <button
             type="button"
             onClick={() => dialogRef.current?.close()}
-            className="inline-flex size-8 shrink-0 items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+            className="-my-1 -mr-2 inline-flex size-8 shrink-0 items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
             aria-label="閉じる"
             title="閉じる"
           >
@@ -83,5 +86,29 @@ export default function Modal({
 
       {children}
     </dialog>
+  );
+}
+
+// モーダルの本文。長い場合はここだけをスクロールする。
+export function ModalBody({
+  className = "",
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`min-h-0 overflow-y-auto px-5 py-4 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+// モーダルの操作。狭い画面では、主な操作を上にして縦に並べる。
+export function ModalFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 *:w-full sm:flex-row sm:justify-end sm:*:w-auto">
+      {children}
+    </div>
   );
 }

@@ -1,7 +1,8 @@
 import { AlertTriangle, Check, X } from "lucide-react";
 import type { ReactNode } from "react";
+import Button from "~/components/Button";
 import FileStatsSummary from "~/components/FileStatsSummary";
-import Modal from "~/components/Modal";
+import Modal, { ModalBody, ModalFooter } from "~/components/Modal";
 import RecordResetNotice from "~/components/RecordResetNotice";
 import type { SharedFilesPreview } from "~/hooks/useInputFilesStore";
 
@@ -27,7 +28,7 @@ function FileGroup({
 }) {
   return (
     <section className="border border-zinc-200">
-      <h3 className="flex items-center gap-1.5 border-b border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-bold text-zinc-600">
+      <h3 className="flex items-center gap-1.5 border-b border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-bold leading-5 text-zinc-600">
         {icon}
         {title}
       </h3>
@@ -71,7 +72,7 @@ export default function SharedFilesConfirmModal({
       description={`共有されたファイル ${fileCount}件`}
       onClose={onCancel}
     >
-      <div className="min-h-0 space-y-3 overflow-y-auto px-5 py-4">
+      <ModalBody className="space-y-3">
         {payPay && (
           <FileGroup
             icon={
@@ -131,7 +132,7 @@ export default function SharedFilesConfirmModal({
             title="読み込まないファイル"
             muted
           >
-            <ul className="space-y-1.5">
+            <ul className="space-y-1">
               {skipped.map(({ name, reason }) => (
                 <li key={`${name}:${reason}`}>
                   <span className="break-all font-semibold text-zinc-700">
@@ -143,26 +144,18 @@ export default function SharedFilesConfirmModal({
             </ul>
           </FileGroup>
         )}
-      </div>
+      </ModalBody>
 
-      <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex min-h-10 w-full items-center justify-center border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 sm:w-auto"
-        >
+      <ModalFooter>
+        <Button onClick={onCancel}>
           {loadableCount === 0 ? "閉じる" : "やめる"}
-        </button>
+        </Button>
         {loadableCount > 0 && (
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="inline-flex min-h-10 w-full items-center justify-center bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-700 sm:w-auto"
-          >
+          <Button variant="primary" onClick={onConfirm}>
             {resetsRecords ? "リセットして読み込む" : "読み込む"}
-          </button>
+          </Button>
         )}
-      </div>
+      </ModalFooter>
     </Modal>
   );
 }

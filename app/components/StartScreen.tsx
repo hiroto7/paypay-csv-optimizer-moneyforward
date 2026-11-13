@@ -1,16 +1,10 @@
-import {
-  AlertCircle,
-  ArrowRight,
-  CirclePlay,
-  History,
-  LockKeyhole,
-  Smartphone,
-} from "lucide-react";
-import type { ReactNode } from "react";
+import { CirclePlay, History, LockKeyhole, Smartphone } from "lucide-react";
 import { Link } from "react-router";
 import CsvFilePicker from "~/components/CsvFilePicker";
 import CsvShareGuide from "~/components/CsvShareGuide";
+import ErrorAlert from "~/components/ErrorAlert";
 import FileStatsSummary from "~/components/FileStatsSummary";
+import { FlowArrow, FlowFigure, FlowNode } from "~/components/FlowFigure";
 import ReviewLink from "~/components/ReviewLink";
 import type { FileStats } from "~/services/csv-date";
 
@@ -29,27 +23,6 @@ const steps = [
   "口座ごとにMoneyForward MEへ取り込む",
 ] as const;
 
-function FlowNode({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col items-center gap-2 text-center">
-      <span className={`flex size-12 items-center justify-center ${className}`}>
-        {children}
-      </span>
-      <span className="text-xs font-semibold leading-4 text-zinc-700">
-        {label}
-      </span>
-    </div>
-  );
-}
-
 export default function StartScreen({
   error,
   recordStats,
@@ -58,34 +31,16 @@ export default function StartScreen({
 }: StartScreenProps) {
   return (
     <section aria-labelledby="start-title" className="space-y-5">
-      <figure
-        className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start gap-2 px-2"
-        aria-label="PayPayの取引履歴をPP2MFで整え、MoneyForward MEへ取り込む流れ"
+      <FlowFigure
+        label="PayPayの取引履歴をPP2MFで整え、MoneyForward MEへ取り込む流れ"
+        className="px-2"
       >
-        <FlowNode
-          label="PayPay"
-          className="bg-white shadow-sm ring-1 ring-zinc-200"
-        >
-          <Smartphone className="size-6 text-zinc-600" aria-hidden="true" />
-        </FlowNode>
-        <ArrowRight
-          className="mt-4 size-4 shrink-0 text-zinc-400"
-          aria-hidden="true"
-        />
-        <FlowNode label="PP2MF" className="">
-          <img src="/pwa-icon.svg" alt="" className="size-12 shadow-sm" />
-        </FlowNode>
-        <ArrowRight
-          className="mt-4 size-4 shrink-0 text-zinc-400"
-          aria-hidden="true"
-        />
-        <FlowNode
-          label="MoneyForward ME"
-          className="bg-white shadow-sm ring-1 ring-zinc-200"
-        >
-          <Smartphone className="size-6 text-zinc-600" aria-hidden="true" />
-        </FlowNode>
-      </figure>
+        <FlowNode label="PayPay" icon={Smartphone} />
+        <FlowArrow />
+        <FlowNode label="PP2MF" />
+        <FlowArrow />
+        <FlowNode label="MoneyForward ME" icon={Smartphone} />
+      </FlowFigure>
 
       <div>
         <h1
@@ -100,7 +55,7 @@ export default function StartScreen({
         </p>
         <Link
           to="/guide#why-pp2mf"
-          className="mt-2 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+          className="mt-1 inline-flex min-h-9 items-center gap-1.5 text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
         >
           <CirclePlay className="size-4 shrink-0" aria-hidden="true" />
           なぜPP2MFを使うのか（動画・1分）
@@ -110,10 +65,10 @@ export default function StartScreen({
       <ol className="divide-y divide-zinc-200 border border-zinc-200 bg-white">
         {steps.map((step, index) => (
           <li key={step} className="flex items-center gap-3 px-4 py-3">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white">
               {index + 1}
             </span>
-            <span className="text-sm text-zinc-800">{step}</span>
+            <span className="text-sm leading-6 text-zinc-800">{step}</span>
           </li>
         ))}
       </ol>
@@ -131,12 +86,12 @@ export default function StartScreen({
           >
             <h2
               id="start-records-title"
-              className="flex items-center gap-1.5 text-sm font-bold text-blue-950"
+              className="flex gap-1.5 text-sm font-bold text-blue-950"
             >
-              <History className="size-4 shrink-0" aria-hidden="true" />
+              <History className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               「MoneyForward MEで保存した」を押した明細を記録しています
             </h2>
-            <div className="mt-1 text-xs text-blue-900">
+            <div className="mt-1 text-xs leading-5 text-blue-900">
               <FileStatsSummary stats={recordStats} />
             </div>
             <p className="mt-2 text-sm leading-6 text-zinc-700">
@@ -155,16 +110,9 @@ export default function StartScreen({
           }}
         />
         {error && (
-          <div
-            className="flex gap-2 border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800"
-            role="alert"
-          >
-            <AlertCircle
-              className="mt-0.5 size-4 shrink-0"
-              aria-hidden="true"
-            />
+          <ErrorAlert>
             <p>{error}</p>
-          </div>
+          </ErrorAlert>
         )}
         <div className="flex flex-wrap items-center justify-center gap-x-5">
           <ReviewLink candidateCount={reviewCandidateCount} />

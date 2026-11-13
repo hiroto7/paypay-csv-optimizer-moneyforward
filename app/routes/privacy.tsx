@@ -1,7 +1,6 @@
-import { ArrowLeft } from "lucide-react";
-import { Link } from "react-router";
 import AppFooter from "~/components/AppFooter";
 import AppHeader from "~/components/AppHeader";
+import BackLink from "~/components/BackLink";
 import type { Route } from "./+types/privacy";
 
 export function meta(_args: Route.MetaArgs) {
@@ -48,17 +47,11 @@ export default function Privacy() {
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900">
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
-        <Link
-          to="/"
-          className="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          アプリに戻る
-        </Link>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+        <BackLink />
         <div className="border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 px-5 py-5 sm:px-7 sm:py-6">
-            <h1 className="text-2xl font-bold text-zinc-950">
+          <div className="border-b border-zinc-200 p-5 sm:p-6">
+            <h1 className="text-2xl font-bold leading-snug text-zinc-950">
               プライバシーについて
             </h1>
             <p className="mt-2 text-sm leading-6 text-zinc-600">
@@ -68,7 +61,7 @@ export default function Privacy() {
 
           <div className="divide-y divide-zinc-200">
             {sections.map(({ title, paragraphs }) => (
-              <section key={title} className="px-5 py-5 sm:px-7 sm:py-6">
+              <section key={title} className="p-5 sm:p-6">
                 <h2 className="text-base font-bold text-zinc-950">{title}</h2>
                 <div className="mt-3 space-y-3 text-sm leading-7 text-zinc-700">
                   {paragraphs.map((paragraph) => (

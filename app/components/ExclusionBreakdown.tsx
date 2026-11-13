@@ -27,7 +27,7 @@ export default function ExclusionBreakdown({
           : `PayPayの取引履歴の${totalCount}件のうち、未登録の${newCount}件を取り込みます`}
       </p>
       {excluded.length > 0 && (
-        <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
+        <ul className="mt-1 text-xs leading-5 text-zinc-600">
           {excluded.map(({ label, count }) => (
             <li key={label} className="flex items-center gap-2">
               <span>{label}</span>
